@@ -1,0 +1,16 @@
+name = "SmoothContactMPC"
+uuid = "8e007fce-f233-4ed5-8309-16381886d233"
+authors = ["Derek Fan <derekfan.18.2002@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+BangBang = "198e06fe-97b7-11e9-32a5-e1d131e6ad66"
+DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
+FFMPEG = "c87230d0-a227-11e9-1b43-d7ebe4e7570a"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+GLFW = "f7f18e0c-5ee9-5ccd-a5bf-e8befd85ed98"
+MuJoCo = "1c101251-5e0f-4746-b44c-0728d433b68a"
+Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
+PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
