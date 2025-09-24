@@ -21,7 +21,7 @@ function ProblemParameters{T}(
 	Uref::AbstractVector{<:AbstractVector{<:Real}},
 	xic::AbstractVector{<:AbstractVector{<:Real}},
 	timestep::Real,
-)::ProblemParameters where T
+)::ProblemParameters{T} where T
 	# Get problem dimensions
 	nx = length(Xref[1])
 	nu = length(Uref[1])
