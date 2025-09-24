@@ -27,7 +27,6 @@ function ProblemParameters{T}(
 	nu = length(Uref[1])
 	N = length(Xref)
 
-	# Construct trajectory cost function
 	costfunc = TrajectoryCostFunction{T}(stage_costfunc, terminal_costfunc, nx, nu, N)
 	Xref_T = Vector{Vector{T}}(Xref)
 	Uref_T = Vector{Vector{T}}(Uref)
@@ -64,10 +63,10 @@ mutable struct SolverCache{T <: AbstractFloat=Float64}
 end
 
 function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where T
-    nx = length(params.Xref[1])
-    nu = length(params.Uref[1])
-    N = length(params.Xref)
-	fwd = ForwardCache{T}(nx, nu. N)
+	nx = length(params.Xref[1])
+	nu = length(params.Uref[1])
+	N = length(params.Xref)
+	fwd = ForwardCache{T}(nx, nu, N)
 	bwd = BackwardCache{T}(nx, nu, N)
 	tmp = TemporaryCache(nx, nu)
 	return SolverCache{T}(fwd, bwd, tmp)
