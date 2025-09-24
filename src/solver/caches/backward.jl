@@ -84,8 +84,8 @@ mutable struct BackwardCache{T <: AbstractFloat}
 	ds::Vector{Vector{T}}
 	μ::Matrix{T}
 
-	ΔJ1::Float64
-	ΔJ2::Float64
+	ΔJ1::T
+	ΔJ2::T
 end
 
 function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where T
@@ -98,7 +98,7 @@ function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where T
 	ds = [zeros(T, nu) for k ∈ 1:(N-1)]
 	μ = zeros(T, nu, nu)
 
-	ΔJ1=Float64(Inf)
-	ΔJ2=Float64(Inf)
+	ΔJ1=T(Inf)
+	ΔJ2=T(Inf)
 	return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, ds, μ, ΔJ1, ΔJ2)
 end
