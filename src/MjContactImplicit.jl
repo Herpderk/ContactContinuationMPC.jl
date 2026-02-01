@@ -24,8 +24,8 @@ include("solver/caches/backward.jl")
 include("solver/caches/forward.jl")
 include("solver/caches/temporary.jl")
 include("solver/interface.jl")
-include("solver/backwardpass.jl")
-include("solver/forwardpass.jl")
+include("solver/backward_pass.jl")
+include("solver/forward_pass.jl")
 include("solver/main.jl")
 
 end # module MjContactImplicit
