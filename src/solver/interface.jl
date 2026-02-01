@@ -57,6 +57,13 @@ function Solution{T}(nx::Int, nu::Int, N::Int)::Solution{T} where {T}
     return Solution{T}(X, U, J)
 end
 
+function Solution{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
+    nx = length(params.Xref[1])
+    nu = length(params.Uref[1])
+    N = length(params.Xref)
+    return Solution{T}(nx, nu, N)
+end
+
 
 
 mutable struct SolverCache{T<:AbstractFloat=Float64}
@@ -65,41 +72,42 @@ mutable struct SolverCache{T<:AbstractFloat=Float64}
     tmp::TemporaryCache{T}
 end
 
-function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
-    nx = length(params.Xref[1])
-    nu = length(params.Uref[1])
-    N = length(params.Xref)
+function SolverCache{T}(nx::Int, nu::Int, N::Int)::SolverCache{T} where {T}
     fwd = ForwardCache{T}(nx, nu, N)
     bwd = BackwardCache{T}(nx, nu, N)
     tmp = TemporaryCache(nx, nu)
     return SolverCache{T}(fwd, bwd, tmp)
 end
 
+function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
+    nx = length(params.Xref[1])
+    nu = length(params.Uref[1])
+    N = length(params.Xref)
+    return SolverCache{T}(nx, nu, N)
+end
+
 
 
 mutable struct SolverOptions{T<:AbstractFloat=Float64}
-    regularizer::T
-    max_step::T
-    tol_stat::T
-    maxiter_opt::Int
+    eps_reg::T
+    tol_converge::T
+    maxiter_solve::Int
     maxiter_ls::Int
-    verbose::Bool
+    is_verbose::Bool
 end
 
 function SolverOptions{T}(;
-    regularizer::AbstractFloat = 1e-6,
-    max_step::AbstractFloat = 1.0,
-    tol_stat::AbstractFloat = 1e-9,
-    maxiter_opt::Int = 100,
+    eps_reg::AbstractFloat = 1e-6,
+    tol_converge::AbstractFloat = 1e-9,
+    maxiter_solve::Int = 100,
     maxiter_ls::Int = 20,
-    verbose::Bool = true,
+    is_verbose::Bool = true,
 )::SolverOptions{T} where {T}
     return SolverOptions{T}(
-        T(regularizer),
-        T(max_step),
-        T(tol_stat),
-        maxiter_opt,
+        T(eps_reg),
+        T(tol_converge),
+        maxiter_solve,
         maxiter_ls,
-        verbose,
+        is_verbose,
     )
 end

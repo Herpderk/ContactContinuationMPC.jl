@@ -32,8 +32,7 @@ function forward_pass!(
     sol::Solution,
     cache::SolverCache,
     params::ProblemParameters,
-    max_step::Float64,
-    ls_iter::Int,
+    maxiter_ls::Int,
 )::Nothing
     # Get references to SolverCache structs
     fwd = cache.fwd
@@ -41,11 +40,11 @@ function forward_pass!(
     tmp = cache.tmp
 
     # Initialize line search step size and trajectory cost
-    fwd.α = max_step
+    fwd.α = 1.0
     Jls = 0.0
 
     # Iterate backtracking line search
-    @inbounds for i = 1:ls_iter
+    @inbounds for i = 1:maxiter_ls
         # Roll out new gains
         nonlinear_rollout!(fwd, bwd, tmp, sol, params)
 

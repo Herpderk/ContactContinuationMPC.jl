@@ -1,18 +1,18 @@
 
-mutable struct SimExpansion{T<:AbstractFloat}
+mutable struct SimulatorExpansion{T<:AbstractFloat}
     x::Matrix{T}
     u::Matrix{T}
 end
 
-function SimExpansion{T}(nx::Int, nu::Int)::SimExpansion{T} where {T}
+function SimulatorExpansion{T}(nx::Int, nu::Int)::SimulatorExpansion{T} where {T}
     Fx = zeros(T, nx, nx)
     Fu = zeros(T, nx, nu)
-    return SimExpansion{T}(Fx, Fu)
+    return SimulatorExpansion{T}(Fx, Fu)
 end
 
 
 
-mutable struct CostExpansion{T<:AbstractFloat}
+mutable struct CostFunctionExpansion{T<:AbstractFloat}
     x::Vector{T}
     u::Vector{T}
     xx::Matrix{T}
@@ -21,14 +21,14 @@ mutable struct CostExpansion{T<:AbstractFloat}
     uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
 end
 
-function CostExpansion{T}(nx::Int, nu::Int)::CostExpansion{T} where {T}
+function CostFunctionExpansion{T}(nx::Int, nu::Int)::CostFunctionExpansion{T} where {T}
     Lx = zeros(T, nx)
     Lu = zeros(T, nu)
     Lxx = zeros(T, nx, nx)
     Luu = zeros(T, nu, nu)
     Lxx_result = DiffResults.HessianResult(zeros(T, nx))
     Luu_result = DiffResults.HessianResult(zeros(T, nu))
-    return CostExpansion{T}(Lx, Lu, Lxx, Luu, Lxx_result, Luu_result)
+    return CostFunctionExpansion{T}(Lx, Lu, Lxx, Luu, Lxx_result, Luu_result)
 end
 
 
@@ -70,8 +70,8 @@ end
 
 
 mutable struct BackwardCache{T<:AbstractFloat}
-    Fs::Vector{SimExpansion{T}}
-    Ls::Vector{CostExpansion{T}}
+    Fs::Vector{SimulatorExpansion{T}}
+    Ls::Vector{CostFunctionExpansion{T}}
     Vs::Vector{ValueExpansion{T}}
     Qs::Vector{ActionValueExpansion{T}}
 
@@ -84,8 +84,8 @@ mutable struct BackwardCache{T<:AbstractFloat}
 end
 
 function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where {T}
-    Fs = [SimExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
-    Ls = [CostExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
+    Fs = [SimulatorExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
+    Ls = [CostFunctionExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
     Vs = [ValueExpansion{T}(nx) for k ∈ 1:N]
     Qs = [ActionValueExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
 
