@@ -10,7 +10,7 @@ function roll_out!(
     BLAS.copy!.(fwd.U, sol.U)
 
     # Forward rollout
-    @inbounds for k = 1:(params.N-1)
+    @inbounds for k = 1:length(params.Uref)
         # Update control input
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
         mul!(tmp.u, fwd.α, bwd.D[k])
@@ -47,7 +47,7 @@ function forward_pass!(
         roll_out!(fwd, bwd, tmp, sol, params)
 
         # Evaluate trajectory cost
-        J_ls = params.fwd_cost(fwd.X, fwd.U, params.xrefs, params.urefs)
+        J_ls = params.fwd_cost(fwd.X, fwd.U, params.Xref, params.Uref)
 
         # Use decreasing cost as line search criteria
         J_ls < sol.J ? break : nothing
