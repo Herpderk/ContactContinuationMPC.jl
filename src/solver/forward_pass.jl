@@ -1,4 +1,3 @@
-
 function nonlinear_rollout!(
     fwd::ForwardCache,
     bwd::BackwardCache,
@@ -27,7 +26,6 @@ function nonlinear_rollout!(
             rk4(fwd.xs[k], fwd.us[k], params.Δt, fwd.modes[k].flow),
         )
     end
-    return
 end
 
 
@@ -57,19 +55,6 @@ function forward_pass!(
         # Use decreasing cost as line search criteria
         Jls < sol.J ? break : nothing
 
-        #=
-        ΔJ_actual = Jls - sol.J
-        ΔJ_pred = bwd.ΔJ1*fwd.α + 0.5*bwd.ΔJ2*fwd.α^2
-        #Jls < sol.J ? break : nothing
-        #Jls < sol.J - 1e-2*fwd.α*bwd.ΔJ ? break : nothing
-
-        if ΔJ_pred <= 0.0
-            ΔJ_actual < 0.1*ΔJ_pred ? break : nothing
-        else
-            ΔJ_actual < 2.0*ΔJ_pred ? break : nothing
-        end
-        =#
-
         # Shrink step size
         fwd.α *= 0.5
     end
@@ -79,5 +64,4 @@ function forward_pass!(
     sol.J = Jls
     BLAS.copy!.(sol.xs, fwd.xs)
     BLAS.copy!.(sol.us, fwd.us)
-    return
 end

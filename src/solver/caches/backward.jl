@@ -1,4 +1,3 @@
-
 mutable struct SimulatorExpansion{T<:AbstractFloat}
     x::Matrix{T}
     u::Matrix{T}

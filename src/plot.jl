@@ -42,5 +42,4 @@ function plot_2d_states(
         legend = false,
     )
     display(plt)
-    return
 end

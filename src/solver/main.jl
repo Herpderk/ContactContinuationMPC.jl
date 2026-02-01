@@ -1,4 +1,3 @@
-
 function terminate(cache::SolverCache, tol_converge::Float64)::Bool
     return cache.fwd.ΔJ < tol_converge
 end
@@ -68,7 +67,6 @@ function init_solver!(
 
     # Roll out with a full newton step
     forward_pass!(sol, cache, params, 1)
-    return
 end
 
 
@@ -97,7 +95,6 @@ function solve!(
     end
 
     opts.is_verbose ? println("\nMaximum iterations exceeded!") : nothing
-    return
 end
 
 function solve(

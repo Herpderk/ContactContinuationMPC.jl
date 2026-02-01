@@ -1,4 +1,3 @@
-
 function expand_term_L!(
     bwd::BackwardCache,
     tmp::TemporaryCache,
@@ -114,7 +113,6 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Qux = Fu'*Vxx*Fx
     mul!(tmp.ux, Fu', Vxx)
     mul!(Qux, tmp.ux, Fx)
-    return
 end
 
 
@@ -128,7 +126,7 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     bwd.Qs.xu[k],
     bwd.Qs.ux[k]
 
-    # Reference k-th gains and defect
+    # Reference k-th gains
     K = bwd.Ks[k]
     d = bwd.ds[k]
 
@@ -143,7 +141,7 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     mul!(tmp.xx1, Qxu, K)
     BLAS.axpy!(-1.0, tmp.xx1, Vxx)
 
-    # Cost-to-go gradient with defects
+    # Cost-to-go gradient
     # Vx = Qx - K'*u + K'*uu*d - xu*d
     BLAS.copy!(Vx, Qx)
     mul!(tmp.x, K', Qu)
@@ -153,7 +151,6 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     BLAS.axpy!(1.0, tmp.x, Vx)
     mul!(tmp.x, Qxu, d)
     BLAS.axpy!(-1.0, tmp.x, Vx)
-    return
 end
 
 
@@ -179,7 +176,7 @@ function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
     d = bwd.ds[k]
 
     # Predicted change in cost
-    # ΔJ += Qu' * d[k]
+    # ΔJ += Qu' * d
     bwd.ΔJ += Qu' * d
 end
 
@@ -205,5 +202,4 @@ function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
         expand_V!(bwd, tmp, k)         # Value expansion
         update_cost_prediction!(bwd, k)
     end
-    return
 end

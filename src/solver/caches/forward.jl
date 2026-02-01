@@ -1,4 +1,3 @@
-
 mutable struct ForwardCache{T<:AbstractFloat}
     X::Vector{Vector{T}}
     U::Vector{Vector{T}}

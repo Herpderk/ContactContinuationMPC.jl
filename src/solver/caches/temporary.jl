@@ -1,4 +1,3 @@
-
 mutable struct TemporaryCache{T<:AbstractFloat}
     x::Vector{T}
     u::Vector{T}
