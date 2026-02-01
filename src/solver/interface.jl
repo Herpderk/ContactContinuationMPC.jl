@@ -1,11 +1,10 @@
 mutable struct ProblemParameters{T<:AbstractFloat}
-    simfunc_fwd!::Function
-    simfunc_bwd!::Function
+    simfunc_fwd!::Function      # expects simfunc_fwd!(x_next, x_curr, u_curr)
+    simfunc_bwd!::Function      # expects simfunc_bwd!(A, B, x, u)::Nothing
     costfunc::TrajectoryCostFunction{T}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
-    dt::T
 end
 
 # Default type parameter
@@ -13,13 +12,12 @@ ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
 
 function ProblemParameters{T}(
     simfunc_fwd!::Function,
-    simfunc_bwd!::Function,     # expect simfunc_bwd!(A, B, x, u)::Nothing
+    simfunc_bwd!::Function,
     costfunc_stage::Function,
     costfunc_term::Function,
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:AbstractVector{<:Real}},
-    dt::Real,
 )::ProblemParameters{T} where {T}
     # Get problem dimensions
     nx = length(Xref[1])
@@ -31,7 +29,6 @@ function ProblemParameters{T}(
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
-    dt_T = T(dt)
     return ProblemParameters{T}(
         simfunc_fwd!,
         simfunc_bwd!,
@@ -39,7 +36,6 @@ function ProblemParameters{T}(
         Xref_T,
         Uref_T,
         xic_T,
-        dt_T,
     )
 end
 

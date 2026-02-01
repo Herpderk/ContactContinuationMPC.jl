@@ -84,7 +84,7 @@ mutable struct BackwardCache{T<:AbstractFloat}
     Qs::StructArray{<:ActionValueExpansion{T}}
 
     Ks::Vector{VecOrMat{T}}
-    ds::Vector{Vector{T}}
+    D::Vector{Vector{T}}
     μ::Matrix{T}
 
     ΔJ::T
@@ -97,9 +97,9 @@ function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where {T}
     Qs = StructArray([ActionValueExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
 
     Ks = [zeros(T, nu, nx) for k ∈ 1:(N-1)]
-    ds = [zeros(T, nu) for k ∈ 1:(N-1)]
+    D = [zeros(T, nu) for k ∈ 1:(N-1)]
     μ = zeros(T, nu, nu)
 
     ΔJ = T(Inf)
-    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, ds, μ, ΔJ)
+    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, D, μ, ΔJ)
 end

@@ -5,7 +5,7 @@ function expand_term_L!(
     params::ProblemParameters,
 )::Nothing
     # Get terminal x error
-    BLAS.copy!(tmp.x, fwd.xs[end])
+    BLAS.copy!(tmp.x, fwd.X[end])
     BLAS.axpy!(-1.0, params.xrefs[end], tmp.x)
 
     # Get terminal costfunc hessian wrt x
@@ -28,10 +28,10 @@ function expand_stage_L!(
     k::Int,
 )::Nothing
     # Get k-th x and u errors
-    BLAS.copy!(tmp.x, fwd.xs[k])
+    BLAS.copy!(tmp.x, fwd.X[k])
     BLAS.axpy!(-1.0, params.xrefs[k], tmp.x)
 
-    BLAS.copy!(tmp.u, fwd.us[k])
+    BLAS.copy!(tmp.u, fwd.U[k])
     BLAS.axpy!(-1.0, params.urefs[k], tmp.u)
 
     # Get gradients and hessians of stage cost wrt x and u
@@ -66,8 +66,8 @@ function expand_F!(
 )::Nothing
     # Reference k-th dynamics jacobians, state, and control input
     Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
-    x = fwd.xs[k]
-    u = fwd.us[k]
+    x = fwd.X[k]
+    u = fwd.U[k]
     # Get simulator jacobians
     params.simfunc_bwd!(Fx, Fu, x, u)
 end
@@ -128,7 +128,7 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 
     # Reference k-th gains
     K = bwd.Ks[k]
-    d = bwd.ds[k]
+    d = bwd.D[k]
 
     # Cost-to-go hessian
     # Vxx = Qxx - K'*Qux + K'*Quu*K - Qxu*K
@@ -163,7 +163,7 @@ function update_gains!(bwd::BackwardCache, k::Int)::Nothing
     lu!(Quu_lu, sparse(Quu))
 
     # Feedforward gains: d = Quu \ Qu
-    ldiv!(bwd.ds[k], Quu_lu, Qu)
+    ldiv!(bwd.D[k], Quu_lu, Qu)
 
     # Feedback gains: K = Quu \ Qux
     ldiv!(bwd.Ks[k], Quu_lu, Qux)
@@ -173,7 +173,7 @@ end
 function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
     # Reference k-th/k+1-th action-value and value expansion
     Qu = bwd.Qs.u[k]
-    d = bwd.ds[k]
+    d = bwd.D[k]
 
     # Predicted change in cost
     # ΔJ += Qu' * d

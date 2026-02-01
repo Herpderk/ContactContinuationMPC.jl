@@ -56,11 +56,11 @@ function init_solver!(
 
     # Initialize gains
     fill!.(bwd.Ks, 0.0)
-    fill!.(bwd.ds, 0.0)
+    fill!.(bwd.D, 0.0)
 
     # Set initial conditions
     fwd.modes[1] = params.fwd_sys.modes[params.mI]
-    BLAS.copy!(sol.xs[1], params.x0)
+    BLAS.copy!(sol.X[1], params.x0)
 
     # Initialize trajectory cost
     sol.J = Inf
