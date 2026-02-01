@@ -17,8 +17,8 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat}
         nu::Int,
         N::Int,
     ) where {T}
-        Xerr = [zeros(T, nx) for k ∈ 1:N]
-        Uerr = [zeros(T, nu) for k ∈ 1:(N-1)]
+        Xerr = [zeros(T, nx) for k = 1:N]
+        Uerr = [zeros(T, nu) for k = 1:(N-1)]
         L = zeros(T, N)
         return new{T}(costfunc_stage, costfunc_term, Xerr, Uerr, L)
     end

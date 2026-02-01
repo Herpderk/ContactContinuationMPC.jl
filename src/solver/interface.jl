@@ -51,8 +51,8 @@ end
 Solution(args...) = Solution{DEFAULT_DTYPE}(args...)
 
 function Solution{T}(nx::Int, nu::Int, N::Int)::Solution{T} where {T}
-    X = [zeros(T, nx) for k ∈ 1:N]
-    U = [zeros(T, nu) for k ∈ 1:(N-1)]
+    X = [zeros(T, nx) for k = 1:N]
+    U = [zeros(T, nu) for k = 1:(N-1)]
     J = T(0.0)
     return Solution{T}(X, U, J)
 end
