@@ -35,7 +35,9 @@ function assert_opts!(opts::SolverOptions)::Nothing
         ArgumentError("The max number of iterations should be greater than 0")
     end
     if opts.maxiter_ls <= 0
-        ArgumentError("The max number of line search iterations should be greater than 0")
+        ArgumentError(
+            "The max number of line search iterations should be greater than 0",
+        )
     end
 end
 
@@ -98,7 +100,10 @@ function solve!(
     return
 end
 
-function solve(params::ProblemParameters, opts::SolverOptions = SolverOptions())::Solution
+function solve(
+    params::ProblemParameters,
+    opts::SolverOptions = SolverOptions(),
+)::Solution
     sol = Solution(params)
     cache = SolverCache(params)
     solve!(sol, cache, params, opts)

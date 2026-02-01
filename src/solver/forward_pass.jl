@@ -22,7 +22,10 @@ function nonlinear_rollout!(
         BLAS.axpy!(-1.0, tmp.u, fwd.us[k])
 
         # Integrate smooth dynamics
-        BLAS.copy!(fwd.xs[k+1], rk4(fwd.xs[k], fwd.us[k], params.Δt, fwd.modes[k].flow))
+        BLAS.copy!(
+            fwd.xs[k+1],
+            rk4(fwd.xs[k], fwd.us[k], params.Δt, fwd.modes[k].flow),
+        )
     end
     return
 end

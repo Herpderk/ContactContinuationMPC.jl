@@ -1,7 +1,6 @@
 mutable struct ProblemParameters{T<:AbstractFloat}
-    simfwd::Function
-    simbwd_A::Function
-    simbwd_B::Function
+    simfunc_fwd!::Function
+    simfunc_bwd!::Function
     costfunc::TrajectoryCostFunction{T}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
@@ -13,9 +12,8 @@ end
 ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
 
 function ProblemParameters{T}(
-    simfwd::Function,
-    simbwd_A::Function,
-    simbwd_B::Function,
+    simfunc_fwd!::Function,
+    simfunc_bwd!::Function,     # expect simfunc_bwd!(A, B, x, u)::Nothing
     costfunc_stage::Function,
     costfunc_term::Function,
     Xref::AbstractVector{<:AbstractVector{<:Real}},
@@ -28,15 +26,15 @@ function ProblemParameters{T}(
     nu = length(Uref[1])
     N = length(Xref)
 
-    costfunc = TrajectoryCostFunction{T}(costfunc_stage, costfunc_term, nx, nu, N)
+    costfunc =
+        TrajectoryCostFunction{T}(costfunc_stage, costfunc_term, nx, nu, N)
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
     dt_T = T(dt)
     return ProblemParameters{T}(
-        simfwd,
-        simbwd_A,
-        simbwd_B,
+        simfunc_fwd!,
+        simfunc_bwd!,
         costfunc,
         Xref_T,
         Uref_T,

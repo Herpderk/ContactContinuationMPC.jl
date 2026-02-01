@@ -4,7 +4,10 @@ mutable struct SimulatorExpansion{T<:AbstractFloat}
     u::Matrix{T}
 end
 
-function SimulatorExpansion{T}(nx::Int, nu::Int)::SimulatorExpansion{T} where {T}
+function SimulatorExpansion{T}(
+    nx::Int,
+    nu::Int,
+)::SimulatorExpansion{T} where {T}
     Fx = zeros(T, nx, nx)
     Fu = zeros(T, nx, nu)
     return SimulatorExpansion{T}(Fx, Fu)
@@ -21,7 +24,10 @@ mutable struct CostFunctionExpansion{T<:AbstractFloat}
     uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
 end
 
-function CostFunctionExpansion{T}(nx::Int, nu::Int)::CostFunctionExpansion{T} where {T}
+function CostFunctionExpansion{T}(
+    nx::Int,
+    nu::Int,
+)::CostFunctionExpansion{T} where {T}
     Lx = zeros(T, nx)
     Lu = zeros(T, nu)
     Lxx = zeros(T, nx, nx)
@@ -56,7 +62,10 @@ mutable struct ActionValueExpansion{T<:AbstractFloat}
     uu_lu::SparseArrays.UMFPACK.UmfpackLU{T,Int64}
 end
 
-function ActionValueExpansion{T}(nx::Int, nu::Int)::ActionValueExpansion{T} where {T}
+function ActionValueExpansion{T}(
+    nx::Int,
+    nu::Int,
+)::ActionValueExpansion{T} where {T}
     Qx = zeros(T, nx)
     Qu = zeros(T, nu)
     Qxx = zeros(T, nx, nx)
@@ -70,10 +79,10 @@ end
 
 
 mutable struct BackwardCache{T<:AbstractFloat}
-    Fs::Vector{SimulatorExpansion{T}}
-    Ls::Vector{CostFunctionExpansion{T}}
-    Vs::Vector{ValueExpansion{T}}
-    Qs::Vector{ActionValueExpansion{T}}
+    Fs::StructArray{<:SimulatorExpansion{T}}
+    Ls::StructArray{<:CostFunctionExpansion{T}}
+    Vs::StructArray{<:ValueExpansion{T}}
+    Qs::StructArray{<:ActionValueExpansion{T}}
 
     Ks::Vector{VecOrMat{T}}
     ds::Vector{Vector{T}}
@@ -84,10 +93,10 @@ mutable struct BackwardCache{T<:AbstractFloat}
 end
 
 function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where {T}
-    Fs = [SimulatorExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
-    Ls = [CostFunctionExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
-    Vs = [ValueExpansion{T}(nx) for k ∈ 1:N]
-    Qs = [ActionValueExpansion{T}(nx, nu) for k ∈ 1:(N-1)]
+    Fs = StructArray([SimulatorExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
+    Ls = StructArray([CostFunctionExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
+    Vs = StructArray([ValueExpansion{T}(nx) for k ∈ 1:N])
+    Qs = StructArray([ActionValueExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
 
     Ks = [zeros(T, nu, nx) for k ∈ 1:(N-1)]
     ds = [zeros(T, nu) for k ∈ 1:(N-1)]
