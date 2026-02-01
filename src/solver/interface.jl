@@ -1,4 +1,4 @@
-mutable struct ProblemParameters{T<:AbstractFloat=Float64}
+mutable struct ProblemParameters{T<:AbstractFloat}
     simfwd::Function
     simbwd_A::Function
     simbwd_B::Function
@@ -8,6 +8,9 @@ mutable struct ProblemParameters{T<:AbstractFloat=Float64}
     xic::Vector{T}
     dt::T
 end
+
+# Default type parameter
+ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
 
 function ProblemParameters{T}(
     simfwd::Function,
@@ -44,11 +47,14 @@ end
 
 
 
-mutable struct Solution{T<:AbstractFloat=Float64}
+mutable struct Solution{T<:AbstractFloat}
     X::Vector{Vector{T}}
     U::Vector{Vector{T}}
     J::T
 end
+
+# Default type parameter
+Solution(args...) = Solution{DEFAULT_DTYPE}(args...)
 
 function Solution{T}(nx::Int, nu::Int, N::Int)::Solution{T} where {T}
     X = [zeros(T, nx) for k ∈ 1:N]
@@ -66,11 +72,14 @@ end
 
 
 
-mutable struct SolverCache{T<:AbstractFloat=Float64}
+mutable struct SolverCache{T<:AbstractFloat}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
 end
+
+# Default type parameter
+SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
 
 function SolverCache{T}(nx::Int, nu::Int, N::Int)::SolverCache{T} where {T}
     fwd = ForwardCache{T}(nx, nu, N)
@@ -88,13 +97,16 @@ end
 
 
 
-mutable struct SolverOptions{T<:AbstractFloat=Float64}
+mutable struct SolverOptions{T<:AbstractFloat}
     eps_reg::T
     tol_converge::T
     maxiter_solve::Int
     maxiter_ls::Int
     is_verbose::Bool
 end
+
+# Default type parameter
+SolverOptions(args...) = SolverOptions{DEFAULT_DTYPE}(args...)
 
 function SolverOptions{T}(;
     eps_reg::AbstractFloat = 1e-6,

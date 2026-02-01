@@ -18,6 +18,7 @@ import Base: ==, hash
 		solve,
 		plot_2d_states =#
 
+include("consts.jl")
 include("plot.jl")
 include("costfunc.jl")
 include("solver/caches/backward.jl")

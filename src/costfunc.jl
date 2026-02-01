@@ -3,26 +3,29 @@
 
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
-mutable struct TrajectoryCostFunction{T<:AbstractFloat=Float64}
+mutable struct TrajectoryCostFunction{T<:AbstractFloat}
     costfunc_stage::Function
     costfunc_term::Function
     Xerr::Vector{Vector{T}}
     Uerr::Vector{Vector{T}}
     L::Vector{T}
 
-    function TrajectoryCostFunction(
+    function TrajectoryCostFunction{T}(
         costfunc_stage::Function,
         costfunc_term::Function,
         nx::Int,
         nu::Int,
         N::Int,
-    )::TrajectoryCostFunction{T}
+    ) where {T}
         Xerr = [zeros(T, nx) for k ∈ 1:N]
         Uerr = [zeros(T, nu) for k ∈ 1:(N-1)]
         L = zeros(T, N)
-        return new(costfunc_stage, costfunc_term, Xerr, Uerr, L)
+        return new{T}(costfunc_stage, costfunc_term, Xerr, Uerr, L)
     end
 end
+
+# Default type parameter
+TrajectoryCostFunction(args...) = TrajectoryCostFunction{DEFAULT_DTYPE}(args...)
 
 """
 	costfunc(X, U, Xref, Uref)
