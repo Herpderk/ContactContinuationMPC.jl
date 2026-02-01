@@ -1,11 +1,11 @@
 """
-	TrajectoryCostFunction(costfunc_stage, costfunc_term, nx, nu, N)
+	TrajectoryCostFunction(stage, term, nx, nu, N)
 
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
 mutable struct TrajectoryCostFunction{T<:AbstractFloat}
-    costfunc_stage::Function
-    costfunc_term::Function
+    stage::Function
+    term::Function
     Xerr::Vector{Vector{T}}
     Uerr::Vector{Vector{T}}
     L::Vector{T}
@@ -49,13 +49,13 @@ function (cache::TrajectoryCostFunction{T})(
     # Broadcast stage cost
     Xerr_stage = @view cache.Xerr[1:(end-1)]
     Lstage = @view cache.L[1:(end-1)]
-    Lstage_new = cache.costfunc_stage.(Xerr_stage, cache.Uerr)
+    Lstage_new = cache.stage.(Xerr_stage, cache.Uerr)
     BLAS.copy!(Lstage, Lstage_new)
 
     # Get terminal cost
     Xerr_term = cache.Xerr[end]
     Lterm = cache.L[end]
-    Lterm_new = cache.costfunc_term(Xerr_term)
+    Lterm_new = cache.term(Xerr_term)
     BLAS.copy!(Lterm, Lterm_new)
     return sum(cache.L)
 end

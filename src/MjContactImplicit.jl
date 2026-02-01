@@ -3,6 +3,7 @@ module MjContactImplicit
 using LinearAlgebra
 using StaticArrays
 using SparseArrays
+using StructArrays
 using ForwardDiff
 using DiffResults
 using Printf
