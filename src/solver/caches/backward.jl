@@ -19,8 +19,6 @@ mutable struct CostFunctionExpansion{T<:AbstractFloat}
     u::Vector{T}
     xx::Matrix{T}
     uu::Matrix{T}
-    xx_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
-    uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
 end
 
 function CostFunctionExpansion{T}(
@@ -31,9 +29,7 @@ function CostFunctionExpansion{T}(
     Lu = zeros(T, nu)
     Lxx = zeros(T, nx, nx)
     Luu = zeros(T, nu, nu)
-    Lxx_result = DiffResults.HessianResult(zeros(T, nx))
-    Luu_result = DiffResults.HessianResult(zeros(T, nu))
-    return CostFunctionExpansion{T}(Lx, Lu, Lxx, Luu, Lxx_result, Luu_result)
+    return CostFunctionExpansion{T}(Lx, Lu, Lxx, Luu)
 end
 
 
@@ -91,13 +87,13 @@ mutable struct BackwardCache{T<:AbstractFloat}
 end
 
 function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where {T}
-    Fs = StructArray([SimulatorExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
-    Ls = StructArray([CostFunctionExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
-    Vs = StructArray([ValueExpansion{T}(nx) for k ∈ 1:N])
-    Qs = StructArray([ActionValueExpansion{T}(nx, nu) for k ∈ 1:(N-1)])
+    Fs = StructArray([SimulatorExpansion{T}(nx, nu) for k = 1:(N-1)])
+    Ls = StructArray([CostFunctionExpansion{T}(nx, nu) for k = 1:(N-1)])
+    Vs = StructArray([ValueExpansion{T}(nx) for k = 1:N])
+    Qs = StructArray([ActionValueExpansion{T}(nx, nu) for k = 1:(N-1)])
 
-    Ks = [zeros(T, nu, nx) for k ∈ 1:(N-1)]
-    D = [zeros(T, nu) for k ∈ 1:(N-1)]
+    Ks = [zeros(T, nu, nx) for k = 1:(N-1)]
+    D = [zeros(T, nu) for k = 1:(N-1)]
     μ = zeros(T, nu, nu)
 
     ΔJ = T(Inf)
