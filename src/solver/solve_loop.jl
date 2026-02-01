@@ -1,27 +1,21 @@
-function terminate(cache::SolverCache, tol_converge::Float64)::Bool
+function is_converged(cache::SolverCache, tol_converge::Float64)::Bool
     return cache.fwd.ΔJ < tol_converge
 end
 
 
 function log(sol::Solution, cache::SolverCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
-        println("------------------------------------------")
-        println("iter        J          ΔJ        α       τ")
-        println("------------------------------------------")
-    end
-
-    τ = 0
-    for trn in cache.fwd.trn_syms
-        τ = trn != NULL_TRANSITION ? τ+1 : τ
+        println("----------------------------------")
+        println("iter        J          ΔJ        α")
+        println("----------------------------------")
     end
 
     @printf(
-        "%4.04i     %8.2e   %8.2e   %7.5f   %3.03i\n",
+        "%4.04i     %8.2e   %8.2e   %7.5f\n",
         iter,
         sol.J,
         cache.fwd.ΔJ,
         cache.fwd.α,
-        τ
     )
 end
 
@@ -59,8 +53,7 @@ function init_solver!(
     fill!.(bwd.D, 0.0)
 
     # Set initial conditions
-    fwd.modes[1] = params.fwd_sys.modes[params.mI]
-    BLAS.copy!(sol.X[1], params.x0)
+    BLAS.copy!(sol.X[1], params.xic)
 
     # Initialize trajectory cost
     sol.J = Inf
@@ -88,7 +81,7 @@ function solve!(
         forward_pass!(sol, cache, params, opts.maxiter_ls)
 
         opts.is_verbose ? log(sol, cache, i) : nothing
-        if terminate(cache, opts.tol_converge)
+        if is_converged(cache, opts.tol_converge)
             opts.is_verbose ? println("\nOptimal solution found!") : nothing
             return
         end
