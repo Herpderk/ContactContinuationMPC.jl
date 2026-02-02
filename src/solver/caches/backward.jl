@@ -34,20 +34,20 @@ end
 
 
 
-mutable struct ValueExpansion{T<:AbstractFloat}
+mutable struct ValueFunctionExpansion{T<:AbstractFloat}
     x::Vector{T}
     xx::Matrix{T}
 end
 
-function ValueExpansion{T}(nx::Int)::ValueExpansion{T} where {T}
+function ValueFunctionExpansion{T}(nx::Int)::ValueFunctionExpansion{T} where {T}
     Vx = zeros(T, nx)
     Vxx = zeros(T, nx, nx)
-    return ValueExpansion{T}(Vx, Vxx)
+    return ValueFunctionExpansion{T}(Vx, Vxx)
 end
 
 
 
-mutable struct ActionValueExpansion{T<:AbstractFloat}
+mutable struct ActionValueFunctionExpansion{T<:AbstractFloat}
     x::Vector{T}
     u::Vector{T}
     xx::Matrix{T}
@@ -57,10 +57,10 @@ mutable struct ActionValueExpansion{T<:AbstractFloat}
     uu_lu::SparseArrays.UMFPACK.UmfpackLU{T,Int64}
 end
 
-function ActionValueExpansion{T}(
+function ActionValueFunctionExpansion{T}(
     nx::Int,
     nu::Int,
-)::ActionValueExpansion{T} where {T}
+)::ActionValueFunctionExpansion{T} where {T}
     Qx = zeros(T, nx)
     Qu = zeros(T, nu)
     Qxx = zeros(T, nx, nx)
@@ -68,7 +68,7 @@ function ActionValueExpansion{T}(
     Qux = zeros(T, nu, nx)
     Quu = zeros(T, nu, nu)
     Quu_lu = lu(sparse(ones(T, nu, nu)))
-    return ActionValueExpansion{T}(Qx, Qu, Qxx, Qxu, Qux, Quu, Quu_lu)
+    return ActionValueFunctionExpansion{T}(Qx, Qu, Qxx, Qxu, Qux, Quu, Quu_lu)
 end
 
 
@@ -76,8 +76,8 @@ end
 mutable struct BackwardCache{T<:AbstractFloat}
     Fs::StructArray{<:SimulatorExpansion{T}}
     Ls::StructArray{<:CostFunctionExpansion{T}}
-    Vs::StructArray{<:ValueExpansion{T}}
-    Qs::StructArray{<:ActionValueExpansion{T}}
+    Vs::StructArray{<:ValueFunctionExpansion{T}}
+    Qs::StructArray{<:ActionValueFunctionExpansion{T}}
 
     Ks::Vector{VecOrMat{T}}
     D::Vector{Vector{T}}
@@ -89,8 +89,8 @@ end
 function BackwardCache{T}(nx::Int, nu::Int, N::Int)::BackwardCache{T} where {T}
     Fs = StructArray([SimulatorExpansion{T}(nx, nu) for k = 1:(N-1)])
     Ls = StructArray([CostFunctionExpansion{T}(nx, nu) for k = 1:(N-1)])
-    Vs = StructArray([ValueExpansion{T}(nx) for k = 1:N])
-    Qs = StructArray([ActionValueExpansion{T}(nx, nu) for k = 1:(N-1)])
+    Vs = StructArray([ValueFunctionExpansion{T}(nx) for k = 1:N])
+    Qs = StructArray([ActionValueFunctionExpansion{T}(nx, nu) for k = 1:(N-1)])
 
     Ks = [zeros(T, nu, nx) for k = 1:(N-1)]
     D = [zeros(T, nu) for k = 1:(N-1)]
