@@ -47,7 +47,7 @@ function forward_pass!(
         roll_out!(fwd, bwd, tmp, sol, params)
 
         # Evaluate trajectory cost
-        J_ls = params.fwd_cost(fwd.X, fwd.U, params.Xref, params.Uref)
+        J_ls = params.costfunc(fwd.X, fwd.U, params.Xref, params.Uref)
 
         # Use decreasing cost as line search criteria
         J_ls < sol.J ? break : nothing
