@@ -5,8 +5,8 @@ function expand_term_L!(
     params::ProblemParameters,
 )::Nothing
     # Get terminal x error
-    BLAS.copy!(tmp.x, fwd.X[end])
-    BLAS.axpy!(-1.0, params.Xref[end], tmp.x)
+    copy!(tmp.x, fwd.X[end])
+    axpy!(-1.0, params.Xref[end], tmp.x)
 
     # Get terminal costfunc hessian wrt x
     tmp.xx_result =
@@ -16,8 +16,8 @@ function expand_term_L!(
     Vx, Vxx = bwd.Vs.x[end], bwd.Vs.xx[end]
 
     # Save terminal costfunc gradient and hessian
-    BLAS.copy!(Vx, DiffResults.gradient(tmp.xx_result))
-    BLAS.copy!(Vxx, DiffResults.hessian(tmp.xx_result))
+    copy!(Vx, DiffResults.gradient(tmp.xx_result))
+    copy!(Vxx, DiffResults.hessian(tmp.xx_result))
 end
 
 
@@ -29,11 +29,11 @@ function expand_stage_L!(
     k::Int,
 )::Nothing
     # Get k-th x and u errors
-    BLAS.copy!(tmp.x, fwd.X[k])
-    BLAS.axpy!(-1.0, params.Xref[k], tmp.x)
+    copy!(tmp.x, fwd.X[k])
+    axpy!(-1.0, params.Xref[k], tmp.x)
 
-    BLAS.copy!(tmp.u, fwd.U[k])
-    BLAS.axpy!(-1.0, params.Uref[k], tmp.u)
+    copy!(tmp.u, fwd.U[k])
+    axpy!(-1.0, params.Uref[k], tmp.u)
 
     # Get gradients and hessians of stage cost wrt x and u
     tmp.xx_result = ForwardDiff.hessian!(
@@ -51,11 +51,11 @@ function expand_stage_L!(
     Lx, Lu, Lxx, Luu = bwd.Ls.x[k], bwd.Ls.u[k], bwd.Ls.xx[k], bwd.Ls.uu[k]
 
     # Save stage cost gradients and hessians wrt x and u
-    BLAS.copy!(Lx, DiffResults.gradient(tmp.xx_result))
-    BLAS.copy!(Lxx, DiffResults.hessian(tmp.xx_result))
+    copy!(Lx, DiffResults.gradient(tmp.xx_result))
+    copy!(Lxx, DiffResults.hessian(tmp.xx_result))
 
-    BLAS.copy!(Lu, DiffResults.gradient(tmp.uu_result))
-    BLAS.copy!(Luu, DiffResults.hessian(tmp.uu_result))
+    copy!(Lu, DiffResults.gradient(tmp.uu_result))
+    copy!(Luu, DiffResults.hessian(tmp.uu_result))
 end
 
 
@@ -89,23 +89,23 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Action-value gradients
     # Qx = Lx + Fx'*Vx
     mul!(Qx, Fx', Vx)
-    BLAS.axpy!(1.0, Lx, Qx)
+    axpy!(1.0, Lx, Qx)
 
     # Qu = Lu + Fu'*Vx
     mul!(Qu, Fu', Vx)
-    BLAS.axpy!(1.0, Lu, Qu)
+    axpy!(1.0, Lu, Qu)
 
     # Action-value hessians
     # Qxx = Lxx + Fx'*Vxx*Fx
     mul!(tmp.xx, Fx', Vxx)
     mul!(Qxx, tmp.xx, Fx)
-    BLAS.axpy!(1.0, Lxx, Qxx)
+    axpy!(1.0, Lxx, Qxx)
 
     # Quu = Luu + Fu'*Vxx*Fu + μ*I
     mul!(tmp.ux, Fu', Vxx)
     mul!(Quu, tmp.ux, Fu)
-    BLAS.axpy!(1.0, Luu, Quu)
-    BLAS.axpy!(1.0, bwd.μ, Quu)
+    axpy!(1.0, Luu, Quu)
+    axpy!(1.0, bwd.μ, Quu)
 
     # Qxu = Fx'*Vxx*Fu
     mul!(tmp.xx, Fx', Vxx)
@@ -133,25 +133,25 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 
     # Cost-to-go hessian
     # Vxx = Qxx - K'*Qux + K'*Quu*K - Qxu*K
-    BLAS.copy!(Vxx, Qxx)
+    copy!(Vxx, Qxx)
     mul!(tmp.xx, K', Qux)
-    BLAS.axpy!(-1.0, tmp.xx, Vxx)
+    axpy!(-1.0, tmp.xx, Vxx)
     mul!(tmp.xu, K', Quu)
     mul!(tmp.xx, tmp.xu, K)
-    BLAS.axpy!(1.0, tmp.xx, Vxx)
+    axpy!(1.0, tmp.xx, Vxx)
     mul!(tmp.xx, Qxu, K)
-    BLAS.axpy!(-1.0, tmp.xx, Vxx)
+    axpy!(-1.0, tmp.xx, Vxx)
 
     # Cost-to-go gradient
     # Vx = Qx - K'*u + K'*uu*d - xu*d
-    BLAS.copy!(Vx, Qx)
+    copy!(Vx, Qx)
     mul!(tmp.x, K', Qu)
-    BLAS.axpy!(-1.0, tmp.x, Vx)
+    axpy!(-1.0, tmp.x, Vx)
     mul!(tmp.xu, K', Quu)
     mul!(tmp.x, tmp.xu, d)
-    BLAS.axpy!(1.0, tmp.x, Vx)
+    axpy!(1.0, tmp.x, Vx)
     mul!(tmp.x, Qxu, d)
-    BLAS.axpy!(-1.0, tmp.x, Vx)
+    axpy!(-1.0, tmp.x, Vx)
 end
 
 

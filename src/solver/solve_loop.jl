@@ -63,7 +63,7 @@ function init_solver!(
     fill!.(bwd.D, 0.0)
 
     # Set initial conditions
-    BLAS.copy!(sol.X[1], params.xic)
+    copy!(sol.X[1], params.xic)
 
     # Initialize trajectory cost
     sol.J = Inf

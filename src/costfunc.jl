@@ -36,24 +36,24 @@ function (cache::TrajectoryCostFunction{T})(
     Uref::AbstractVector{V},
 ) where {T,V<:AbstractVector{<:Real}}
     # Broadcast x - xref
-    BLAS.copy!.(cache.Xerr, X)
-    BLAS.axpy!.(-1.0, Xref, cache.Xerr)
+    copy!.(cache.Xerr, X)
+    axpy!.(-1.0, Xref, cache.Xerr)
 
     # Broadcast u - uref
-    BLAS.copy!.(cache.Uerr, U)
-    BLAS.axpy!.(-1.0, Uref, cache.Uerr)
+    copy!.(cache.Uerr, U)
+    axpy!.(-1.0, Uref, cache.Uerr)
 
     # Broadcast stage cost
     Xerr_stage = @view cache.Xerr[1:(end-1)]
     Lstage = @view cache.L[1:(end-1)]
     Lstage_new = cache.stage.(Xerr_stage, cache.Uerr)
-    BLAS.copy!(Lstage, Lstage_new)
+    copy!(Lstage, Lstage_new)
 
     # Get terminal cost
     Xerr_term = cache.Xerr[end]
     Lterm = cache.L[end]
     Lterm_new = cache.term(Xerr_term)
-    BLAS.copy!(Lterm, Lterm_new)
+    copy!(Lterm, Lterm_new)
     return sum(cache.L)
 end
 

@@ -6,19 +6,19 @@ function roll_out!(
     params::ProblemParameters,
 )::Nothing
     # Initialize trajectory with previous solution
-    BLAS.copy!.(fwd.X, sol.X)
-    BLAS.copy!.(fwd.U, sol.U)
+    copy!.(fwd.X, sol.X)
+    copy!.(fwd.U, sol.U)
 
     # Forward rollout
     @inbounds for k = 1:length(params.Uref)
         # Update control input
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
         mul!(tmp.u, fwd.α, bwd.D[k])
-        BLAS.axpy!(-1.0, tmp.u, fwd.U[k])
-        BLAS.copy!(tmp.x, fwd.X[k])
-        BLAS.axpy!(-1.0, sol.X[k], tmp.x)
+        axpy!(-1.0, tmp.u, fwd.U[k])
+        copy!(tmp.x, fwd.X[k])
+        axpy!(-1.0, sol.X[k], tmp.x)
         mul!(tmp.u, bwd.Ks[k], tmp.x)
-        BLAS.axpy!(-1.0, tmp.u, fwd.U[k])
+        axpy!(-1.0, tmp.u, fwd.U[k])
 
         # Step simulator
         params.simfunc_fwd!(fwd.X[k+1], fwd.X[k], fwd.U[k])
@@ -59,6 +59,6 @@ function forward_pass!(
     # Save solver iteration data
     fwd.ΔJ = abs(J_ls - sol.J)
     sol.J = J_ls
-    BLAS.copy!.(sol.X, fwd.X)
-    BLAS.copy!.(sol.U, fwd.U)
+    copy!.(sol.X, fwd.X)
+    copy!.(sol.U, fwd.U)
 end
