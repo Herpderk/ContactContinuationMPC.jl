@@ -14,12 +14,46 @@ function ProblemParameters{T}(
     costfunc_term::Function,
     Xref::AbstractVector{V},
     Uref::AbstractVector{V},
-    xic::AbstractVector{V},
+    xic::V,
 )::ProblemParameters{T} where {T,V<:AbstractVector{<:Real}}
     # Get problem dimensions
     nx = length(Xref[1])
     nu = length(Uref[1])
     N = length(Xref)
+
+    # Assert dimensions
+    if length(Uref) != N-1
+        throw(
+            DimensionMismatch(
+                "Number of reference inputs should be 1 less than number of reference states",
+            ),
+        )
+    end
+    if length(xic) != nx
+        throw(
+            DimensionMismatch(
+                "Initial conditions dimensions do not match those of reference states",
+            ),
+        )
+    end
+    for xref in Xref
+        if length(xref) != nx
+            throw(
+                DimensionMismatch(
+                    "Reference state dimensions are not consistent",
+                ),
+            )
+        end
+    end
+    for uref in Uref
+        if length(uref) != nu
+            throw(
+                DimensionMismatch(
+                    "Reference input dimensions are not consistent",
+                ),
+            )
+        end
+    end
 
     costfunc =
         TrajectoryCostFunction{T}(costfunc_stage, costfunc_term, nx, nu, N)
@@ -47,18 +81,17 @@ mutable struct Solution{T<:AbstractFloat}
     J::T
 end
 
-function Solution{T}(nx::Int, nu::Int, N::Int)::Solution{T} where {T}
+function Solution{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
+    # Get problem dims
+    nx = length(params.Xref[1])
+    nu = length(params.Uref[1])
+    N = length(params.Xref)
+
+    # Init solution terms from dims
     X = [zeros(T, nx) for k = 1:N]
     U = [zeros(T, nu) for k = 1:(N-1)]
     J = T(0.0)
     return Solution{T}(X, U, J)
-end
-
-function Solution{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
-    nx = length(params.Xref[1])
-    nu = length(params.Uref[1])
-    N = length(params.Xref)
-    return Solution{T}(nx, nu, N)
 end
 
 # Default type parameter
@@ -72,18 +105,17 @@ mutable struct SolverCache{T<:AbstractFloat}
     tmp::TemporaryCache{T}
 end
 
-function SolverCache{T}(nx::Int, nu::Int, N::Int)::SolverCache{T} where {T}
+function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
+    # Get problem dims
+    nx = length(params.Xref[1])
+    nu = length(params.Uref[1])
+    N = length(params.Xref)
+
+    # Init caches from dims
     fwd = ForwardCache{T}(nx, nu, N)
     bwd = BackwardCache{T}(nx, nu, N)
     tmp = TemporaryCache(nx, nu)
     return SolverCache{T}(fwd, bwd, tmp)
-end
-
-function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
-    nx = length(params.Xref[1])
-    nu = length(params.Uref[1])
-    N = length(params.Xref)
-    return SolverCache{T}(nx, nu, N)
 end
 
 # Default type parameter

@@ -1,4 +1,4 @@
-function is_converged(cache::SolverCache, tol_converge::Float64)::Bool
+function is_converged(cache::SolverCache, tol_converge::AbstractFloat)::Bool
     return cache.fwd.ΔJ < tol_converge
 end
 
@@ -22,14 +22,24 @@ end
 
 function assert_opts!(opts::SolverOptions)::Nothing
     if opts.tol_converge <= 0.0
-        ArgumentError("The stationarity tolerance should be greater than 0")
+        throw(
+            ArgumentError(
+                "The stationarity tolerance should be greater than 0",
+            ),
+        )
     end
     if opts.maxiter_solve <= 0
-        ArgumentError("The max number of iterations should be greater than 0")
+        throw(
+            ArgumentError(
+                "The max number of iterations should be greater than 0",
+            ),
+        )
     end
     if opts.maxiter_ls <= 0
-        ArgumentError(
-            "The max number of line search iterations should be greater than 0",
+        throw(
+            ArgumentError(
+                "The max number of line search iterations should be greater than 0",
+            ),
         )
     end
 end
@@ -89,6 +99,7 @@ function solve!(
 
     opts.is_verbose ? println("\nMaximum iterations exceeded!") : nothing
 end
+
 
 function solve(
     params::ProblemParameters,
