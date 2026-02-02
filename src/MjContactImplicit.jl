@@ -8,7 +8,7 @@ using ForwardDiff
 using DiffResults
 using Printf
 using Plots
-import Base: ==, hash
+using Configurations
 
 #= export
 		ProblemParameters,
@@ -19,9 +19,9 @@ import Base: ==, hash
 		solve,
 		plot_2d_states =#
 
-include("consts.jl")
 include("plot.jl")
 include("costfunc.jl")
+include("solver/consts.jl")
 include("solver/caches/backward.jl")
 include("solver/caches/forward.jl")
 include("solver/caches/temporary.jl")

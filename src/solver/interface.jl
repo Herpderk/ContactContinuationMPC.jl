@@ -91,7 +91,7 @@ SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
 
 
 
-mutable struct SolverOptions{T<:AbstractFloat}
+@option mutable struct SolverOptions{T<:AbstractFloat}
     eps_reg::T
     tol_converge::T
     maxiter_solve::Int
@@ -99,12 +99,12 @@ mutable struct SolverOptions{T<:AbstractFloat}
     is_verbose::Bool
 end
 
-function SolverOptions{T}(;
-    eps_reg::AbstractFloat = 1e-6,
-    tol_converge::AbstractFloat = 1e-9,
-    maxiter_solve::Int = 100,
-    maxiter_ls::Int = 20,
-    is_verbose::Bool = true,
+function SolverOptions{T}(
+    eps_reg::AbstractFloat,
+    tol_converge::AbstractFloat,
+    maxiter_solve::Int,
+    maxiter_ls::Int,
+    is_verbose::Bool,
 )::SolverOptions{T} where {T}
     return SolverOptions{T}(
         T(eps_reg),
@@ -112,6 +112,33 @@ function SolverOptions{T}(;
         maxiter_solve,
         maxiter_ls,
         is_verbose,
+    )
+end
+
+function SolverOptions{T}(;
+    eps_reg::Union{AbstractFloat,Nothing} = nothing,
+    tol_converge::Union{AbstractFloat,Nothing} = nothing,
+    maxiter_solve::Union{Int,Nothing} = nothing,
+    maxiter_ls::Union{Int,Nothing} = nothing,
+    is_verbose::Union{Bool,Nothing} = nothing,
+)::SolverOptions{T} where {T}
+    # Load default options from config
+    default = from_toml(SolverOptions, joinpath(@__DIR__, "config.toml"))
+
+    # Use default options if the corresponding option is nothing
+    eps_reg_ = isnothing(eps_reg) ? default.eps_reg : eps_reg
+    tol_converge_ =
+        isnothing(tol_converge) ? default.tol_converge : tol_converge
+    maxiter_solve_ =
+        isnothing(maxiter_solve) ? default.maxiter_solve : maxiter_solve
+    maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
+    is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
+    return SolverOptions{T}(
+        eps_reg_,
+        tol_converge_,
+        maxiter_solve_,
+        maxiter_ls_,
+        is_verbose_,
     )
 end
 
