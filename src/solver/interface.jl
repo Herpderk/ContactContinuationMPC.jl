@@ -155,7 +155,8 @@ function SolverOptions{T}(;
     is_verbose::Union{Bool,Nothing} = nothing,
 )::SolverOptions{T} where {T}
     # Load default options from config
-    default = from_toml(SolverOptions, joinpath(@__DIR__, "config.toml"))
+    default =
+        from_toml(SolverOptions, joinpath(@__DIR__, "config/default_opts.toml"))
 
     # Use default options if the corresponding option is nothing
     eps_reg_ = isnothing(eps_reg) ? default.eps_reg : eps_reg

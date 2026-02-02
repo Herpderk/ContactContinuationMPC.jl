@@ -1,5 +1,5 @@
 """
-Assortment of quaternion multiplication utilities based on the notation in
+Assortment of quaternion multiplication utilities based on the conventions in
 the following paper: https://ieeexplore.ieee.org/document/9326337
 """
 

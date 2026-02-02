@@ -21,7 +21,7 @@ using Configurations
 
 include("plot.jl")
 include("costfunc.jl")
-include("solver/consts.jl")
+include("solver/config/consts.jl")
 include("solver/caches/backward.jl")
 include("solver/caches/forward.jl")
 include("solver/caches/temporary.jl")
