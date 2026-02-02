@@ -7,9 +7,6 @@ mutable struct ProblemParameters{T<:AbstractFloat}
     xic::Vector{T}
 end
 
-# Default type parameter
-ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
-
 function ProblemParameters{T}(
     simfunc_fwd!::Function,
     simfunc_bwd!::Function,
@@ -39,6 +36,9 @@ function ProblemParameters{T}(
     )
 end
 
+# Default type parameter
+ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
+
 
 
 mutable struct Solution{T<:AbstractFloat}
@@ -46,9 +46,6 @@ mutable struct Solution{T<:AbstractFloat}
     U::Vector{Vector{T}}
     J::T
 end
-
-# Default type parameter
-Solution(args...) = Solution{DEFAULT_DTYPE}(args...)
 
 function Solution{T}(nx::Int, nu::Int, N::Int)::Solution{T} where {T}
     X = [zeros(T, nx) for k = 1:N]
@@ -64,6 +61,9 @@ function Solution{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
     return Solution{T}(nx, nu, N)
 end
 
+# Default type parameter
+Solution(args...) = Solution{DEFAULT_DTYPE}(args...)
+
 
 
 mutable struct SolverCache{T<:AbstractFloat}
@@ -71,9 +71,6 @@ mutable struct SolverCache{T<:AbstractFloat}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
 end
-
-# Default type parameter
-SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
 
 function SolverCache{T}(nx::Int, nu::Int, N::Int)::SolverCache{T} where {T}
     fwd = ForwardCache{T}(nx, nu, N)
@@ -89,6 +86,9 @@ function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
     return SolverCache{T}(nx, nu, N)
 end
 
+# Default type parameter
+SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
+
 
 
 mutable struct SolverOptions{T<:AbstractFloat}
@@ -98,9 +98,6 @@ mutable struct SolverOptions{T<:AbstractFloat}
     maxiter_ls::Int
     is_verbose::Bool
 end
-
-# Default type parameter
-SolverOptions(args...) = SolverOptions{DEFAULT_DTYPE}(args...)
 
 function SolverOptions{T}(;
     eps_reg::AbstractFloat = 1e-6,
@@ -117,3 +114,6 @@ function SolverOptions{T}(;
         is_verbose,
     )
 end
+
+# Default type parameter
+SolverOptions(args...) = SolverOptions{DEFAULT_DTYPE}(args...)

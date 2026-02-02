@@ -24,9 +24,6 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat}
     end
 end
 
-# Default type parameter
-TrajectoryCostFunction(args...) = TrajectoryCostFunction{DEFAULT_DTYPE}(args...)
-
 """
 	costfunc(X, U, Xref, Uref)
 
@@ -59,3 +56,6 @@ function (cache::TrajectoryCostFunction{T})(
     BLAS.copy!(Lterm, Lterm_new)
     return sum(cache.L)
 end
+
+# Default type parameter
+TrajectoryCostFunction(args...) = TrajectoryCostFunction{DEFAULT_DTYPE}(args...)
