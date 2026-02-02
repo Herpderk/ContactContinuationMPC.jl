@@ -12,10 +12,10 @@ function ProblemParameters{T}(
     simfunc_bwd!::Function,
     costfunc_stage::Function,
     costfunc_term::Function,
-    Xref::AbstractVector{<:AbstractVector{<:Real}},
-    Uref::AbstractVector{<:AbstractVector{<:Real}},
-    xic::AbstractVector{<:AbstractVector{<:Real}},
-)::ProblemParameters{T} where {T}
+    Xref::AbstractVector{V},
+    Uref::AbstractVector{V},
+    xic::AbstractVector{V},
+)::ProblemParameters{T} where {T,V<:AbstractVector{<:Real}}
     # Get problem dimensions
     nx = length(Xref[1])
     nu = length(Uref[1])

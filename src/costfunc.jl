@@ -30,11 +30,11 @@ end
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
 function (cache::TrajectoryCostFunction{T})(
-    X::AbstractVector{<:AbstractVector{<:Real}},
-    U::AbstractVector{<:AbstractVector{<:Real}},
-    Xref::AbstractVector{<:AbstractVector{<:Real}},
-    Uref::AbstractVector{<:AbstractVector{<:Real}},
-)::T where {T}
+    X::AbstractVector{V},
+    U::AbstractVector{V},
+    Xref::AbstractVector{V},
+    Uref::AbstractVector{V},
+) where {T,V<:AbstractVector{<:Real}}
     # Broadcast x - xref
     BLAS.copy!.(cache.Xerr, X)
     BLAS.axpy!.(-1.0, Xref, cache.Xerr)
