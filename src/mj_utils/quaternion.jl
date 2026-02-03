@@ -1,18 +1,17 @@
 """
 Assortment of quaternion multiplication utilities based on the conventions in
-the following paper: https://ieeexplore.ieee.org/document/9326337
+the following paper: https://ieeexplore.ieee.org/document/9326337.
+We assume quaternions of the following form: q = [s, v1, v2, v3], where s is the
+scalar component and v = [v1, v2, v3] is the vector component.
 """
 
 
-ZERO_SCALAR_MAPPING_MATRIX = [zeros(3); I(3)]
-
-
 function skew!(A::Matrix{T}, v::Vector{T})::Nothing where {T<:Real}
-    if length(v) != 3
-        throw(DimensionMismatch("Input vector must be of length 3"))
-    end
     if size(A) != (3, 3)
         throw(DimensionMismatch("Input matrix must be of size 3x3"))
+    end
+    if length(v) != 3
+        throw(DimensionMismatch("Input vector must be of length 3"))
     end
 
     A[1, 1] = 0.0
@@ -27,59 +26,31 @@ function skew!(A::Matrix{T}, v::Vector{T})::Nothing where {T<:Real}
 end
 
 
-@views function base_multiplication_matrix!(
-    B::Matrix{T},
+"""
+We define the kinematic mapping matrix K such that:
+
+    q̇ = 0.5 * K(q) * ω
+
+where q is a quaternion and ω is the angular velocity vector. K(q) is the
+result of the following left quaternion multiplication:
+
+    K(q) = L(q) * H
+"""
+@views function kinematic_mapping_matrix!(
+    K::Matrix{T},
     q::Vector{T},
-    is_right::Bool,
 )::Nothing where {T<:AbstractFloat}
+    if size(K) != (4, 3)
+        throw(DimensionMismatch("Input matrix must be of size 4x3"))
+    end
     if length(q) != 4
         throw(DimensionMismatch("Input quaternion must be of length 4"))
     end
-    if size(B) != (4, 4)
-        throw(DimensionMismatch("Input matrix must be of size 4x4"))
-    end
 
     s = q[1]
-    v = q[2:end]
-
-    B[1, 1] = s
-    B[1, 2:4] = v'
-    B[1, 2:4] .*= -1.0
-    B[2:4, 1] = v
-
-    # Add or substract the skew-symmetric vector component from the 3x3 block
-    skew!(B[2:4, 2:4], v)
-    if is_right
-        B[2:4, 2:4] .*= -1.0
-    end
-
-    # Add the scalar component to the diagonal of the 3x3 block
-    B[2:4, 2:4] .+= s * I(3)
-end
-
-
-function left_multiplication_matrix!(
-    L::Matrix{T},
-    q::Vector{T},
-)::Nothing where {T<:AbstractFloat}
-    base_multiplication_matrix!(L, q, false)
-end
-
-
-function right_multiplication_matrix!(
-    R::Matrix{T},
-    q::Vector{T},
-)::Nothing where {T<:AbstractFloat}
-    base_multiplication_matrix!(R, q, true)
-end
-
-
-function kinematic_mapping_matrix!(
-    K::Matrix{T},
-    L::Matrix{T},
-    q::Vector{T},
-)::Nothing where {T<:AbstractFloat}
-    left_multiplication_matrix!(L, q)
-    mul!(K, L, ZERO_SCALAR_MAPPING_MATRIX)
+    v = q[2:4]
+    K[1, :] .= -v'
+    skew!(K[2:4, :], v)
+    axpy!(s, I(3), K[2:4, :])
     K .*= 0.5
 end
