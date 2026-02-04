@@ -53,7 +53,7 @@ function forward_pass!(
         J_ls < sol.J ? break : nothing
 
         # Shrink step size
-        fwd.α *= 0.5
+        fwd.α *= fwd.α_mul
     end
 
     # Save solver iteration data

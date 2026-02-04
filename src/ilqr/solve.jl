@@ -20,21 +20,42 @@ function log(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
 end
 
 function assert_opts!(opts::ILqrOptions)::Nothing
+    if !(0.0 < opts.alpha_mul < 1.0)
+        throw(
+            DomainError(
+                opts.alpha_mul,
+                "The backtracking contraction rate must be between 0 and 1",
+            ),
+        )
+    end
+    if opts.eps_reg < 0.0
+        throw(
+            DomainError(
+                opts.eps_reg,
+                "The regularizer coefficient should be greater than 0",
+            ),
+        )
+    end
     if opts.tol_converge <= 0.0
         throw(
-            ArgumentError("The stationarity tolerance should be greater than 0")
+            DomainError(
+                opts.tol_converge,
+                "The stationarity tolerance should be greater than 0",
+            ),
         )
     end
     if opts.maxiter_ilqr <= 0
         throw(
-            ArgumentError(
-                "The max number of iterations should be greater than 0"
+            DomainError(
+                opts.maxiter_ilqr,
+                "The max number of iterations should be greater than 0",
             ),
         )
     end
     if opts.maxiter_ls <= 0
         throw(
-            ArgumentError(
+            DomainError(
+                opts.maxiter_ls,
                 "The max number of line search iterations should be greater than 0",
             ),
         )
@@ -46,13 +67,17 @@ function init_solver!(
     sol::TrajoptSolution,
     cache::ILqrCache,
     params::TrajoptParameters,
-    eps_reg::Float64,
+    opts::ILqrOptions,
 )::Nothing
     # Get references to ILqrCache structs
+    fwd = cache.fwd
     bwd = cache.bwd
 
+    # Set backtracking contraction rate
+    fwd.α_mul = opts.alpha_mul
+
     # Set regularizer matrix
-    mul!(bwd.μ, eps_reg, I)
+    mul!(bwd.μ, opts.eps_reg, I)
 
     # Initialize gains
     fill_nested_array!(bwd.Ks, 0.0)
@@ -80,7 +105,7 @@ function run_ilqr!(
     assert_opts!(opts)
 
     # Initialize solver variables
-    init_solver!(sol, cache, params, opts.eps_reg)
+    init_solver!(sol, cache, params, opts)
 
     # Main solve loop
     for i in 1:opts.maxiter_ilqr

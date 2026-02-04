@@ -117,6 +117,7 @@ end
 ILqrCache(args...) = ILqrCache{DEFAULT_DTYPE}(args...)
 
 @option struct DefaultILqrOptions{T<:AbstractFloat}
+    alpha_mul::T
     eps_reg::T
     tol_converge::T
     maxiter_ilqr::Int
@@ -125,6 +126,7 @@ ILqrCache(args...) = ILqrCache{DEFAULT_DTYPE}(args...)
 end
 
 mutable struct ILqrOptions{T<:AbstractFloat}
+    alpha_mul::T
     eps_reg::T
     tol_converge::T
     maxiter_ilqr::Int
@@ -133,6 +135,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
 end
 
 function ILqrOptions{T}(;
+    alpha_mul::Union{<:AbstractFloat,Nothing}=nothing,
     eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
     tol_converge::Union{<:AbstractFloat,Nothing}=nothing,
     maxiter_ilqr::Union{Int,Nothing}=nothing,
@@ -145,6 +148,7 @@ function ILqrOptions{T}(;
     )
 
     # Use default options if the corresponding option is nothing
+    alpha_mul_ = isnothing(alpha_mul) ? default.alpha_mul : T(alpha_mul)
     eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
     tol_converge_ =
         isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
@@ -153,7 +157,12 @@ function ILqrOptions{T}(;
     maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
     is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
     return ILqrOptions{T}(
-        eps_reg_, tol_converge_, maxiter_ilqr_, maxiter_ls_, is_verbose_
+        alpha_mul_,
+        eps_reg_,
+        tol_converge_,
+        maxiter_ilqr_,
+        maxiter_ls_,
+        is_verbose_,
     )
 end
 
