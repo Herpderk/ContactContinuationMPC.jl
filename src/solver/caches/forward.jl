@@ -5,7 +5,11 @@ mutable struct ForwardCache{T<:AbstractFloat}
     ΔJ::T
 end
 
-function ForwardCache{T}(nx::Int, nu::Int, N::Int)::ForwardCache{T} where {T}
+function ForwardCache{T}(
+    nx::Int,
+    nu::Int,
+    N::Int,
+)::ForwardCache{T} where {T<:AbstractFloat}
     X = [zeros(T, nx) for k = 1:N]
     U = [zeros(T, nu) for k = 1:(N-1)]
     α = T(0.0)

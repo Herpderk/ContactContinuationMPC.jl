@@ -23,6 +23,7 @@ function roll_out!(
         # Step simulator
         params.simfunc_fwd!(fwd.X[k+1], fwd.X[k], fwd.U[k])
     end
+    return
 end
 
 
@@ -61,4 +62,5 @@ function forward_pass!(
     sol.J = J_ls
     copy!.(sol.X, fwd.X)
     copy!.(sol.U, fwd.U)
+    return
 end

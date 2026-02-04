@@ -1,60 +1,52 @@
 """
 	TrajectoryCostFunction(stage, term, nx, nu, N)
-
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
 mutable struct TrajectoryCostFunction{T<:AbstractFloat}
     stage::Function
     term::Function
-    Xerr::Vector{Vector{T}}
-    Uerr::Vector{Vector{T}}
-    L::Vector{T}
+    xerr::DiffCache{Vector{T},Vector{T}}
+    uerr::DiffCache{Vector{T},Vector{T}}
 
     function TrajectoryCostFunction{T}(
         costfunc_stage::Function,
         costfunc_term::Function,
         nx::Int,
         nu::Int,
-        N::Int,
-    ) where {T}
-        Xerr = [zeros(T, nx) for k = 1:N]
-        Uerr = [zeros(T, nu) for k = 1:(N-1)]
-        L = zeros(T, N)
-        return new{T}(costfunc_stage, costfunc_term, Xerr, Uerr, L)
+    ) where {T<:AbstractFloat}
+        xerr = DiffCache(zeros(T, nx))
+        uerr = DiffCache(zeros(T, nu))
+        return new{T}(costfunc_stage, costfunc_term, xerr, uerr)
     end
 end
 
 """
 	costfunc(X, U, Xref, Uref)
-
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
-function (cache::TrajectoryCostFunction{T})(
+@views function (cache::TrajectoryCostFunction{T})(
     X::AbstractVector{V},
     U::AbstractVector{V},
     Xref::AbstractVector{V},
     Uref::AbstractVector{V},
-) where {T,V<:AbstractVector{<:Real}}
-    # Broadcast x - xref
-    copy!.(cache.Xerr, X)
-    axpy!.(-1.0, Xref, cache.Xerr)
+)::Union{T,ForwardDiff.Dual} where {T,V<:AbstractVector{<:Real}}
+    # Get temporary error vectors
+    xerr = get_tmp(cache.xerr, X[1])
+    uerr = get_tmp(cache.uerr, U[1])
 
-    # Broadcast u - uref
-    copy!.(cache.Uerr, U)
-    axpy!.(-1.0, Uref, cache.Uerr)
+    # Sum costs
+    super_el = X[1][1] + U[1][1]
+    J = zero(super_el)
 
-    # Broadcast stage cost
-    Xerr_stage = @view cache.Xerr[1:(end-1)]
-    Lstage = @view cache.L[1:(end-1)]
-    Lstage_new = cache.stage.(Xerr_stage, cache.Uerr)
-    copy!(Lstage, Lstage_new)
+    @inbounds for k = 1:(length(Uref))
+        @. xerr = X[k] - Xref[k]
+        @. uerr = U[k] - Uref[k]
+        J += cache.stage(xerr, uerr)
+    end
 
-    # Get terminal cost
-    Xerr_term = cache.Xerr[end]
-    Lterm = cache.L[end]
-    Lterm_new = cache.term(Xerr_term)
-    copy!(Lterm, Lterm_new)
-    return sum(cache.L)
+    @. xerr = X[end] - Xref[end]
+    J += cache.term(xerr)
+    return J
 end
 
 # Default type parameter

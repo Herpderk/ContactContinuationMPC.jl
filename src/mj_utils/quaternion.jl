@@ -6,7 +6,10 @@ scalar component and v = [v1, v2, v3] is the vector component.
 """
 
 
-function skew!(A::Matrix{T}, v::Vector{T})::Nothing where {T<:Real}
+function skew!(
+    A::AbstractMatrix{T},
+    v::AbstractVector{T},
+)::Nothing where {T<:Real}
     if size(A) != (3, 3)
         throw(DimensionMismatch("Input matrix must be of size 3x3"))
     end
@@ -23,13 +26,14 @@ function skew!(A::Matrix{T}, v::Vector{T})::Nothing where {T<:Real}
     A[3, 1] = -v[2]
     A[3, 2] = v[1]
     A[3, 3] = 0.0
+    return
 end
 
 
 """
 We define the kinematic mapping matrix K such that:
 
-    q̇ = 0.5 * K(q) * ω
+    q̇ = K(q) * ω
 
 where q is a quaternion and ω is the angular velocity vector. K(q) is the
 result of the following left quaternion multiplication:
@@ -37,8 +41,8 @@ result of the following left quaternion multiplication:
     K(q) = L(q) * H
 """
 @views function kinematic_mapping_matrix!(
-    K::Matrix{T},
-    q::Vector{T},
+    K::AbstractMatrix{T},
+    q::AbstractVector{T},
 )::Nothing where {T<:AbstractFloat}
     if size(K) != (4, 3)
         throw(DimensionMismatch("Input matrix must be of size 4x3"))
@@ -53,4 +57,5 @@ result of the following left quaternion multiplication:
     skew!(K[2:4, :], v)
     axpy!(s, I(3), K[2:4, :])
     K .*= 0.5
+    return
 end

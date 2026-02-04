@@ -6,6 +6,7 @@ using SparseArrays
 using StructArrays
 using ForwardDiff
 using DiffResults
+using PreallocationTools
 using Printf
 using Plots
 using Configurations

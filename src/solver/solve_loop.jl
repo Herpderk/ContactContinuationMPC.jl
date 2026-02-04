@@ -5,18 +5,19 @@ end
 
 function log(sol::Solution, cache::SolverCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
-        println("----------------------------------")
-        println("iter        J          ΔJ        α")
-        println("----------------------------------")
+        println("-------------------------------------")
+        println("iter        J          ΔJ         α")
+        println("-------------------------------------")
     end
 
     @printf(
-        "%4.04i     %8.2e   %8.2e   %7.5f\n",
+        "%4.04i     %8.2e   %8.2e   %6.4f\n",
         iter,
         sol.J,
         cache.fwd.ΔJ,
         cache.fwd.α,
     )
+    return
 end
 
 
@@ -42,6 +43,7 @@ function assert_opts!(opts::SolverOptions)::Nothing
             ),
         )
     end
+    return
 end
 
 
@@ -70,6 +72,7 @@ function init_solver!(
 
     # Roll out with a full newton step
     forward_pass!(sol, cache, params, 1)
+    return
 end
 
 
@@ -77,7 +80,7 @@ function solve!(
     sol::Solution,
     cache::SolverCache,
     params::ProblemParameters,
-    opts::SolverOptions,
+    opts::SolverOptions = SolverOptions(),
 )::Nothing
     # Verify options are valid
     assert_opts!(opts)
@@ -98,6 +101,18 @@ function solve!(
     end
 
     opts.is_verbose ? println("\nMaximum iterations exceeded!") : nothing
+    return
+end
+
+
+function solve!(
+    sol::Solution,
+    params::ProblemParameters,
+    opts::SolverOptions = SolverOptions(),
+)::Nothing
+    cache = SolverCache(params)
+    solve!(sol, cache, params, opts)
+    return
 end
 
 

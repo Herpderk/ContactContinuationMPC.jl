@@ -9,7 +9,10 @@ mutable struct TemporaryCache{T<:AbstractFloat}
     uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
 end
 
-function TemporaryCache{T}(nx::Int, nu::Int)::TemporaryCache{T} where {T}
+function TemporaryCache{T}(
+    nx::Int,
+    nu::Int,
+)::TemporaryCache{T} where {T<:AbstractFloat}
     x = zeros(T, nx)
     u = zeros(T, nu)
     xx = zeros(T, nx, nx)

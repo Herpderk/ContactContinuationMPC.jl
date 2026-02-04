@@ -1,6 +1,6 @@
 mutable struct ProblemParameters{T<:AbstractFloat}
-    simfunc_fwd!::Function      # expects simfunc_fwd!(x_next, x_curr, u_curr)
-    simfunc_bwd!::Function      # expects simfunc_bwd!(A, B, x, u)::Nothing
+    simfunc_fwd!::Function      # expects simfunc_fwd!(x1, x0, u0)::Nothing
+    simfunc_bwd!::Function      # expects simfunc_bwd!(A, B, x1, x0, u0)::Nothing
     costfunc::TrajectoryCostFunction{T}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
@@ -15,7 +15,7 @@ function ProblemParameters{T}(
     Xref::AbstractVector{V},
     Uref::AbstractVector{V},
     xic::V,
-)::ProblemParameters{T} where {T,V<:AbstractVector{<:Real}}
+)::ProblemParameters{T} where {T<:AbstractFloat,V<:AbstractVector{<:Real}}
     # Get problem dimensions
     nx = length(Xref[1])
     nu = length(Uref[1])
@@ -55,8 +55,7 @@ function ProblemParameters{T}(
         end
     end
 
-    costfunc =
-        TrajectoryCostFunction{T}(costfunc_stage, costfunc_term, nx, nu, N)
+    costfunc = TrajectoryCostFunction{T}(costfunc_stage, costfunc_term, nx, nu)
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
@@ -81,7 +80,9 @@ mutable struct Solution{T<:AbstractFloat}
     J::T
 end
 
-function Solution{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
+function Solution{T}(
+    params::ProblemParameters{T},
+)::Solution{T} where {T<:AbstractFloat}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -105,7 +106,9 @@ mutable struct SolverCache{T<:AbstractFloat}
     tmp::TemporaryCache{T}
 end
 
-function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
+function SolverCache{T}(
+    params::ProblemParameters{T},
+)::SolverCache{T} where {T<:AbstractFloat}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -114,7 +117,7 @@ function SolverCache{T}(params::ProblemParameters{T})::SolverCache{T} where {T}
     # Init caches from dims
     fwd = ForwardCache{T}(nx, nu, N)
     bwd = BackwardCache{T}(nx, nu, N)
-    tmp = TemporaryCache(nx, nu)
+    tmp = TemporaryCache{T}(nx, nu)
     return SolverCache{T}(fwd, bwd, tmp)
 end
 
@@ -123,7 +126,7 @@ SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
 
 
 
-@option mutable struct SolverOptions{T<:AbstractFloat}
+@option struct DefaultSolverOptions{T<:AbstractFloat}
     eps_reg::T
     tol_converge::T
     maxiter_solve::Int
@@ -131,20 +134,14 @@ SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
     is_verbose::Bool
 end
 
-function SolverOptions{T}(
-    eps_reg::AbstractFloat,
-    tol_converge::AbstractFloat,
-    maxiter_solve::Int,
-    maxiter_ls::Int,
-    is_verbose::Bool,
-)::SolverOptions{T} where {T}
-    return SolverOptions{T}(
-        T(eps_reg),
-        T(tol_converge),
-        maxiter_solve,
-        maxiter_ls,
-        is_verbose,
-    )
+
+
+mutable struct SolverOptions{T<:AbstractFloat}
+    eps_reg::T
+    tol_converge::T
+    maxiter_solve::Int
+    maxiter_ls::Int
+    is_verbose::Bool
 end
 
 function SolverOptions{T}(;
@@ -153,15 +150,17 @@ function SolverOptions{T}(;
     maxiter_solve::Union{Int,Nothing} = nothing,
     maxiter_ls::Union{Int,Nothing} = nothing,
     is_verbose::Union{Bool,Nothing} = nothing,
-)::SolverOptions{T} where {T}
+)::SolverOptions{T} where {T<:AbstractFloat}
     # Load default options from config
-    default =
-        from_toml(SolverOptions, joinpath(@__DIR__, "config/default_opts.toml"))
+    default = from_toml(
+        DefaultSolverOptions{T},
+        joinpath(@__DIR__, "config/default_opts.toml"),
+    )
 
     # Use default options if the corresponding option is nothing
-    eps_reg_ = isnothing(eps_reg) ? default.eps_reg : eps_reg
+    eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
     tol_converge_ =
-        isnothing(tol_converge) ? default.tol_converge : tol_converge
+        isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
     maxiter_solve_ =
         isnothing(maxiter_solve) ? default.maxiter_solve : maxiter_solve
     maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls

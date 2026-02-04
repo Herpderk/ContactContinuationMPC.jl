@@ -18,6 +18,7 @@ function expand_term_L!(
     # Save terminal costfunc gradient and hessian
     copy!(Vx, DiffResults.gradient(tmp.xx_result))
     copy!(Vxx, DiffResults.hessian(tmp.xx_result))
+    return
 end
 
 
@@ -56,6 +57,7 @@ function expand_stage_L!(
 
     copy!(Lu, DiffResults.gradient(tmp.uu_result))
     copy!(Luu, DiffResults.hessian(tmp.uu_result))
+    return
 end
 
 
@@ -67,10 +69,10 @@ function expand_F!(
 )::Nothing
     # Reference k-th dynamics jacobians, state, and control input
     Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
-    x = fwd.X[k]
-    u = fwd.U[k]
+    x1, x, u = fwd.X[k+1], fwd.X[k], fwd.U[k]
     # Get simulator jacobians
-    params.simfunc_bwd!(Fx, Fu, x, u)
+    params.simfunc_bwd!(Fx, Fu, x1, x, u)
+    return
 end
 
 
@@ -79,12 +81,8 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     Vx, Vxx = bwd.Vs.x[k+1], bwd.Vs.xx[k+1]
     Lx, Lu, Lxx, Luu = bwd.Ls.x[k], bwd.Ls.u[k], bwd.Ls.xx[k], bwd.Ls.uu[k]
     Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
-    Qx, Qu, Qxx, Quu, Qxu, Qux = bwd.Qs.x[k],
-    bwd.Qs.u[k],
-    bwd.Qs.xx[k],
-    bwd.Qs.uu[k],
-    bwd.Qs.xu[k],
-    bwd.Qs.ux[k]
+    Qx, Qu = bwd.Qs.x[k], bwd.Qs.u[k]
+    Qxx, Quu, Qxu, Qux = bwd.Qs.xx[k], bwd.Qs.uu[k], bwd.Qs.xu[k], bwd.Qs.ux[k]
 
     # Action-value gradients
     # Qx = Lx + Fx'*Vx
@@ -114,6 +112,7 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Qux = Fu'*Vxx*Fx
     mul!(tmp.ux, Fu', Vxx)
     mul!(Qux, tmp.ux, Fx)
+    return
 end
 
 
@@ -152,6 +151,7 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     axpy!(1.0, tmp.x, Vx)
     mul!(tmp.x, Qxu, d)
     axpy!(-1.0, tmp.x, Vx)
+    return
 end
 
 
@@ -168,6 +168,7 @@ function update_gains!(bwd::BackwardCache, k::Int)::Nothing
 
     # Feedback gains: K = Quu \ Qux
     ldiv!(bwd.Ks[k], Quu_lu, Qux)
+    return
 end
 
 
@@ -179,6 +180,7 @@ function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
     # Predicted change in cost
     # ΔJ += Qu' * d
     bwd.ΔJ += Qu' * d
+    return
 end
 
 
@@ -203,4 +205,5 @@ function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
         expand_V!(bwd, tmp, k)         # Value expansion
         update_cost_prediction!(bwd, k)
     end
+    return
 end
