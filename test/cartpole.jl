@@ -30,6 +30,7 @@ end
 
 """
     (system::CartpoleDynamics)(xdot, x, u)
+
 Forward simulation function for the cartpole system. Computes the next state x1 given the current state x and control input u.
 """
 @views function (system::CartpoleDynamics{T})(
@@ -76,6 +77,7 @@ end
 
 """
     (sim::CartpoleSimulator)(x1, x0, u0)
+
 Forward simulation function for the cartpole system. Computes the next state x1 given the current state x0 and control input u0.
 """
 @views function (sim::CartpoleSimulator{T})(
@@ -118,6 +120,7 @@ end
 
 """
     (sim::CartpoleSimulator)(A, B, x1, x0, u0)
+
 Backward differentiation function for the cartpole system. Computes the Jacobians A and B of the next state.
 """
 function (sim::CartpoleSimulator{T})(
@@ -149,21 +152,23 @@ end
 
 """
     (weights::QuadraticCostFunction)(xerr, uerr)
+
 Stage cost function for a quadratic cost. Computes the cost given the state error xerr and control error uerr.
 """
 function (weights::QuadraticCostFunction{T})(
     xerr::AbstractVector{<:Real}, uerr::AbstractVector{<:Real}
-)::Real where {T}
+)::Union{T,ForwardDiff.Dual} where {T}
     return 0.5 * (xerr' * weights.Q * xerr + uerr' * weights.R * uerr)
 end
 
 """
     (weights::QuadraticCostFunction)(xerr)
+
 Terminal cost function for a quadratic cost. Computes the cost given the state error xerr.
 """
 function (weights::QuadraticCostFunction{T})(
     xerr::AbstractVector{<:Real}
-)::Real where {T}
+)::Union{T,ForwardDiff.Dual} where {T}
     return 0.5 * xerr' * weights.Qf * xerr
 end
 

@@ -1,5 +1,6 @@
 """
-	TrajectoryCostFunction(stage, term, nx, nu, N)
+    TrajectoryCostFunction(stage, term, nx, nu, N)
+
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
 mutable struct TrajectoryCostFunction{T<:AbstractFloat}
@@ -18,7 +19,8 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat}
 end
 
 """
-	costfunc(X, U, Xref, Uref)
+    costfunc(X, U, Xref, Uref)
+
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
 @views function (cache::TrajectoryCostFunction{T})(
