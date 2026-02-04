@@ -6,8 +6,8 @@ function roll_out!(
     params::TrajoptParameters,
 )::Nothing
     # Initialize trajectory with previous solution
-    copy!.(fwd.X, sol.X)
-    copy!.(fwd.U, sol.U)
+    copy_nested_array!(fwd.X, sol.X)
+    copy_nested_array!(fwd.U, sol.U)
 
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
@@ -59,7 +59,7 @@ function forward_pass!(
     # Save solver iteration data
     fwd.ΔJ = abs(J_ls - sol.J)
     sol.J = J_ls
-    copy!.(sol.X, fwd.X)
-    copy!.(sol.U, fwd.U)
+    copy_nested_array!(sol.X, fwd.X)
+    copy_nested_array!(sol.U, fwd.U)
     return nothing
 end

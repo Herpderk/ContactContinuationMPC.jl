@@ -49,15 +49,14 @@ function init_solver!(
     eps_reg::Float64,
 )::Nothing
     # Get references to ILqrCache structs
-    fwd = cache.fwd
     bwd = cache.bwd
 
     # Set regularizer matrix
     mul!(bwd.μ, eps_reg, I)
 
     # Initialize gains
-    fill!.(bwd.Ks, 0.0)
-    fill!.(bwd.ds, 0.0)
+    fill_nested_array!(bwd.Ks, 0.0)
+    fill_nested_array!(bwd.ds, 0.0)
 
     # Set initial conditions
     copy!(sol.X[1], params.xic)
