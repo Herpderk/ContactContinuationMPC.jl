@@ -23,7 +23,7 @@ end
 
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
-@views function (cache::TrajectoryCostFunction{T})(
+function (cache::TrajectoryCostFunction{T})(
     X::AbstractVector{V},
     U::AbstractVector{V},
     Xref::AbstractVector{V},
