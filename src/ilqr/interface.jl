@@ -85,7 +85,7 @@ function TrajoptSolution{T}(
     # Initialize solution terms from dims
     X = [zeros(T, nx) for k in 1:N]
     U = [zeros(T, nu) for k in 1:(N - 1)]
-    J = T(0.0)
+    J = zero(T)
     is_optimal = false
     return TrajoptSolution{T}(X, U, J, is_optimal)
 end

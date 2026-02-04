@@ -10,7 +10,7 @@ using MjContactImplicit
 """
 Struct for storing cartpole system parameters and array caches.
 """
-mutable struct CartpoleDynamics{T<:AbstractFloat} <: Function
+struct CartpoleDynamics{T<:AbstractFloat} <: Function
     mc::T
     mp::T
     l::T
@@ -60,7 +60,7 @@ end
 """
 Struct for storing cartpole system parameters and array caches.
 """
-mutable struct CartpoleSimulator{T<:AbstractFloat} <: Function
+struct CartpoleSimulator{T<:AbstractFloat} <: Function
     dt::T
     dynamics::CartpoleDynamics{T}
     x_tmp::DiffCache{Vector{T},Vector{T}}
@@ -137,7 +137,7 @@ end
 """
 Struct for storing quadratic cost function weights.
 """
-mutable struct QuadraticCostFunction{T<:AbstractFloat} <: Function
+struct QuadraticCostFunction{T<:AbstractFloat} <: Function
     Q::Matrix{T}
     R::Matrix{T}
     Qf::Matrix{T}

@@ -53,7 +53,7 @@ function init_solver!(
     bwd = cache.bwd
 
     # Set regularizer matrix
-    mul!(bwd.eps_reg, eps_reg, I)
+    mul!(bwd.μ, eps_reg, I)
 
     # Initialize gains
     fill!.(bwd.Ks, 0.0)

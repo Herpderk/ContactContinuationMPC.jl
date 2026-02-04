@@ -1,4 +1,4 @@
-mutable struct SimulatorExpansion{T<:AbstractFloat}
+struct SimulatorExpansion{T<:AbstractFloat}
     x::Matrix{T}
     u::Matrix{T}
 end
@@ -11,7 +11,7 @@ function SimulatorExpansion{T}(
     return SimulatorExpansion{T}(Fx, Fu)
 end
 
-mutable struct CostFunctionExpansion{T<:AbstractFloat}
+struct CostFunctionExpansion{T<:AbstractFloat}
     x::Vector{T}
     u::Vector{T}
     xx::Matrix{T}
@@ -28,7 +28,7 @@ function CostFunctionExpansion{T}(
     return CostFunctionExpansion{T}(Lx, Lu, Lxx, Luu)
 end
 
-mutable struct ValueFunctionExpansion{T<:AbstractFloat}
+struct ValueFunctionExpansion{T<:AbstractFloat}
     x::Vector{T}
     xx::Matrix{T}
 end
@@ -41,7 +41,7 @@ function ValueFunctionExpansion{T}(
     return ValueFunctionExpansion{T}(Vx, Vxx)
 end
 
-mutable struct ActionValueFunctionExpansion{T<:AbstractFloat}
+struct ActionValueFunctionExpansion{T<:AbstractFloat}
     x::Vector{T}
     u::Vector{T}
     xx::Matrix{T}
@@ -67,11 +67,9 @@ mutable struct BackwardCache{T<:AbstractFloat}
     Ls::StructArray{<:CostFunctionExpansion{T}}
     Vs::StructArray{<:ValueFunctionExpansion{T}}
     Qs::StructArray{<:ActionValueFunctionExpansion{T}}
-
-    Ks::Vector{VecOrMat{T}}
+    Ks::Vector{Matrix{T}}
     D::Vector{Vector{T}}
-    eps_reg::Diagonal{T}
-
+    μ::Diagonal{T}
     ΔJ::T
 end
 
@@ -87,8 +85,8 @@ function BackwardCache{T}(
 
     Ks = [zeros(T, nu, nx) for k in 1:(N - 1)]
     D = [zeros(T, nu) for k in 1:(N - 1)]
-    eps_reg = I(nu)
+    μ = I(nu)
 
-    ΔJ = T(Inf)
-    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, D, eps_reg, ΔJ)
+    ΔJ = zero(T)
+    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, D, μ, ΔJ)
 end

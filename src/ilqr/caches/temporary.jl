@@ -5,8 +5,8 @@ mutable struct TemporaryCache{T<:AbstractFloat}
     uu::Matrix{T}
     xu::Matrix{T}
     ux::Matrix{T}
-    xx_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
-    uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
+    hess_xx::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
+    hess_uu::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
     bkws_uu::BunchKaufmanWs
     #luws_uu::LUWs
 end
@@ -20,11 +20,9 @@ function TemporaryCache{T}(
     uu = zeros(T, nu, nu)
     xu = zeros(T, nx, nu)
     ux = zeros(T, nu, nx)
-    xx_result = DiffResults.HessianResult(zeros(T, nx))
-    uu_result = DiffResults.HessianResult(zeros(T, nu))
+    hess_xx = DiffResults.HessianResult(zeros(T, nx))
+    hess_uu = DiffResults.HessianResult(zeros(T, nu))
     bkws_uu = BunchKaufmanWs(uu)
     #luws_uu = LUWs(uu)
-    return TemporaryCache{T}(
-        x, u, xx, uu, xu, ux, xx_result, uu_result, bkws_uu
-    )#luws_uu)
+    return TemporaryCache{T}(x, u, xx, uu, xu, ux, hess_xx, hess_uu, bkws_uu)#luws_uu)
 end

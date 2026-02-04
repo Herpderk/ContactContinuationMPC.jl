@@ -9,16 +9,14 @@ function expand_term_L!(
     axpy!(-1.0, params.Xref[end], tmp.x)
 
     # Get terminal costfunc hessian wrt x
-    tmp.xx_result = ForwardDiff.hessian!(
-        tmp.xx_result, params.costfunc.term, tmp.x
-    )
+    tmp.hess_xx = ForwardDiff.hessian!(tmp.hess_xx, params.costfunc.term, tmp.x)
 
     # Reference terminal value expansion
     Vx, Vxx = bwd.Vs.x[end], bwd.Vs.xx[end]
 
     # Save terminal costfunc gradient and hessian
-    copy!(Vx, DiffResults.gradient(tmp.xx_result))
-    copy!(Vxx, DiffResults.hessian(tmp.xx_result))
+    copy!(Vx, DiffResults.gradient(tmp.hess_xx))
+    copy!(Vxx, DiffResults.hessian(tmp.hess_xx))
     return nothing
 end
 
@@ -37,22 +35,22 @@ function expand_stage_L!(
     axpy!(-1.0, params.Uref[k], tmp.u)
 
     # Get gradients and hessians of stage cost wrt x and u
-    tmp.xx_result = ForwardDiff.hessian!(
-        tmp.xx_result, δx -> params.costfunc.stage(δx, tmp.u), tmp.x
+    tmp.hess_xx = ForwardDiff.hessian!(
+        tmp.hess_xx, δx -> params.costfunc.stage(δx, tmp.u), tmp.x
     )
-    tmp.uu_result = ForwardDiff.hessian!(
-        tmp.uu_result, δu -> params.costfunc.stage(tmp.x, δu), tmp.u
+    tmp.hess_uu = ForwardDiff.hessian!(
+        tmp.hess_uu, δu -> params.costfunc.stage(tmp.x, δu), tmp.u
     )
 
     # Reference k-th stage costfunc expansion
     Lx, Lu, Lxx, Luu = bwd.Ls.x[k], bwd.Ls.u[k], bwd.Ls.xx[k], bwd.Ls.uu[k]
 
     # Save stage cost gradients and hessians wrt x and u
-    copy!(Lx, DiffResults.gradient(tmp.xx_result))
-    copy!(Lxx, DiffResults.hessian(tmp.xx_result))
+    copy!(Lx, DiffResults.gradient(tmp.hess_xx))
+    copy!(Lxx, DiffResults.hessian(tmp.hess_xx))
 
-    copy!(Lu, DiffResults.gradient(tmp.uu_result))
-    copy!(Luu, DiffResults.hessian(tmp.uu_result))
+    copy!(Lu, DiffResults.gradient(tmp.hess_uu))
+    copy!(Luu, DiffResults.hessian(tmp.hess_uu))
     return nothing
 end
 
@@ -94,7 +92,7 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     mul!(tmp.ux, Fu', Vxx)
     mul!(Quu, tmp.ux, Fu)
     axpy!(1.0, Luu, Quu)
-    axpy!(1.0, bwd.eps_reg, Quu)
+    axpy!(1.0, bwd.μ, Quu)
 
     # Qxu = Fx'*Vxx*Fu
     mul!(tmp.xx, Fx', Vxx)
