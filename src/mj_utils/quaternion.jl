@@ -5,10 +5,8 @@ We assume quaternions of the following form: q = [s, v1, v2, v3], where s is the
 scalar component and v = [v1, v2, v3] is the vector component.
 """
 
-
 function skew!(
-    A::AbstractMatrix{T},
-    v::AbstractVector{T},
+    A::AbstractMatrix{T}, v::AbstractVector{T}
 )::Nothing where {T<:Real}
     if size(A) != (3, 3)
         throw(DimensionMismatch("Input matrix must be of size 3x3"))
@@ -26,9 +24,8 @@ function skew!(
     A[3, 1] = -v[2]
     A[3, 2] = v[1]
     A[3, 3] = 0.0
-    return
+    return nothing
 end
-
 
 """
 We define the kinematic mapping matrix K such that:
@@ -41,8 +38,7 @@ result of the following left quaternion multiplication:
     K(q) = 0.5 * L(q) * H
 """
 @views function kinematic_mapping_matrix!(
-    K::AbstractMatrix{T},
-    q::AbstractVector{T},
+    K::AbstractMatrix{T}, q::AbstractVector{T}
 )::Nothing where {T<:AbstractFloat}
     if size(K) != (4, 3)
         throw(DimensionMismatch("Input matrix must be of size 4x3"))
@@ -57,5 +53,5 @@ result of the following left quaternion multiplication:
     skew!(K[2:4, :], v)
     axpy!(s, I(3), K[2:4, :])
     K .*= 0.5
-    return
+    return nothing
 end

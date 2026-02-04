@@ -9,8 +9,9 @@ function expand_term_L!(
     axpy!(-1.0, params.Xref[end], tmp.x)
 
     # Get terminal costfunc hessian wrt x
-    tmp.xx_result =
-        ForwardDiff.hessian!(tmp.xx_result, params.costfunc.term, tmp.x)
+    tmp.xx_result = ForwardDiff.hessian!(
+        tmp.xx_result, params.costfunc.term, tmp.x
+    )
 
     # Reference terminal value expansion
     Vx, Vxx = bwd.Vs.x[end], bwd.Vs.xx[end]
@@ -18,9 +19,8 @@ function expand_term_L!(
     # Save terminal costfunc gradient and hessian
     copy!(Vx, DiffResults.gradient(tmp.xx_result))
     copy!(Vxx, DiffResults.hessian(tmp.xx_result))
-    return
+    return nothing
 end
-
 
 function expand_stage_L!(
     bwd::BackwardCache,
@@ -38,14 +38,10 @@ function expand_stage_L!(
 
     # Get gradients and hessians of stage cost wrt x and u
     tmp.xx_result = ForwardDiff.hessian!(
-        tmp.xx_result,
-        δx -> params.costfunc.stage(δx, tmp.u),
-        tmp.x,
+        tmp.xx_result, δx -> params.costfunc.stage(δx, tmp.u), tmp.x
     )
     tmp.uu_result = ForwardDiff.hessian!(
-        tmp.uu_result,
-        δu -> params.costfunc.stage(tmp.x, δu),
-        tmp.u,
+        tmp.uu_result, δu -> params.costfunc.stage(tmp.x, δu), tmp.u
     )
 
     # Reference k-th stage costfunc expansion
@@ -57,28 +53,23 @@ function expand_stage_L!(
 
     copy!(Lu, DiffResults.gradient(tmp.uu_result))
     copy!(Luu, DiffResults.hessian(tmp.uu_result))
-    return
+    return nothing
 end
 
-
 function expand_F!(
-    bwd::BackwardCache,
-    fwd::ForwardCache,
-    params::ProblemParameters,
-    k::Int,
+    bwd::BackwardCache, fwd::ForwardCache, params::ProblemParameters, k::Int
 )::Nothing
     # Reference k-th dynamics jacobians, state, and control input
     Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
-    x1, x, u = fwd.X[k+1], fwd.X[k], fwd.U[k]
+    x1, x, u = fwd.X[k + 1], fwd.X[k], fwd.U[k]
     # Get simulator jacobians
     params.simfunc_bwd!(Fx, Fu, x1, x, u)
-    return
+    return nothing
 end
-
 
 function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Reference k+1-th value expansion and k-th expansions
-    Vx, Vxx = bwd.Vs.x[k+1], bwd.Vs.xx[k+1]
+    Vx, Vxx = bwd.Vs.x[k + 1], bwd.Vs.xx[k + 1]
     Lx, Lu, Lxx, Luu = bwd.Ls.x[k], bwd.Ls.u[k], bwd.Ls.xx[k], bwd.Ls.uu[k]
     Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
     Qx, Qu = bwd.Qs.x[k], bwd.Qs.u[k]
@@ -112,9 +103,8 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Qux = Fu'*Vxx*Fx
     mul!(tmp.ux, Fu', Vxx)
     mul!(Qux, tmp.ux, Fx)
-    return
+    return nothing
 end
-
 
 function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Reference k-th value and action-value expansion
@@ -147,14 +137,14 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     axpy!(1.0, tmp.x, Vx)
     mul!(tmp.x, Qxu, d)
     axpy!(-1.0, tmp.x, Vx)
-    return
+    return nothing
 end
-
 
 function update_gains!(bwd::BackwardCache, k::Int)::Nothing
     # Reference k-th action-value expansion
-    Qu, Quu, Qux, Quu_lu =
-        bwd.Qs.u[k], bwd.Qs.uu[k], bwd.Qs.ux[k], bwd.Qs.uu_lu[k]
+    Qu, Quu, Qux, Quu_lu = bwd.Qs.u[k],
+    bwd.Qs.uu[k], bwd.Qs.ux[k],
+    bwd.Qs.uu_lu[k]
 
     # Get sparse LU factorization
     lu!(Quu_lu, sparse(Quu))
@@ -164,9 +154,8 @@ function update_gains!(bwd::BackwardCache, k::Int)::Nothing
 
     # Feedback gains: K = Quu \ Qux
     ldiv!(bwd.Ks[k], Quu_lu, Qux)
-    return
+    return nothing
 end
-
 
 function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
     # Reference k-th/k+1-th action-value and value expansion
@@ -176,9 +165,8 @@ function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
     # Predicted change in cost
     # ΔJ += Qu' * d
     bwd.ΔJ += Qu' * d
-    return
+    return nothing
 end
-
 
 function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
     # Get references to SolverCache structs
@@ -193,7 +181,7 @@ function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
     expand_term_L!(bwd, tmp, fwd, params)
 
     # Backward Riccati
-    @inbounds for k = length(params.Uref):-1:1
+    @inbounds for k in length(params.Uref):-1:1
         expand_stage_L!(bwd, tmp, fwd, params, k) # Stage cost expansion
         expand_F!(bwd, fwd, params, k) # Dynamics expansion
         expand_Q!(bwd, tmp, k)              # Action-value expansion
@@ -201,5 +189,5 @@ function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
         expand_V!(bwd, tmp, k)         # Value expansion
         update_cost_prediction!(bwd, k)
     end
-    return
+    return nothing
 end

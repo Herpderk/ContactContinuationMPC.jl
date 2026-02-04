@@ -6,12 +6,10 @@ mutable struct ForwardCache{T<:AbstractFloat}
 end
 
 function ForwardCache{T}(
-    nx::Int,
-    nu::Int,
-    N::Int,
+    nx::Int, nu::Int, N::Int
 )::ForwardCache{T} where {T<:AbstractFloat}
-    X = [zeros(T, nx) for k = 1:N]
-    U = [zeros(T, nu) for k = 1:(N-1)]
+    X = [zeros(T, nx) for k in 1:N]
+    U = [zeros(T, nu) for k in 1:(N - 1)]
     α = T(0.0)
     ΔJ = T(0.0)
     return ForwardCache{T}(X, U, α, ΔJ)

@@ -10,7 +10,7 @@ function roll_out!(
     copy!.(fwd.U, sol.U)
 
     # Forward rollout
-    @inbounds for k = 1:length(params.Uref)
+    @inbounds for k in 1:length(params.Uref)
         # Update control input
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
         mul!(tmp.u, fwd.α, bwd.D[k])
@@ -21,11 +21,10 @@ function roll_out!(
         axpy!(-1.0, tmp.u, fwd.U[k])
 
         # Step simulator
-        params.simfunc_fwd!(fwd.X[k+1], fwd.X[k], fwd.U[k])
+        params.simfunc_fwd!(fwd.X[k + 1], fwd.X[k], fwd.U[k])
     end
-    return
+    return nothing
 end
-
 
 function forward_pass!(
     sol::Solution,
@@ -43,7 +42,7 @@ function forward_pass!(
     J_ls = 0.0
 
     # Iterate backtracking line search
-    @inbounds for i = 1:maxiter_ls
+    @inbounds for i in 1:maxiter_ls
         # Roll out new gains
         roll_out!(fwd, bwd, tmp, sol, params)
 
@@ -62,5 +61,5 @@ function forward_pass!(
     sol.J = J_ls
     copy!.(sol.X, fwd.X)
     copy!.(sol.U, fwd.U)
-    return
+    return nothing
 end

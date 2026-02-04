@@ -1,1 +1,4 @@
+style = "blue"
 margin = 80
+always_for_in = true
+trailing_comma = true

@@ -2,7 +2,6 @@ function is_converged(cache::SolverCache, tol_converge::AbstractFloat)::Bool
     return cache.bwd.ΔJ < tol_converge
 end
 
-
 function log(sol::Solution, cache::SolverCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
         println("-----------------------------------")
@@ -17,22 +16,19 @@ function log(sol::Solution, cache::SolverCache, iter::Int)::Nothing
         cache.fwd.ΔJ,
         cache.fwd.α,
     )
-    return
+    return nothing
 end
-
 
 function assert_opts!(opts::SolverOptions)::Nothing
     if opts.tol_converge <= 0.0
         throw(
-            ArgumentError(
-                "The stationarity tolerance should be greater than 0",
-            ),
+            ArgumentError("The stationarity tolerance should be greater than 0")
         )
     end
     if opts.maxiter_solve <= 0
         throw(
             ArgumentError(
-                "The max number of iterations should be greater than 0",
+                "The max number of iterations should be greater than 0"
             ),
         )
     end
@@ -43,9 +39,8 @@ function assert_opts!(opts::SolverOptions)::Nothing
             ),
         )
     end
-    return
+    return nothing
 end
-
 
 function init_solver!(
     sol::Solution,
@@ -73,15 +68,14 @@ function init_solver!(
 
     # Roll out warm-start
     forward_pass!(sol, cache, params, 1)
-    return
+    return nothing
 end
-
 
 function solve!(
     sol::Solution,
     cache::SolverCache,
     params::ProblemParameters,
-    opts::SolverOptions = SolverOptions(),
+    opts::SolverOptions=SolverOptions(),
 )::Nothing
     # Verify options are valid
     assert_opts!(opts)
@@ -90,7 +84,7 @@ function solve!(
     init_solver!(sol, cache, params, opts.eps_reg)
 
     # Main solve loop
-    for i = 1:opts.maxiter_solve
+    for i in 1:opts.maxiter_solve
         backward_pass!(cache, params)
         forward_pass!(sol, cache, params, opts.maxiter_ls)
 
@@ -98,18 +92,16 @@ function solve!(
         if is_converged(cache, opts.tol_converge)
             sol.is_optimal = true
             opts.is_verbose ? println("\nOptimal solution found!") : nothing
-            return
+            return nothing
         end
     end
 
     opts.is_verbose ? println("\nMaximum iterations exceeded!") : nothing
-    return
+    return nothing
 end
 
-
 function solve(
-    params::ProblemParameters,
-    opts::SolverOptions = SolverOptions(),
+    params::ProblemParameters, opts::SolverOptions=SolverOptions()
 )::Solution
     sol = Solution(params)
     cache = SolverCache(params)

@@ -9,10 +9,7 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat}
     uerr::DiffCache{Vector{T},Vector{T}}
 
     function TrajectoryCostFunction{T}(
-        costfunc_stage::Function,
-        costfunc_term::Function,
-        nx::Int,
-        nu::Int,
+        costfunc_stage::Function, costfunc_term::Function, nx::Int, nu::Int
     ) where {T<:AbstractFloat}
         xerr = DiffCache(zeros(T, nx))
         uerr = DiffCache(zeros(T, nu))
@@ -38,7 +35,7 @@ Callable struct method for the `TrajectoryCostFunction` struct that computes the
     super_el = X[1][1] + U[1][1]
     J = zero(super_el)
 
-    @inbounds @simd for k = 1:(length(Uref))
+    @inbounds @simd for k in 1:(length(Uref))
         @. xerr = X[k] - Xref[k]
         @. uerr = U[k] - Uref[k]
         J += cache.stage(xerr, uerr)

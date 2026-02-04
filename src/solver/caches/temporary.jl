@@ -10,8 +10,7 @@ mutable struct TemporaryCache{T<:AbstractFloat}
 end
 
 function TemporaryCache{T}(
-    nx::Int,
-    nu::Int,
+    nx::Int, nu::Int
 )::TemporaryCache{T} where {T<:AbstractFloat}
     x = zeros(T, nx)
     u = zeros(T, nu)

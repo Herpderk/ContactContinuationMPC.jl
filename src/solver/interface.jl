@@ -40,7 +40,7 @@ function ProblemParameters{T}(
         if length(xref) != nx
             throw(
                 DimensionMismatch(
-                    "Reference state dimensions are not consistent",
+                    "Reference state dimensions are not consistent"
                 ),
             )
         end
@@ -49,7 +49,7 @@ function ProblemParameters{T}(
         if length(uref) != nu
             throw(
                 DimensionMismatch(
-                    "Reference input dimensions are not consistent",
+                    "Reference input dimensions are not consistent"
                 ),
             )
         end
@@ -60,19 +60,12 @@ function ProblemParameters{T}(
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
     return ProblemParameters{T}(
-        simfunc_fwd!,
-        simfunc_bwd!,
-        costfunc,
-        Xref_T,
-        Uref_T,
-        xic_T,
+        simfunc_fwd!, simfunc_bwd!, costfunc, Xref_T, Uref_T, xic_T
     )
 end
 
 # Default type parameter
 ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
-
-
 
 mutable struct Solution{T<:AbstractFloat}
     X::Vector{Vector{T}}
@@ -82,7 +75,7 @@ mutable struct Solution{T<:AbstractFloat}
 end
 
 function Solution{T}(
-    params::ProblemParameters{T},
+    params::ProblemParameters{T}
 )::Solution{T} where {T<:AbstractFloat}
     # Get problem dims
     nx = length(params.Xref[1])
@@ -90,8 +83,8 @@ function Solution{T}(
     N = length(params.Xref)
 
     # Initialize solution terms from dims
-    X = [zeros(T, nx) for k = 1:N]
-    U = [zeros(T, nu) for k = 1:(N-1)]
+    X = [zeros(T, nx) for k in 1:N]
+    U = [zeros(T, nu) for k in 1:(N - 1)]
     J = T(0.0)
     is_optimal = false
     return Solution{T}(X, U, J, is_optimal)
@@ -100,8 +93,6 @@ end
 # Default type parameter
 Solution(args...) = Solution{DEFAULT_DTYPE}(args...)
 
-
-
 mutable struct SolverCache{T<:AbstractFloat}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
@@ -109,7 +100,7 @@ mutable struct SolverCache{T<:AbstractFloat}
 end
 
 function SolverCache{T}(
-    params::ProblemParameters{T},
+    params::ProblemParameters{T}
 )::SolverCache{T} where {T<:AbstractFloat}
     # Get problem dims
     nx = length(params.Xref[1])
@@ -126,8 +117,6 @@ end
 # Default type parameter
 SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
 
-
-
 @option struct DefaultSolverOptions{T<:AbstractFloat}
     eps_reg::T
     tol_converge::T
@@ -135,8 +124,6 @@ SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
     maxiter_ls::Int
     is_verbose::Bool
 end
-
-
 
 mutable struct SolverOptions{T<:AbstractFloat}
     eps_reg::T
@@ -147,16 +134,15 @@ mutable struct SolverOptions{T<:AbstractFloat}
 end
 
 function SolverOptions{T}(;
-    eps_reg::Union{AbstractFloat,Nothing} = nothing,
-    tol_converge::Union{AbstractFloat,Nothing} = nothing,
-    maxiter_solve::Union{Int,Nothing} = nothing,
-    maxiter_ls::Union{Int,Nothing} = nothing,
-    is_verbose::Union{Bool,Nothing} = nothing,
+    eps_reg::Union{AbstractFloat,Nothing}=nothing,
+    tol_converge::Union{AbstractFloat,Nothing}=nothing,
+    maxiter_solve::Union{Int,Nothing}=nothing,
+    maxiter_ls::Union{Int,Nothing}=nothing,
+    is_verbose::Union{Bool,Nothing}=nothing,
 )::SolverOptions{T} where {T<:AbstractFloat}
     # Load default options from config
     default = from_toml(
-        DefaultSolverOptions{T},
-        joinpath(@__DIR__, "config/default_opts.toml"),
+        DefaultSolverOptions{T}, joinpath(@__DIR__, "config/default_opts.toml")
     )
 
     # Use default options if the corresponding option is nothing
@@ -168,11 +154,7 @@ function SolverOptions{T}(;
     maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
     is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
     return SolverOptions{T}(
-        eps_reg_,
-        tol_converge_,
-        maxiter_solve_,
-        maxiter_ls_,
-        is_verbose_,
+        eps_reg_, tol_converge_, maxiter_solve_, maxiter_ls_, is_verbose_
     )
 end
 
