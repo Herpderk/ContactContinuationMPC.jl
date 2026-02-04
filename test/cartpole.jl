@@ -173,6 +173,19 @@ function (weights::QuadraticCostFunction{T})(
     return 0.5 * xerr' * weights.Qf * xerr
 end
 
+function clean_solve(
+    params::ProblemParameters, opts::SolverOptions; use_time::Bool=false
+)::Solution
+    sol = Solution(params)
+    cache = SolverCache(params)
+    if use_time
+        @time solve!(sol, cache, params, opts)
+    else
+        solve!(sol, cache, params, opts)
+    end
+    return sol
+end
+
 @testset "iLQR Cartpole Integration Test" begin
     dt = 0.05
     sim = CartpoleSimulator{Float64}(; dt=dt)
@@ -191,7 +204,8 @@ end
     params = ProblemParameters{Float64}(
         sim, sim, costfunc, costfunc, Xref, Uref, xic
     )
-    sol = solve(params)
-
+    opts = SolverOptions{Float64}()
+    sol = clean_solve(params, opts)
+    sol = clean_solve(params, opts, use_time=true)
     @test sol.is_optimal
 end

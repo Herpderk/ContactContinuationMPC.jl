@@ -94,7 +94,7 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     mul!(tmp.ux, Fu', Vxx)
     mul!(Quu, tmp.ux, Fu)
     axpy!(1.0, Luu, Quu)
-    axpy!(1.0, bwd.μ, Quu)
+    axpy!(1.0, bwd.eps_reg, Quu)
 
     # Qxu = Fx'*Vxx*Fu
     mul!(tmp.xx, Fx', Vxx)
@@ -140,20 +140,33 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     return nothing
 end
 
-function update_gains!(bwd::BackwardCache, k::Int)::Nothing
+function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Reference k-th action-value expansion
-    Qu, Quu, Qux, Quu_lu = bwd.Qs.u[k],
-    bwd.Qs.uu[k], bwd.Qs.ux[k],
-    bwd.Qs.uu_lu[k]
+    Qu, Quu, Qux = bwd.Qs.u[k], bwd.Qs.uu[k], bwd.Qs.ux[k]
+    Quu_temp = tmp.uu
+    bkws = tmp.bkws_uu
+    #luws = tmp.luws_uu
 
-    # Get sparse LU factorization
-    lu!(Quu_lu, sparse(Quu))
+    # Reference k-th control gains
+    d, K = bwd.D[k], bwd.Ks[k]
+
+    # Perform lower-triangular Bunch-Kaufman factorization in place
+    # Overwrite Quu_temp with Bunch-Kaufman factors
+    copy!(Quu_temp, Quu)
+    LAPACK.sytrf!(bkws, 'L', Quu_temp)
+    #LAPACK.getrf!(luws, Quu_temp)
 
     # Feedforward gains: d = Quu \ Qu
-    ldiv!(bwd.D[k], Quu_lu, Qu)
+    # sytrs! directly overwrites Qu
+    copy!(d, Qu)
+    LAPACK.sytrs!('L', Quu_temp, bkws.ipiv, d)
+    #LAPACK.getrs!('N', Quu_temp, luws.ipiv, d)
 
     # Feedback gains: K = Quu \ Qux
-    ldiv!(bwd.Ks[k], Quu_lu, Qux)
+    # sytrs! directly overwrites Qux
+    copy!(K, Qux)
+    LAPACK.sytrs!('L', Quu_temp, bkws.ipiv, K)
+    #LAPACK.getrs!('N', Quu_temp, luws.ipiv, K)
     return nothing
 end
 
@@ -185,7 +198,7 @@ function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
         expand_stage_L!(bwd, tmp, fwd, params, k) # Stage cost expansion
         expand_F!(bwd, fwd, params, k) # Dynamics expansion
         expand_Q!(bwd, tmp, k)              # Action-value expansion
-        update_gains!(bwd, k)               # Update feedback and feedforward
+        update_gains!(bwd, tmp, k)               # Update feedback and feedforward
         expand_V!(bwd, tmp, k)         # Value expansion
         update_cost_prediction!(bwd, k)
     end

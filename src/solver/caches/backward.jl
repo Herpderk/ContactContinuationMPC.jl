@@ -48,7 +48,6 @@ mutable struct ActionValueFunctionExpansion{T<:AbstractFloat}
     xu::Matrix{T}
     ux::Matrix{T}
     uu::Matrix{T}
-    uu_lu::SparseArrays.UMFPACK.UmfpackLU{T,Int64}
 end
 
 function ActionValueFunctionExpansion{T}(
@@ -60,8 +59,7 @@ function ActionValueFunctionExpansion{T}(
     Qxu = zeros(T, nx, nu)
     Qux = zeros(T, nu, nx)
     Quu = zeros(T, nu, nu)
-    Quu_lu = lu(sparse(ones(T, nu, nu)))
-    return ActionValueFunctionExpansion{T}(Qx, Qu, Qxx, Qxu, Qux, Quu, Quu_lu)
+    return ActionValueFunctionExpansion{T}(Qx, Qu, Qxx, Qxu, Qux, Quu)
 end
 
 mutable struct BackwardCache{T<:AbstractFloat}
@@ -72,7 +70,7 @@ mutable struct BackwardCache{T<:AbstractFloat}
 
     Ks::Vector{VecOrMat{T}}
     D::Vector{Vector{T}}
-    μ::Matrix{T}
+    eps_reg::Diagonal{T}
 
     ΔJ::T
 end
@@ -89,8 +87,8 @@ function BackwardCache{T}(
 
     Ks = [zeros(T, nu, nx) for k in 1:(N - 1)]
     D = [zeros(T, nu) for k in 1:(N - 1)]
-    μ = zeros(T, nu, nu)
+    eps_reg = I(nu)
 
     ΔJ = T(Inf)
-    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, D, μ, ΔJ)
+    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, D, eps_reg, ΔJ)
 end
