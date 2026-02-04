@@ -1,4 +1,4 @@
-mutable struct ProblemParameters{T<:AbstractFloat}
+mutable struct TrajoptParameters{T<:AbstractFloat}
     simfunc_fwd!::Function      # expects simfunc_fwd!(x1, x0, u0)::Nothing
     simfunc_bwd!::Function      # expects simfunc_bwd!(A, B, x1, x0, u0)::Nothing
     costfunc::TrajectoryCostFunction{T}
@@ -7,7 +7,7 @@ mutable struct ProblemParameters{T<:AbstractFloat}
     xic::Vector{T}
 end
 
-function ProblemParameters{T}(
+function TrajoptParameters{T}(
     simfunc_fwd!::Function,
     simfunc_bwd!::Function,
     costfunc_stage::Function,
@@ -15,7 +15,7 @@ function ProblemParameters{T}(
     Xref::AbstractVector{V},
     Uref::AbstractVector{V},
     xic::V,
-)::ProblemParameters{T} where {T<:AbstractFloat,V<:AbstractVector{<:Real}}
+)::TrajoptParameters{T} where {T<:AbstractFloat,V<:AbstractVector{<:Real}}
     # Get problem dimensions
     nx = length(Xref[1])
     nu = length(Uref[1])
@@ -59,24 +59,24 @@ function ProblemParameters{T}(
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
-    return ProblemParameters{T}(
+    return TrajoptParameters{T}(
         simfunc_fwd!, simfunc_bwd!, costfunc, Xref_T, Uref_T, xic_T
     )
 end
 
 # Default type parameter
-ProblemParameters(args...) = ProblemParameters{DEFAULT_DTYPE}(args...)
+TrajoptParameters(args...) = TrajoptParameters{DEFAULT_DTYPE}(args...)
 
-mutable struct Solution{T<:AbstractFloat}
+mutable struct TrajoptSolution{T<:AbstractFloat}
     X::Vector{Vector{T}}
     U::Vector{Vector{T}}
     J::T
     is_optimal::Bool
 end
 
-function Solution{T}(
-    params::ProblemParameters{T}
-)::Solution{T} where {T<:AbstractFloat}
+function TrajoptSolution{T}(
+    params::TrajoptParameters{T}
+)::TrajoptSolution{T} where {T<:AbstractFloat}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -87,21 +87,21 @@ function Solution{T}(
     U = [zeros(T, nu) for k in 1:(N - 1)]
     J = T(0.0)
     is_optimal = false
-    return Solution{T}(X, U, J, is_optimal)
+    return TrajoptSolution{T}(X, U, J, is_optimal)
 end
 
 # Default type parameter
-Solution(args...) = Solution{DEFAULT_DTYPE}(args...)
+TrajoptSolution(args...) = TrajoptSolution{DEFAULT_DTYPE}(args...)
 
-mutable struct SolverCache{T<:AbstractFloat}
+mutable struct ILqrCache{T<:AbstractFloat}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
 end
 
-function SolverCache{T}(
-    params::ProblemParameters{T}
-)::SolverCache{T} where {T<:AbstractFloat}
+function ILqrCache{T}(
+    params::TrajoptParameters{T}
+)::ILqrCache{T} where {T<:AbstractFloat}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -111,52 +111,52 @@ function SolverCache{T}(
     fwd = ForwardCache{T}(nx, nu, N)
     bwd = BackwardCache{T}(nx, nu, N)
     tmp = TemporaryCache{T}(nx, nu)
-    return SolverCache{T}(fwd, bwd, tmp)
+    return ILqrCache{T}(fwd, bwd, tmp)
 end
 
 # Default type parameter
-SolverCache(args...) = SolverCache{DEFAULT_DTYPE}(args...)
+ILqrCache(args...) = ILqrCache{DEFAULT_DTYPE}(args...)
 
-@option struct DefaultSolverOptions{T<:AbstractFloat}
+@option struct DefaultILqrOptions{T<:AbstractFloat}
     eps_reg::T
     tol_converge::T
-    maxiter_solve::Int
+    maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
 end
 
-mutable struct SolverOptions{T<:AbstractFloat}
+mutable struct ILqrOptions{T<:AbstractFloat}
     eps_reg::T
     tol_converge::T
-    maxiter_solve::Int
+    maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
 end
 
-function SolverOptions{T}(;
+function ILqrOptions{T}(;
     eps_reg::Union{AbstractFloat,Nothing}=nothing,
     tol_converge::Union{AbstractFloat,Nothing}=nothing,
-    maxiter_solve::Union{Int,Nothing}=nothing,
+    maxiter_ilqr::Union{Int,Nothing}=nothing,
     maxiter_ls::Union{Int,Nothing}=nothing,
     is_verbose::Union{Bool,Nothing}=nothing,
-)::SolverOptions{T} where {T<:AbstractFloat}
+)::ILqrOptions{T} where {T<:AbstractFloat}
     # Load default options from config
     default = from_toml(
-        DefaultSolverOptions{T}, joinpath(@__DIR__, "config/default_opts.toml")
+        DefaultILqrOptions{T}, joinpath(@__DIR__, "config/default_opts.toml")
     )
 
     # Use default options if the corresponding option is nothing
     eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
     tol_converge_ =
         isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
-    maxiter_solve_ =
-        isnothing(maxiter_solve) ? default.maxiter_solve : maxiter_solve
+    maxiter_ilqr_ =
+        isnothing(maxiter_ilqr) ? default.maxiter_ilqr : maxiter_ilqr
     maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
     is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
-    return SolverOptions{T}(
-        eps_reg_, tol_converge_, maxiter_solve_, maxiter_ls_, is_verbose_
+    return ILqrOptions{T}(
+        eps_reg_, tol_converge_, maxiter_ilqr_, maxiter_ls_, is_verbose_
     )
 end
 
 # Default type parameter
-SolverOptions(args...) = SolverOptions{DEFAULT_DTYPE}(args...)
+ILqrOptions(args...) = ILqrOptions{DEFAULT_DTYPE}(args...)

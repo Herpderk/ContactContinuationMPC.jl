@@ -2,7 +2,7 @@ function expand_term_L!(
     bwd::BackwardCache,
     tmp::TemporaryCache,
     fwd::ForwardCache,
-    params::ProblemParameters,
+    params::TrajoptParameters,
 )::Nothing
     # Get terminal x error
     copy!(tmp.x, fwd.X[end])
@@ -26,7 +26,7 @@ function expand_stage_L!(
     bwd::BackwardCache,
     tmp::TemporaryCache,
     fwd::ForwardCache,
-    params::ProblemParameters,
+    params::TrajoptParameters,
     k::Int,
 )::Nothing
     # Get k-th x and u errors
@@ -57,7 +57,7 @@ function expand_stage_L!(
 end
 
 function expand_F!(
-    bwd::BackwardCache, fwd::ForwardCache, params::ProblemParameters, k::Int
+    bwd::BackwardCache, fwd::ForwardCache, params::TrajoptParameters, k::Int
 )::Nothing
     # Reference k-th dynamics jacobians, state, and control input
     Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
@@ -181,8 +181,8 @@ function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
     return nothing
 end
 
-function backward_pass!(cache::SolverCache, params::ProblemParameters)::Nothing
-    # Get references to SolverCache structs
+function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
+    # Get references to ILqrCache structs
     fwd = cache.fwd
     bwd = cache.bwd
     tmp = cache.tmp

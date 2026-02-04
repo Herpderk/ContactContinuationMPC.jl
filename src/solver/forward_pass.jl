@@ -2,8 +2,8 @@ function roll_out!(
     fwd::ForwardCache,
     bwd::BackwardCache,
     tmp::TemporaryCache,
-    sol::Solution,
-    params::ProblemParameters,
+    sol::TrajoptSolution,
+    params::TrajoptParameters,
 )::Nothing
     # Initialize trajectory with previous solution
     copy!.(fwd.X, sol.X)
@@ -27,12 +27,12 @@ function roll_out!(
 end
 
 function forward_pass!(
-    sol::Solution,
-    cache::SolverCache,
-    params::ProblemParameters,
+    sol::TrajoptSolution,
+    cache::ILqrCache,
+    params::TrajoptParameters,
     maxiter_ls::Int,
 )::Nothing
-    # Get references to SolverCache structs
+    # Get references to ILqrCache structs
     fwd = cache.fwd
     bwd = cache.bwd
     tmp = cache.tmp

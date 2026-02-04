@@ -174,14 +174,14 @@ function (weights::QuadraticCostFunction{T})(
 end
 
 function clean_solve(
-    params::ProblemParameters, opts::SolverOptions; use_time::Bool=false
-)::Solution
-    sol = Solution(params)
-    cache = SolverCache(params)
+    params::TrajoptParameters, opts::ILqrOptions; use_time::Bool=false
+)::TrajoptSolution
+    sol = TrajoptSolution(params)
+    cache = ILqrCache(params)
     if use_time
-        @time solve!(sol, cache, params, opts)
+        @time ilqr_solve!(sol, cache, params, opts)
     else
-        solve!(sol, cache, params, opts)
+        ilqr_solve!(sol, cache, params, opts)
     end
     return sol
 end
@@ -201,11 +201,11 @@ end
     xic = 1e-3 * ones(sim.dynamics.nx)
 
     # Solve trajectory optimization
-    params = ProblemParameters{Float64}(
+    params = TrajoptParameters{Float64}(
         sim, sim, costfunc, costfunc, Xref, Uref, xic
     )
-    opts = SolverOptions{Float64}()
+    opts = ILqrOptions{Float64}()
     sol = clean_solve(params, opts)
-    sol = clean_solve(params, opts, use_time=true)
+    sol = clean_solve(params, opts; use_time=true)
     @test sol.is_optimal
 end

@@ -10,8 +10,13 @@ using Printf
 using Plots
 using Configurations
 
-export ProblemParameters,
-    Solution, SolverCache, SolverOptions, solve!, solve, plot_2d_states
+export TrajoptParameters,
+    TrajoptSolution,
+    ILqrCache,
+    ILqrOptions,
+    ilqr_solve!,
+    ilqr_solve,
+    plot_2d_states
 
 include("plot.jl")
 include("costfunc.jl")
