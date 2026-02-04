@@ -3,18 +3,18 @@
 
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
-mutable struct TrajectoryCostFunction{T<:AbstractFloat}
-    stage::Function
-    term::Function
+mutable struct TrajectoryCostFunction{T<:AbstractFloat,C_stage,C_term}
+    stage::C_stage
+    term::C_term
     xerr::DiffCache{Vector{T},Vector{T}}
     uerr::DiffCache{Vector{T},Vector{T}}
 
-    function TrajectoryCostFunction{T}(
-        costfunc_stage::Function, costfunc_term::Function, nx::Int, nu::Int
-    ) where {T<:AbstractFloat}
+    function TrajectoryCostFunction{T,C_stage,C_term}(
+        costfunc_stage::C_stage, costfunc_term::C_term, nx::Int, nu::Int
+    ) where {T<:AbstractFloat,C_stage,C_term}
         xerr = DiffCache(zeros(T, nx))
         uerr = DiffCache(zeros(T, nu))
-        return new{T}(costfunc_stage, costfunc_term, xerr, uerr)
+        return new{T,C_stage,C_term}(costfunc_stage, costfunc_term, xerr, uerr)
     end
 end
 
@@ -23,12 +23,12 @@ end
 
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
-function (cache::TrajectoryCostFunction{T})(
-    X::AbstractVector{V},
-    U::AbstractVector{V},
-    Xref::AbstractVector{V},
-    Uref::AbstractVector{V},
-)::Union{T,ForwardDiff.Dual} where {T,V<:AbstractVector{<:Real}}
+function (cache::TrajectoryCostFunction{T,C_stage,C_term})(
+    X::AbstractVector{<:AbstractVector{<:Real}},
+    U::AbstractVector{<:AbstractVector{<:Real}},
+    Xref::AbstractVector{<:AbstractVector{<:Real}},
+    Uref::AbstractVector{<:AbstractVector{<:Real}},
+)::Union{T,ForwardDiff.Dual} where {T,C_stage,C_term}
     # Get temporary error vectors
     xerr = get_tmp(cache.xerr, X[1])
     uerr = get_tmp(cache.uerr, U[1])
@@ -47,6 +47,3 @@ function (cache::TrajectoryCostFunction{T})(
     J += cache.term(xerr)
     return J
 end
-
-# Default type parameter
-TrajectoryCostFunction(args...) = TrajectoryCostFunction{DEFAULT_DTYPE}(args...)

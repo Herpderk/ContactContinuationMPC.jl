@@ -10,7 +10,7 @@ using MjContactImplicit
 """
 Struct for storing cartpole system parameters and array caches.
 """
-struct CartpoleDynamics{T<:AbstractFloat} <: Function
+struct CartpoleDynamics{T<:AbstractFloat}
     mc::T
     mp::T
     l::T
@@ -60,7 +60,7 @@ end
 """
 Struct for storing cartpole system parameters and array caches.
 """
-struct CartpoleSimulator{T<:AbstractFloat} <: Function
+struct CartpoleSimulator{T<:AbstractFloat}
     dt::T
     dynamics::CartpoleDynamics{T}
     x_tmp::DiffCache{Vector{T},Vector{T}}
@@ -137,7 +137,7 @@ end
 """
 Struct for storing quadratic cost function weights.
 """
-struct QuadraticCostFunction{T<:AbstractFloat} <: Function
+struct QuadraticCostFunction{T<:AbstractFloat}
     Q::Matrix{T}
     R::Matrix{T}
     Qf::Matrix{T}
@@ -201,10 +201,11 @@ end
     xic = 1e-3 * ones(sim.dynamics.nx)
 
     # Solve trajectory optimization
-    params = TrajoptParameters{Float64}(
+    T, S, C = Float64, typeof(sim), typeof(costfunc)
+    params = TrajoptParameters{Float64,S,S,C,C}(
         sim, sim, costfunc, costfunc, Xref, Uref, xic
     )
-    opts = ILqrOptions{Float64}()
+    opts = ILqrOptions()
     sol = clean_solve(params, opts)
     sol = clean_solve(params, opts; use_time=true)
     @test sol.is_optimal

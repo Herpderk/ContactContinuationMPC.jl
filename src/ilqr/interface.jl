@@ -1,21 +1,21 @@
-mutable struct TrajoptParameters{T<:AbstractFloat}
-    simfunc_fwd!::Function      # expects simfunc_fwd!(x1, x0, u0)::Nothing
-    simfunc_bwd!::Function      # expects simfunc_bwd!(A, B, x1, x0, u0)::Nothing
-    costfunc::TrajectoryCostFunction{T}
+mutable struct TrajoptParameters{T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+    simfunc_fwd!::S_fwd      # expects simfunc_fwd!(x1, x0, u0)::Nothing
+    simfunc_bwd!::S_bwd      # expects simfunc_bwd!(A, B, x1, x0, u0)::Nothing
+    costfunc::TrajectoryCostFunction{T,C_stage,C_term}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
 end
 
-function TrajoptParameters{T}(
-    simfunc_fwd!::Function,
-    simfunc_bwd!::Function,
-    costfunc_stage::Function,
-    costfunc_term::Function,
-    Xref::AbstractVector{V},
-    Uref::AbstractVector{V},
-    xic::V,
-)::TrajoptParameters{T} where {T<:AbstractFloat,V<:AbstractVector{<:Real}}
+function TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
+    simfunc_fwd!::S_fwd,
+    simfunc_bwd!::S_bwd,
+    costfunc_stage::C_stage,
+    costfunc_term::C_term,
+    Xref::AbstractVector{<:AbstractVector{<:Real}},
+    Uref::AbstractVector{<:AbstractVector{<:Real}},
+    xic::AbstractVector{<:Real},
+) where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
     # Get problem dimensions
     nx = length(Xref[1])
     nu = length(Uref[1])
@@ -55,17 +55,16 @@ function TrajoptParameters{T}(
         end
     end
 
-    costfunc = TrajectoryCostFunction{T}(costfunc_stage, costfunc_term, nx, nu)
+    costfunc = TrajectoryCostFunction{T,C_stage,C_term}(
+        costfunc_stage, costfunc_term, nx, nu
+    )
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
-    return TrajoptParameters{T}(
+    return TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
         simfunc_fwd!, simfunc_bwd!, costfunc, Xref_T, Uref_T, xic_T
     )
 end
-
-# Default type parameter
-TrajoptParameters(args...) = TrajoptParameters{DEFAULT_DTYPE}(args...)
 
 mutable struct TrajoptSolution{T<:AbstractFloat}
     X::Vector{Vector{T}}
@@ -75,8 +74,8 @@ mutable struct TrajoptSolution{T<:AbstractFloat}
 end
 
 function TrajoptSolution{T}(
-    params::TrajoptParameters{T}
-)::TrajoptSolution{T} where {T<:AbstractFloat}
+    params::TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}
+)::TrajoptSolution{T} where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -100,8 +99,8 @@ mutable struct ILqrCache{T<:AbstractFloat}
 end
 
 function ILqrCache{T}(
-    params::TrajoptParameters{T}
-)::ILqrCache{T} where {T<:AbstractFloat}
+    params::TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}
+)::ILqrCache{T} where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -134,8 +133,8 @@ mutable struct ILqrOptions{T<:AbstractFloat}
 end
 
 function ILqrOptions{T}(;
-    eps_reg::Union{AbstractFloat,Nothing}=nothing,
-    tol_converge::Union{AbstractFloat,Nothing}=nothing,
+    eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
+    tol_converge::Union{<:AbstractFloat,Nothing}=nothing,
     maxiter_ilqr::Union{Int,Nothing}=nothing,
     maxiter_ls::Union{Int,Nothing}=nothing,
     is_verbose::Union{Bool,Nothing}=nothing,
