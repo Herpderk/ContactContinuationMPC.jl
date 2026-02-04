@@ -71,31 +71,32 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
 
     # Action-value gradients
     # Q.x = L.x + F.x'*V.x
-    mul!(Q.x, F.x', V.x)
-    axpy!(1.0, L.x, Q.x)
+    #mul!(Q.x, F.x', V.x)
+    copy!(Q.x, L.x)
+    BLAS.gemv!('T', 1.0, F.x, V.x, 1.0, Q.x)
 
     # Q.u = L.u + F.u'*V.x
-    mul!(Q.u, F.u', V.x)
-    axpy!(1.0, L.u, Q.u)
+    copy!(Q.u, L.u)
+    BLAS.gemv!('T', 1.0, F.u, V.x, 1.0, Q.u)
 
     # Action-value hessians
     # Q.xx = L.xx + F.x'*V.xx*F.x
-    mul!(tmp.xx, F.x', V.xx)
+    BLAS.gemm!('T', 'N', 1.0, F.x, V.xx, 0.0, tmp.xx)
     mul!(Q.xx, tmp.xx, F.x)
     axpy!(1.0, L.xx, Q.xx)
 
     # Q.uu = L.uu + F.u'*V.xx*F.u + μ*I
-    mul!(tmp.ux, F.u', V.xx)
+    BLAS.gemm!('T', 'N', 1.0, F.u, V.xx, 0.0, tmp.ux)
     mul!(Q.uu, tmp.ux, F.u)
     axpy!(1.0, L.uu, Q.uu)
     axpy!(1.0, bwd.μ, Q.uu)
 
     # Q.xu = F.x'*V.xx*F.u
-    mul!(tmp.xx, F.x', V.xx)
+    BLAS.gemm!('T', 'N', 1.0, F.x, V.xx, 0.0, tmp.xx)
     mul!(Q.xu, tmp.xx, F.u)
 
     # Q.ux = F.u'*V.xx*F.x
-    mul!(tmp.ux, F.u', V.xx)
+    BLAS.gemm!('T', 'N', 1.0, F.u, V.xx, 0.0, tmp.ux)
     mul!(Q.ux, tmp.ux, F.x)
     return nothing
 end
@@ -108,24 +109,24 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     d, K = bwd.ds[k], bwd.Ks[k]
 
     # Cost-to-go gradient
-    # V.x = Q.x - K'*u + K'*uu*d - xu*d
+    # V.x = Q.x - K'*Q.u + K'*Q.uu*d - Q.xu*d
     copy!(V.x, Q.x)
-    mul!(tmp.x, K', Q.u)
-    axpy!(-1.0, tmp.x, V.x)
-    mul!(tmp.xu, K', Q.uu)
-    mul!(tmp.x, tmp.xu, d)
-    axpy!(1.0, tmp.x, V.x)
+    BLAS.gemv!('T', -1.0, K, Q.u, 1.0, V.x)
+
+    mul!(tmp.uu, Q.uu, d)
+    BLAS.gemm!('T', 'N', 1.0, K, tmp.uu, 1.0, V.x)
+
     mul!(tmp.x, Q.xu, d)
     axpy!(-1.0, tmp.x, V.x)
 
     # Cost-to-go hessian
     # V.xx = Q.xx - K'*Q.ux + K'*Q.uu*K - Q.xu*K
     copy!(V.xx, Q.xx)
-    mul!(tmp.xx, K', Q.ux)
-    axpy!(-1.0, tmp.xx, V.xx)
-    mul!(tmp.xu, K', Q.uu)
-    mul!(tmp.xx, tmp.xu, K)
-    axpy!(1.0, tmp.xx, V.xx)
+    BLAS.gemm!('T', 'N', -1.0, K, Q.ux, 1.0, V.xx)
+
+    mul!(tmp.ux, Q.uu, K)
+    BLAS.gemm!('T', 'N', 1.0, K, tmp.ux, 1.0, V.xx)
+
     mul!(tmp.xx, Q.xu, K)
     axpy!(-1.0, tmp.xx, V.xx)
     return nothing
@@ -160,10 +161,16 @@ function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     return nothing
 end
 
-function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
-    # Predicted change in cost
-    # ΔJ += Q.u' * d
-    bwd.ΔJ += bwd.Q.u' * bwd.ds[k]
+function update_cost_prediction!(
+    bwd::BackwardCache, tmp::TemporaryCache, k::Int
+)::Nothing
+    Q = bwd.Q
+    d = bwd.ds[k]
+    singleton = tmp.singleton
+
+    # Predicted change in cost: ΔJ += Q.u' * d
+    BLAS.gemm!('T', 'N', 1.0, Q.u, d, 0.0, singleton)
+    bwd.ΔJ += tmp.singleton[1]
     return nothing
 end
 
@@ -184,7 +191,7 @@ function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
         expand_Q!(bwd, tmp)          # Action-value expansion
         update_gains!(bwd, tmp, k)      # Update feedback and feedforward
         expand_V!(bwd, tmp, k)          # Value expansion
-        update_cost_prediction!(bwd, k)
+        update_cost_prediction!(bwd, tmp, k)
     end
     return nothing
 end

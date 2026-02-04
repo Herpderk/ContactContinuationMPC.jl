@@ -69,7 +69,7 @@ mutable struct BackwardCache{T<:AbstractFloat}
     Q::ActionValueFunctionExpansion{T}
     Ks::Vector{Matrix{T}}
     ds::Vector{Vector{T}}
-    μ::Diagonal{T}
+    μ::Matrix{T}
     ΔJ::T
 end
 
@@ -82,7 +82,7 @@ function BackwardCache{T}(
     Q = ActionValueFunctionExpansion{T}(nx, nu)
     Ks = [zeros(T, nu, nx) for k in 1:(N - 1)]
     ds = [zeros(T, nu) for k in 1:(N - 1)]
-    μ = I(nu)
+    μ = Matrix{T}(I(nu))
     ΔJ = zero(T)
     return BackwardCache{T}(F, L, V, Q, Ks, ds, μ, ΔJ)
 end
