@@ -1,7 +1,7 @@
 module MjContactImplicit
 
 using LinearAlgebra
-using StaticArrays
+#using StaticArrays
 using SparseArrays
 using StructArrays
 using ForwardDiff
@@ -11,14 +11,8 @@ using Printf
 using Plots
 using Configurations
 
-#= export
-		ProblemParameters,
-		Solution,
-		SolverCache,
-		SolverOptions,
-		solve!,
-		solve,
-		plot_2d_states =#
+export ProblemParameters,
+    Solution, SolverCache, SolverOptions, solve!, solve, plot_2d_states
 
 include("plot.jl")
 include("costfunc.jl")

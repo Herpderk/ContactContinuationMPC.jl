@@ -38,7 +38,7 @@ Callable struct method for the `TrajectoryCostFunction` struct that computes the
     super_el = X[1][1] + U[1][1]
     J = zero(super_el)
 
-    @inbounds for k = 1:(length(Uref))
+    @inbounds @simd for k = 1:(length(Uref))
         @. xerr = X[k] - Xref[k]
         @. uerr = U[k] - Uref[k]
         J += cache.stage(xerr, uerr)

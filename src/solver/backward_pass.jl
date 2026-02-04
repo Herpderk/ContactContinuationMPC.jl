@@ -118,13 +118,9 @@ end
 
 function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Reference k-th value and action-value expansion
-    Vx, Vxx = bwd.Vs.x[k+1], bwd.Vs.xx[k+1]
-    Qx, Qu, Qxx, Quu, Qxu, Qux = bwd.Qs.x[k],
-    bwd.Qs.u[k],
-    bwd.Qs.xx[k],
-    bwd.Qs.uu[k],
-    bwd.Qs.xu[k],
-    bwd.Qs.ux[k]
+    Vx, Vxx = bwd.Vs.x[k], bwd.Vs.xx[k]
+    Qx, Qu = bwd.Qs.x[k], bwd.Qs.u[k]
+    Qxx, Quu, Qxu, Qux = bwd.Qs.xx[k], bwd.Qs.uu[k], bwd.Qs.xu[k], bwd.Qs.ux[k]
 
     # Reference k-th gains
     K = bwd.Ks[k]

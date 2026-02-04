@@ -78,6 +78,7 @@ mutable struct Solution{T<:AbstractFloat}
     X::Vector{Vector{T}}
     U::Vector{Vector{T}}
     J::T
+    is_optimal::Bool
 end
 
 function Solution{T}(
@@ -88,11 +89,12 @@ function Solution{T}(
     nu = length(params.Uref[1])
     N = length(params.Xref)
 
-    # Init solution terms from dims
+    # Initialize solution terms from dims
     X = [zeros(T, nx) for k = 1:N]
     U = [zeros(T, nu) for k = 1:(N-1)]
     J = T(0.0)
-    return Solution{T}(X, U, J)
+    is_optimal = false
+    return Solution{T}(X, U, J, is_optimal)
 end
 
 # Default type parameter
@@ -114,7 +116,7 @@ function SolverCache{T}(
     nu = length(params.Uref[1])
     N = length(params.Xref)
 
-    # Init caches from dims
+    # Initialize caches from dims
     fwd = ForwardCache{T}(nx, nu, N)
     bwd = BackwardCache{T}(nx, nu, N)
     tmp = TemporaryCache{T}(nx, nu)

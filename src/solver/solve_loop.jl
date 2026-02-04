@@ -1,17 +1,17 @@
 function is_converged(cache::SolverCache, tol_converge::AbstractFloat)::Bool
-    return cache.fwd.ΔJ < tol_converge
+    return cache.bwd.ΔJ < tol_converge
 end
 
 
 function log(sol::Solution, cache::SolverCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
-        println("-------------------------------------")
-        println("iter        J          ΔJ         α")
-        println("-------------------------------------")
+        println("-----------------------------------")
+        println("iter      J          ΔJ         α")
+        println("-----------------------------------")
     end
 
     @printf(
-        "%4.04i     %8.2e   %8.2e   %6.4f\n",
+        "%4.04i   %8.2e   %8.2e   %6.4f\n",
         iter,
         sol.J,
         cache.fwd.ΔJ,
@@ -67,10 +67,11 @@ function init_solver!(
     # Set initial conditions
     copy!(sol.X[1], params.xic)
 
-    # Initialize trajectory cost
+    # Initialize solution terms
     sol.J = Inf
+    sol.is_optimal = false
 
-    # Roll out with a full newton step
+    # Roll out warm-start
     forward_pass!(sol, cache, params, 1)
     return
 end
@@ -95,23 +96,13 @@ function solve!(
 
         opts.is_verbose ? log(sol, cache, i) : nothing
         if is_converged(cache, opts.tol_converge)
+            sol.is_optimal = true
             opts.is_verbose ? println("\nOptimal solution found!") : nothing
             return
         end
     end
 
     opts.is_verbose ? println("\nMaximum iterations exceeded!") : nothing
-    return
-end
-
-
-function solve!(
-    sol::Solution,
-    params::ProblemParameters,
-    opts::SolverOptions = SolverOptions(),
-)::Nothing
-    cache = SolverCache(params)
-    solve!(sol, cache, params, opts)
     return
 end
 

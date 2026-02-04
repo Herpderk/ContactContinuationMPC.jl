@@ -1,8 +1,9 @@
-using Pkg;
+using Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
 using LinearAlgebra
 using ForwardDiff
 using PreallocationTools
+using Printf
 using MjContactImplicit
 
 
@@ -190,25 +191,25 @@ end
 dt = 0.05
 sim = CartpoleSimulator{Float64}(dt = dt)
 
-Q = 2e-4 * diagm([0.1, 1.0, 1.0, 1.0])
-R = 1e-6 * Matrix(I(sim.dynamics.nu))
-Qf = 1e2 * Q
+Q = diagm([0.1, 1.0, 1.0, 1.0])
+R = 1e-2 * Matrix(I(sim.dynamics.nu))
+Qf = 1e+2 * Q
 costfunc = QuadraticCostFunction{Float64}(Q, R, Qf)
 
 N = 100
 Xref = [[0.0, pi, 0.0, 0.0] for k = 1:N]
 Uref = [zeros(1) for k = 1:(N-1)]
-xic = 1e-4 * ones(sim.dynamics.nx)
+xic = 1e-3 * ones(sim.dynamics.nx)
 
 # Solve trajectory optimization
-params = MjContactImplicit.ProblemParameters{Float64}(
-    sim,
-    sim,
-    costfunc,
-    costfunc,
-    Xref,
-    Uref,
-    xic,
-)
-sol = MjContactImplicit.Solution(params)
-MjContactImplicit.solve!(sol, params)
+params =
+    ProblemParameters{Float64}(sim, sim, costfunc, costfunc, Xref, Uref, xic)
+sol = Solution(params)
+cache = SolverCache(params)
+solve!(sol, cache, params)
+
+if sol.is_optimal
+    println("Optimal solution found with cost: ", sol.J)
+else
+    println("Solver did not converge. Final cost: ", sol.J)
+end

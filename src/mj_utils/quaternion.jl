@@ -38,7 +38,7 @@ We define the kinematic mapping matrix K such that:
 where q is a quaternion and ω is the angular velocity vector. K(q) is the
 result of the following left quaternion multiplication:
 
-    K(q) = L(q) * H
+    K(q) = 0.5 * L(q) * H
 """
 @views function kinematic_mapping_matrix!(
     K::AbstractMatrix{T},
