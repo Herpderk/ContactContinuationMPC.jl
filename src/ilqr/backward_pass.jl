@@ -12,11 +12,11 @@ function expand_term_L!(
     tmp.hess_xx = ForwardDiff.hessian!(tmp.hess_xx, params.costfunc.term, tmp.x)
 
     # Reference terminal value expansion
-    Vx, Vxx = bwd.Vs.x[end], bwd.Vs.xx[end]
+    V = bwd.V
 
     # Save terminal costfunc gradient and hessian
-    copy!(Vx, DiffResults.gradient(tmp.hess_xx))
-    copy!(Vxx, DiffResults.hessian(tmp.hess_xx))
+    copy!(V.x, DiffResults.gradient(tmp.hess_xx))
+    copy!(V.xx, DiffResults.hessian(tmp.hess_xx))
     return nothing
 end
 
@@ -43,14 +43,14 @@ function expand_stage_L!(
     )
 
     # Reference k-th stage costfunc expansion
-    Lx, Lu, Lxx, Luu = bwd.Ls.x[k], bwd.Ls.u[k], bwd.Ls.xx[k], bwd.Ls.uu[k]
+    L = bwd.L
 
     # Save stage cost gradients and hessians wrt x and u
-    copy!(Lx, DiffResults.gradient(tmp.hess_xx))
-    copy!(Lxx, DiffResults.hessian(tmp.hess_xx))
+    copy!(L.x, DiffResults.gradient(tmp.hess_xx))
+    copy!(L.xx, DiffResults.hessian(tmp.hess_xx))
 
-    copy!(Lu, DiffResults.gradient(tmp.hess_uu))
-    copy!(Luu, DiffResults.hessian(tmp.hess_uu))
+    copy!(L.u, DiffResults.gradient(tmp.hess_uu))
+    copy!(L.uu, DiffResults.hessian(tmp.hess_uu))
     return nothing
 end
 
@@ -58,132 +58,118 @@ function expand_F!(
     bwd::BackwardCache, fwd::ForwardCache, params::TrajoptParameters, k::Int
 )::Nothing
     # Reference k-th dynamics jacobians, state, and control input
-    Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
-    x1, x, u = fwd.X[k + 1], fwd.X[k], fwd.U[k]
+    F = bwd.F
+    x1, x0, u0 = fwd.X[k + 1], fwd.X[k], fwd.U[k]
     # Get simulator jacobians
-    params.simfunc_bwd!(Fx, Fu, x1, x, u)
+    params.simfunc_bwd!(F.x, F.u, x1, x0, u0)
     return nothing
 end
 
-function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
+function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     # Reference k+1-th value expansion and k-th expansions
-    Vx, Vxx = bwd.Vs.x[k + 1], bwd.Vs.xx[k + 1]
-    Lx, Lu, Lxx, Luu = bwd.Ls.x[k], bwd.Ls.u[k], bwd.Ls.xx[k], bwd.Ls.uu[k]
-    Fx, Fu = bwd.Fs.x[k], bwd.Fs.u[k]
-    Qx, Qu = bwd.Qs.x[k], bwd.Qs.u[k]
-    Qxx, Quu, Qxu, Qux = bwd.Qs.xx[k], bwd.Qs.uu[k], bwd.Qs.xu[k], bwd.Qs.ux[k]
+    V, L, F, Q = bwd.V, bwd.L, bwd.F, bwd.Q
 
     # Action-value gradients
-    # Qx = Lx + Fx'*Vx
-    mul!(Qx, Fx', Vx)
-    axpy!(1.0, Lx, Qx)
+    # Q.x = L.x + F.x'*V.x
+    mul!(Q.x, F.x', V.x)
+    axpy!(1.0, L.x, Q.x)
 
-    # Qu = Lu + Fu'*Vx
-    mul!(Qu, Fu', Vx)
-    axpy!(1.0, Lu, Qu)
+    # Q.u = L.u + F.u'*V.x
+    mul!(Q.u, F.u', V.x)
+    axpy!(1.0, L.u, Q.u)
 
     # Action-value hessians
-    # Qxx = Lxx + Fx'*Vxx*Fx
-    mul!(tmp.xx, Fx', Vxx)
-    mul!(Qxx, tmp.xx, Fx)
-    axpy!(1.0, Lxx, Qxx)
+    # Q.xx = L.xx + F.x'*V.xx*F.x
+    mul!(tmp.xx, F.x', V.xx)
+    mul!(Q.xx, tmp.xx, F.x)
+    axpy!(1.0, L.xx, Q.xx)
 
-    # Quu = Luu + Fu'*Vxx*Fu + μ*I
-    mul!(tmp.ux, Fu', Vxx)
-    mul!(Quu, tmp.ux, Fu)
-    axpy!(1.0, Luu, Quu)
-    axpy!(1.0, bwd.μ, Quu)
+    # Q.uu = L.uu + F.u'*V.xx*F.u + μ*I
+    mul!(tmp.ux, F.u', V.xx)
+    mul!(Q.uu, tmp.ux, F.u)
+    axpy!(1.0, L.uu, Q.uu)
+    axpy!(1.0, bwd.μ, Q.uu)
 
-    # Qxu = Fx'*Vxx*Fu
-    mul!(tmp.xx, Fx', Vxx)
-    mul!(Qxu, tmp.xx, Fu)
+    # Q.xu = F.x'*V.xx*F.u
+    mul!(tmp.xx, F.x', V.xx)
+    mul!(Q.xu, tmp.xx, F.u)
 
-    # Qux = Fu'*Vxx*Fx
-    mul!(tmp.ux, Fu', Vxx)
-    mul!(Qux, tmp.ux, Fx)
+    # Q.ux = F.u'*V.xx*F.x
+    mul!(tmp.ux, F.u', V.xx)
+    mul!(Q.ux, tmp.ux, F.x)
     return nothing
 end
 
 function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Reference k-th value and action-value expansion
-    Vx, Vxx = bwd.Vs.x[k], bwd.Vs.xx[k]
-    Qx, Qu = bwd.Qs.x[k], bwd.Qs.u[k]
-    Qxx, Quu, Qxu, Qux = bwd.Qs.xx[k], bwd.Qs.uu[k], bwd.Qs.xu[k], bwd.Qs.ux[k]
+    V, Q = bwd.V, bwd.Q
 
     # Reference k-th gains
-    K = bwd.Ks[k]
-    d = bwd.D[k]
-
-    # Cost-to-go hessian
-    # Vxx = Qxx - K'*Qux + K'*Quu*K - Qxu*K
-    copy!(Vxx, Qxx)
-    mul!(tmp.xx, K', Qux)
-    axpy!(-1.0, tmp.xx, Vxx)
-    mul!(tmp.xu, K', Quu)
-    mul!(tmp.xx, tmp.xu, K)
-    axpy!(1.0, tmp.xx, Vxx)
-    mul!(tmp.xx, Qxu, K)
-    axpy!(-1.0, tmp.xx, Vxx)
+    d, K = bwd.ds[k], bwd.Ks[k]
 
     # Cost-to-go gradient
-    # Vx = Qx - K'*u + K'*uu*d - xu*d
-    copy!(Vx, Qx)
-    mul!(tmp.x, K', Qu)
-    axpy!(-1.0, tmp.x, Vx)
-    mul!(tmp.xu, K', Quu)
+    # V.x = Q.x - K'*u + K'*uu*d - xu*d
+    copy!(V.x, Q.x)
+    mul!(tmp.x, K', Q.u)
+    axpy!(-1.0, tmp.x, V.x)
+    mul!(tmp.xu, K', Q.uu)
     mul!(tmp.x, tmp.xu, d)
-    axpy!(1.0, tmp.x, Vx)
-    mul!(tmp.x, Qxu, d)
-    axpy!(-1.0, tmp.x, Vx)
+    axpy!(1.0, tmp.x, V.x)
+    mul!(tmp.x, Q.xu, d)
+    axpy!(-1.0, tmp.x, V.x)
+
+    # Cost-to-go hessian
+    # V.xx = Q.xx - K'*Q.ux + K'*Q.uu*K - Q.xu*K
+    copy!(V.xx, Q.xx)
+    mul!(tmp.xx, K', Q.ux)
+    axpy!(-1.0, tmp.xx, V.xx)
+    mul!(tmp.xu, K', Q.uu)
+    mul!(tmp.xx, tmp.xu, K)
+    axpy!(1.0, tmp.xx, V.xx)
+    mul!(tmp.xx, Q.xu, K)
+    axpy!(-1.0, tmp.xx, V.xx)
     return nothing
 end
 
 function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
-    # Reference k-th action-value expansion
-    Qu, Quu, Qux = bwd.Qs.u[k], bwd.Qs.uu[k], bwd.Qs.ux[k]
-    Quu_temp = tmp.uu
-    bkws = tmp.bkws_uu
+    # Reference k-th action-value expansion and matrix inverse helpers
+    Q = bwd.Q
+    Quu_tmp, bkws = tmp.uu, tmp.bkws_uu
     #luws = tmp.luws_uu
 
     # Reference k-th control gains
-    d, K = bwd.D[k], bwd.Ks[k]
+    d, K = bwd.ds[k], bwd.Ks[k]
 
     # Perform lower-triangular Bunch-Kaufman factorization in place
-    # Overwrite Quu_temp with Bunch-Kaufman factors
-    copy!(Quu_temp, Quu)
-    LAPACK.sytrf!(bkws, 'L', Quu_temp)
-    #LAPACK.getrf!(luws, Quu_temp)
+    # Overwrite Quu_tmp with Bunch-Kaufman factors
+    copy!(Quu_tmp, Q.uu)
+    LAPACK.sytrf!(bkws, 'L', Quu_tmp)
+    #LAPACK.getrf!(luws, Quu_tmp)
 
-    # Feedforward gains: d = Quu \ Qu
-    # sytrs! directly overwrites Qu
-    copy!(d, Qu)
-    LAPACK.sytrs!('L', Quu_temp, bkws.ipiv, d)
-    #LAPACK.getrs!('N', Quu_temp, luws.ipiv, d)
+    # Feedforward gains: d = Q.uu \ Q.u
+    # sytrs! directly overwrites Q.u
+    copy!(d, Q.u)
+    LAPACK.sytrs!('L', Quu_tmp, bkws.ipiv, d)
+    #LAPACK.getrs!('N', Quu_tmp, luws.ipiv, d)
 
-    # Feedback gains: K = Quu \ Qux
-    # sytrs! directly overwrites Qux
-    copy!(K, Qux)
-    LAPACK.sytrs!('L', Quu_temp, bkws.ipiv, K)
-    #LAPACK.getrs!('N', Quu_temp, luws.ipiv, K)
+    # Feedback gains: K = Q.uu \ Q.ux
+    # sytrs! directly overwrites Q.ux
+    copy!(K, Q.ux)
+    LAPACK.sytrs!('L', Quu_tmp, bkws.ipiv, K)
+    #LAPACK.getrs!('N', Quu_tmp, luws.ipiv, K)
     return nothing
 end
 
 function update_cost_prediction!(bwd::BackwardCache, k::Int)::Nothing
-    # Reference k-th/k+1-th action-value and value expansion
-    Qu = bwd.Qs.u[k]
-    d = bwd.D[k]
-
     # Predicted change in cost
-    # ΔJ += Qu' * d
-    bwd.ΔJ += Qu' * d
+    # ΔJ += Q.u' * d
+    bwd.ΔJ += bwd.Q.u' * bwd.ds[k]
     return nothing
 end
 
 function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
     # Get references to ILqrCache structs
-    fwd = cache.fwd
-    bwd = cache.bwd
-    tmp = cache.tmp
+    fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
     # Reset predicted change in cost
     bwd.ΔJ = 0.0
@@ -194,10 +180,10 @@ function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
     # Backward Riccati
     @inbounds for k in length(params.Uref):-1:1
         expand_stage_L!(bwd, tmp, fwd, params, k) # Stage cost expansion
-        expand_F!(bwd, fwd, params, k) # Dynamics expansion
-        expand_Q!(bwd, tmp, k)              # Action-value expansion
-        update_gains!(bwd, tmp, k)               # Update feedback and feedforward
-        expand_V!(bwd, tmp, k)         # Value expansion
+        expand_F!(bwd, fwd, params, k)  # Dynamics expansion
+        expand_Q!(bwd, tmp)          # Action-value expansion
+        update_gains!(bwd, tmp, k)      # Update feedback and feedforward
+        expand_V!(bwd, tmp, k)          # Value expansion
         update_cost_prediction!(bwd, k)
     end
     return nothing

@@ -2,7 +2,6 @@ module MjContactImplicit
 
 using LinearAlgebra
 using FastLapackInterface
-using StructArrays
 using ForwardDiff
 using DiffResults
 using PreallocationTools

@@ -63,12 +63,12 @@ function ActionValueFunctionExpansion{T}(
 end
 
 mutable struct BackwardCache{T<:AbstractFloat}
-    Fs::StructArray{<:SimulatorExpansion{T}}
-    Ls::StructArray{<:CostFunctionExpansion{T}}
-    Vs::StructArray{<:ValueFunctionExpansion{T}}
-    Qs::StructArray{<:ActionValueFunctionExpansion{T}}
+    F::SimulatorExpansion{T}
+    L::CostFunctionExpansion{T}
+    V::ValueFunctionExpansion{T}
+    Q::ActionValueFunctionExpansion{T}
     Ks::Vector{Matrix{T}}
-    D::Vector{Vector{T}}
+    ds::Vector{Vector{T}}
     μ::Diagonal{T}
     ΔJ::T
 end
@@ -76,17 +76,13 @@ end
 function BackwardCache{T}(
     nx::Int, nu::Int, N::Int
 )::BackwardCache{T} where {T<:AbstractFloat}
-    Fs = StructArray([SimulatorExpansion{T}(nx, nu) for k in 1:(N - 1)])
-    Ls = StructArray([CostFunctionExpansion{T}(nx, nu) for k in 1:(N - 1)])
-    Vs = StructArray([ValueFunctionExpansion{T}(nx) for k in 1:N])
-    Qs = StructArray([
-        ActionValueFunctionExpansion{T}(nx, nu) for k in 1:(N - 1)
-    ])
-
+    F = SimulatorExpansion{T}(nx, nu)
+    L = CostFunctionExpansion{T}(nx, nu)
+    V = ValueFunctionExpansion{T}(nx)
+    Q = ActionValueFunctionExpansion{T}(nx, nu)
     Ks = [zeros(T, nu, nx) for k in 1:(N - 1)]
-    D = [zeros(T, nu) for k in 1:(N - 1)]
+    ds = [zeros(T, nu) for k in 1:(N - 1)]
     μ = I(nu)
-
     ΔJ = zero(T)
-    return BackwardCache{T}(Fs, Ls, Vs, Qs, Ks, D, μ, ΔJ)
+    return BackwardCache{T}(F, L, V, Q, Ks, ds, μ, ΔJ)
 end

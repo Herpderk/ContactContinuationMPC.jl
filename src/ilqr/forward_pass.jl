@@ -13,7 +13,7 @@ function roll_out!(
     @inbounds for k in 1:length(params.Uref)
         # Update control input
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
-        mul!(tmp.u, fwd.α, bwd.D[k])
+        mul!(tmp.u, fwd.α, bwd.ds[k])
         axpy!(-1.0, tmp.u, fwd.U[k])
         copy!(tmp.x, fwd.X[k])
         axpy!(-1.0, sol.X[k], tmp.x)

@@ -57,7 +57,7 @@ function init_solver!(
 
     # Initialize gains
     fill!.(bwd.Ks, 0.0)
-    fill!.(bwd.D, 0.0)
+    fill!.(bwd.ds, 0.0)
 
     # Set initial conditions
     copy!(sol.X[1], params.xic)
