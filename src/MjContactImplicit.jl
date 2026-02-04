@@ -20,13 +20,13 @@ export TrajoptParameters,
 
 include("plot.jl")
 include("costfunc.jl")
-include("solver/config/consts.jl")
-include("solver/caches/backward.jl")
-include("solver/caches/forward.jl")
-include("solver/caches/temporary.jl")
-include("solver/interface.jl")
-include("solver/backward_pass.jl")
-include("solver/forward_pass.jl")
-include("solver/solve_loop.jl")
+include("ilqr/config/consts.jl")
+include("ilqr/caches/backward.jl")
+include("ilqr/caches/forward.jl")
+include("ilqr/caches/temporary.jl")
+include("ilqr/interface.jl")
+include("ilqr/backward_pass.jl")
+include("ilqr/forward_pass.jl")
+include("ilqr/solve_loop.jl")
 
 end # module MjContactImplicit
