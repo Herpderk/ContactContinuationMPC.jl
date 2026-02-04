@@ -11,12 +11,7 @@ using Plots
 using Configurations
 
 export TrajoptParameters,
-    TrajoptSolution,
-    ILqrCache,
-    ILqrOptions,
-    ilqr_solve!,
-    ilqr_solve,
-    plot_2d_states
+    TrajoptSolution, ILqrCache, ILqrOptions, run_ilqr!, run_ilqr, plot_2d_states
 
 include("plot.jl")
 include("costfunc.jl")
@@ -27,6 +22,6 @@ include("ilqr/caches/temporary.jl")
 include("ilqr/interface.jl")
 include("ilqr/backward_pass.jl")
 include("ilqr/forward_pass.jl")
-include("ilqr/solve_loop.jl")
+include("ilqr/solve.jl")
 
 end # module MjContactImplicit

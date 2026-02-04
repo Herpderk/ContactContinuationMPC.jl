@@ -71,7 +71,7 @@ function init_solver!(
     return nothing
 end
 
-function ilqr_solve!(
+function run_ilqr!(
     sol::TrajoptSolution,
     cache::ILqrCache,
     params::TrajoptParameters,
@@ -100,11 +100,11 @@ function ilqr_solve!(
     return nothing
 end
 
-function ilqr_solve(
+function run_ilqr(
     params::TrajoptParameters, opts::ILqrOptions=ILqrOptions()
 )::TrajoptSolution
     sol = TrajoptSolution(params)
     cache = ILqrCache(params)
-    ilqr_solve!(sol, cache, params, opts)
+    run_ilqr!(sol, cache, params, opts)
     return sol
 end

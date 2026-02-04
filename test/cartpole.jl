@@ -179,9 +179,9 @@ function clean_solve(
     sol = TrajoptSolution(params)
     cache = ILqrCache(params)
     if use_time
-        @time ilqr_solve!(sol, cache, params, opts)
+        @time run_ilqr!(sol, cache, params, opts)
     else
-        ilqr_solve!(sol, cache, params, opts)
+        run_ilqr!(sol, cache, params, opts)
     end
     return sol
 end
