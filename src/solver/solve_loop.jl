@@ -91,12 +91,12 @@ function solve!(
         opts.is_verbose ? log(sol, cache, i) : nothing
         if is_converged(cache, opts.tol_converge)
             sol.is_optimal = true
-            opts.is_verbose ? println("\nOptimal solution found!") : nothing
+            opts.is_verbose ? println("\nOptimal solution found!\n") : nothing
             return nothing
         end
     end
 
-    opts.is_verbose ? println("\nMaximum iterations exceeded!") : nothing
+    opts.is_verbose ? println("\nMaximum iterations exceeded!\n") : nothing
     return nothing
 end
 

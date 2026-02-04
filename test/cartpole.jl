@@ -4,6 +4,7 @@ using LinearAlgebra
 using ForwardDiff
 using PreallocationTools
 using Printf
+using Test
 using MjContactImplicit
 
 """
@@ -172,30 +173,25 @@ function (weights::QuadraticCostFunction{T})(
     return 0.5 * xerr' * weights.Qf * xerr
 end
 
-# Initialize trajopt problem parameters for cartpole system.
-dt = 0.05
-sim = CartpoleSimulator{Float64}(; dt=dt)
+@testset "iLQR Cartpole Integration Test" begin
+    dt = 0.05
+    sim = CartpoleSimulator{Float64}(; dt=dt)
 
-Q = diagm([0.1, 1.0, 1.0, 1.0])
-R = 1e-2 * Matrix(I(sim.dynamics.nu))
-Qf = 1e+2 * Q
-costfunc = QuadraticCostFunction{Float64}(Q, R, Qf)
+    Q = diagm([0.1, 1.0, 1.0, 1.0])
+    R = 1e-2 * Matrix(I(sim.dynamics.nu))
+    Qf = 1e+2 * Q
+    costfunc = QuadraticCostFunction{Float64}(Q, R, Qf)
 
-N = 100
-Xref = [[0.0, pi, 0.0, 0.0] for k in 1:N]
-Uref = [zeros(1) for k in 1:(N - 1)]
-xic = 1e-3 * ones(sim.dynamics.nx)
+    N = 100
+    Xref = [[0.0, pi, 0.0, 0.0] for k in 1:N]
+    Uref = [zeros(1) for k in 1:(N - 1)]
+    xic = 1e-3 * ones(sim.dynamics.nx)
 
-# Solve trajectory optimization
-params = ProblemParameters{Float64}(
-    sim, sim, costfunc, costfunc, Xref, Uref, xic
-)
-sol = Solution(params)
-cache = SolverCache(params)
-solve!(sol, cache, params)
+    # Solve trajectory optimization
+    params = ProblemParameters{Float64}(
+        sim, sim, costfunc, costfunc, Xref, Uref, xic
+    )
+    sol = solve(params)
 
-if sol.is_optimal
-    println("Optimal solution found with cost: ", sol.J)
-else
-    println("Solver did not converge. Final cost: ", sol.J)
+    @test sol.is_optimal
 end
