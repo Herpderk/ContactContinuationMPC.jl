@@ -1,9 +1,9 @@
 function expand_term_L!(
-    bwd::BackwardCache,
-    tmp::TemporaryCache,
-    fwd::ForwardCache,
-    params::TrajoptParameters,
-)::Nothing
+    bwd::BackwardCache{T_bwd},
+    tmp::TemporaryCache{T_tmp},
+    fwd::ForwardCache{T_fwd},
+    params::TrajoptParameters{T_params},
+)::Nothing where {T_bwd,T_tmp,T_fwd,T_params}
     # Get terminal x error
     copy!(tmp.x, fwd.X[end])
     axpy!(-1.0, params.Xref[end], tmp.x)
@@ -21,12 +21,12 @@ function expand_term_L!(
 end
 
 function expand_stage_L!(
-    bwd::BackwardCache,
-    tmp::TemporaryCache,
-    fwd::ForwardCache,
-    params::TrajoptParameters,
+    bwd::BackwardCache{T_bwd},
+    tmp::TemporaryCache{T_tmp},
+    fwd::ForwardCache{T_fwd},
+    params::TrajoptParameters{T_params},
     k::Int,
-)::Nothing
+)::Nothing where {T_bwd,T_tmp,T_fwd,T_params}
     # Get k-th x and u errors
     copy!(tmp.x, fwd.X[k])
     axpy!(-1.0, params.Xref[k], tmp.x)
@@ -55,8 +55,11 @@ function expand_stage_L!(
 end
 
 function expand_F!(
-    bwd::BackwardCache, fwd::ForwardCache, params::TrajoptParameters, k::Int
-)::Nothing
+    bwd::BackwardCache{T_bwd},
+    fwd::ForwardCache{T_fwd},
+    params::TrajoptParameters{T_params},
+    k::Int,
+)::Nothing where {T_bwd,T_fwd,T_params}
     # Reference k-th dynamics jacobians, state, and control input
     F = bwd.F
     x1, x0, u0 = fwd.X[k + 1], fwd.X[k], fwd.U[k]
@@ -65,7 +68,9 @@ function expand_F!(
     return nothing
 end
 
-function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
+function expand_Q!(
+    bwd::BackwardCache{T_bwd}, tmp::TemporaryCache{T_tmp}
+)::Nothing where {T_bwd,T_tmp}
     # Reference k+1-th value expansion and k-th expansions
     V, L, F, Q = bwd.V, bwd.L, bwd.F, bwd.Q
 
@@ -101,7 +106,9 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     return nothing
 end
 
-function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
+function expand_V!(
+    bwd::BackwardCache{T_bwd}, tmp::TemporaryCache{T_tmp}, k::Int
+)::Nothing where {T_bwd,T_tmp}
     # Reference k-th value and action-value expansion
     V, Q = bwd.V, bwd.Q
 
@@ -132,7 +139,9 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     return nothing
 end
 
-function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
+function update_gains!(
+    bwd::BackwardCache{T_bwd}, tmp::TemporaryCache{T_tmp}, k::Int
+)::Nothing where {T_bwd,T_tmp}
     # Reference k-th action-value expansion and matrix inverse helpers
     Q = bwd.Q
     Quu_tmp, bkws = tmp.uu, tmp.bkws_uu
@@ -162,8 +171,8 @@ function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 end
 
 function update_cost_prediction!(
-    bwd::BackwardCache, tmp::TemporaryCache, k::Int
-)::Nothing
+    bwd::BackwardCache{T_bwd}, tmp::TemporaryCache{T_tmp}, k::Int
+)::Nothing where {T_bwd,T_tmp}
     Q = bwd.Q
     d = bwd.ds[k]
     singleton = tmp.singleton
@@ -174,7 +183,9 @@ function update_cost_prediction!(
     return nothing
 end
 
-function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
+function backward_pass!(
+    cache::ILqrCache, params::TrajoptParameters{T_params}
+)::Nothing where {T_params}
     # Get references to ILqrCache structs
     fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
