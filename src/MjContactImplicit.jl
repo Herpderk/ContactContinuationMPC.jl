@@ -1,5 +1,6 @@
 module MjContactImplicit
 
+using MuJoCo
 using LinearAlgebra
 using FastLapackInterface
 using ForwardDiff
