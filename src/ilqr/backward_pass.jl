@@ -5,7 +5,7 @@ function expand_term_L!(
     params::TrajoptParameters,
 )::Nothing
     # Get terminal x error
-    copy!(tmp.x, fwd.X[end])
+    copyto!(tmp.x, fwd.X[end])
     axpy!(-1.0, params.Xref[end], tmp.x)
 
     # Get terminal costfunc hessian wrt x
@@ -15,8 +15,8 @@ function expand_term_L!(
     V = bwd.V
 
     # Save terminal costfunc gradient and hessian
-    copy!(V.x, DiffResults.gradient(tmp.hess_xx))
-    copy!(V.xx, DiffResults.hessian(tmp.hess_xx))
+    copyto!(V.x, DiffResults.gradient(tmp.hess_xx))
+    copyto!(V.xx, DiffResults.hessian(tmp.hess_xx))
     return nothing
 end
 
@@ -28,10 +28,10 @@ function expand_stage_L!(
     k::Int,
 )::Nothing
     # Get k-th x and u errors
-    copy!(tmp.x, fwd.X[k])
+    copyto!(tmp.x, fwd.X[k])
     axpy!(-1.0, params.Xref[k], tmp.x)
 
-    copy!(tmp.u, fwd.U[k])
+    copyto!(tmp.u, fwd.U[k])
     axpy!(-1.0, params.Uref[k], tmp.u)
 
     # Get gradients and hessians of stage cost wrt x and u
@@ -46,11 +46,11 @@ function expand_stage_L!(
     L = bwd.L
 
     # Save stage cost gradients and hessians wrt x and u
-    copy!(L.x, DiffResults.gradient(tmp.hess_xx))
-    copy!(L.xx, DiffResults.hessian(tmp.hess_xx))
+    copyto!(L.x, DiffResults.gradient(tmp.hess_xx))
+    copyto!(L.xx, DiffResults.hessian(tmp.hess_xx))
 
-    copy!(L.u, DiffResults.gradient(tmp.hess_uu))
-    copy!(L.uu, DiffResults.hessian(tmp.hess_uu))
+    copyto!(L.u, DiffResults.gradient(tmp.hess_uu))
+    copyto!(L.uu, DiffResults.hessian(tmp.hess_uu))
     return nothing
 end
 
@@ -72,11 +72,11 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     # Action-value gradients
     # Q.x = L.x + F.x'*V.x
     #mul!(Q.x, F.x', V.x)
-    copy!(Q.x, L.x)
+    copyto!(Q.x, L.x)
     BLAS.gemv!('T', 1.0, F.x, V.x, 1.0, Q.x)
 
     # Q.u = L.u + F.u'*V.x
-    copy!(Q.u, L.u)
+    copyto!(Q.u, L.u)
     BLAS.gemv!('T', 1.0, F.u, V.x, 1.0, Q.u)
 
     # Action-value hessians
@@ -110,7 +110,7 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 
     # Cost-to-go gradient
     # V.x = Q.x - K'*Q.u + K'*Q.uu*d - Q.xu*d
-    copy!(V.x, Q.x)
+    copyto!(V.x, Q.x)
     BLAS.gemv!('T', -1.0, K, Q.u, 1.0, V.x)
 
     mul!(tmp.uu, Q.uu, d)
@@ -121,7 +121,7 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 
     # Cost-to-go hessian
     # V.xx = Q.xx - K'*Q.ux + K'*Q.uu*K - Q.xu*K
-    copy!(V.xx, Q.xx)
+    copyto!(V.xx, Q.xx)
     BLAS.gemm!('T', 'N', -1.0, K, Q.ux, 1.0, V.xx)
 
     mul!(tmp.ux, Q.uu, K)
@@ -143,19 +143,19 @@ function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 
     # Perform lower-triangular Bunch-Kaufman factorization in place
     # Overwrite Quu_tmp with Bunch-Kaufman factors
-    copy!(Quu_tmp, Q.uu)
+    copyto!(Quu_tmp, Q.uu)
     LAPACK.sytrf!(bkws, 'L', Quu_tmp)
     #LAPACK.getrf!(luws, Quu_tmp)
 
     # Feedforward gains: d = Q.uu \ Q.u
     # sytrs! directly overwrites Q.u
-    copy!(d, Q.u)
+    copyto!(d, Q.u)
     LAPACK.sytrs!('L', Quu_tmp, bkws.ipiv, d)
     #LAPACK.getrs!('N', Quu_tmp, luws.ipiv, d)
 
     # Feedback gains: K = Q.uu \ Q.ux
     # sytrs! directly overwrites Q.ux
-    copy!(K, Q.ux)
+    copyto!(K, Q.ux)
     LAPACK.sytrs!('L', Quu_tmp, bkws.ipiv, K)
     #LAPACK.getrs!('N', Quu_tmp, luws.ipiv, K)
     return nothing

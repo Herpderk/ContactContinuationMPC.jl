@@ -15,7 +15,7 @@ function roll_out!(
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
         mul!(tmp.u, fwd.α, bwd.ds[k])
         axpy!(-1.0, tmp.u, fwd.U[k])
-        copy!(tmp.x, fwd.X[k])
+        copyto!(tmp.x, fwd.X[k])
         axpy!(-1.0, sol.X[k], tmp.x)
         mul!(tmp.u, bwd.Ks[k], tmp.x)
         axpy!(-1.0, tmp.u, fwd.U[k])
