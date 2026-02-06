@@ -1,21 +1,21 @@
-mutable struct TrajoptParameters{T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+mutable struct TrajoptParameters{T<:AbstractFloat,S_fwd,S_bwd,Lk,Lf}
     simfunc_fwd!::S_fwd      # expects simfunc_fwd!(x1, x0, u0)::Nothing
     simfunc_bwd!::S_bwd      # expects simfunc_bwd!(A, B, x1, x0, u0)::Nothing
-    costfunc::TrajectoryCostFunction{T,C_stage,C_term}
+    costfunc::TrajectoryCostFunction{T,Lk,Lf}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
 end
 
-function TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
+function TrajoptParameters{T,S_fwd,S_bwd,Lk,Lf}(
     simfunc_fwd!::S_fwd,
     simfunc_bwd!::S_bwd,
-    costfunc_stage::C_stage,
-    costfunc_term::C_term,
+    costfunc_stage::Lk,
+    costfunc_term::Lf,
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
-) where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+) where {T<:AbstractFloat,S_fwd,S_bwd,Lk,Lf}
     # Get problem dimensions
     nx = length(Xref[1])
     nu = length(Uref[1])
@@ -55,13 +55,13 @@ function TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
         end
     end
 
-    costfunc = TrajectoryCostFunction{T,C_stage,C_term}(
+    costfunc = TrajectoryCostFunction{T,Lk,Lf}(
         costfunc_stage, costfunc_term, nx, nu
     )
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
-    return TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
+    return TrajoptParameters{T,S_fwd,S_bwd,Lk,Lf}(
         simfunc_fwd!, simfunc_bwd!, costfunc, Xref_T, Uref_T, xic_T
     )
 end
@@ -74,8 +74,8 @@ mutable struct TrajoptSolution{T<:AbstractFloat}
 end
 
 function TrajoptSolution{T}(
-    params::TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}
-)::TrajoptSolution{T} where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+    params::TrajoptParameters{T,S_fwd,S_bwd,Lk,Lf}
+)::TrajoptSolution{T} where {T<:AbstractFloat,S_fwd,S_bwd,Lk,Lf}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])
@@ -99,8 +99,8 @@ mutable struct ILqrCache{T<:AbstractFloat}
 end
 
 function ILqrCache{T}(
-    params::TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}
-)::ILqrCache{T} where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+    params::TrajoptParameters{T,S_fwd,S_bwd,Lk,Lf}
+)::ILqrCache{T} where {T<:AbstractFloat,S_fwd,S_bwd,Lk,Lf}
     # Get problem dims
     nx = length(params.Xref[1])
     nu = length(params.Uref[1])

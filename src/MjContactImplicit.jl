@@ -14,6 +14,7 @@ export TrajoptParameters,
     TrajoptSolution, ILqrCache, ILqrOptions, run_ilqr!, run_ilqr, plot_2d_states
 
 include("utils/array.jl")
+include("utils/mujoco.jl")
 include("plot.jl")
 include("costfunc.jl")
 include("ilqr/config/consts.jl")
