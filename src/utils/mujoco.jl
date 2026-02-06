@@ -49,11 +49,11 @@ function get_da(m::Model, dx::AbstractVector{<:Real})::SubArray
 end
 
 """
-    subtract_states!(m, Δx, x1, x2)
+    get_state_diff!(m, Δx, x1, x2)
 
 Get the state difference (x1 - x2) in tangent space coordinates.
 """
-function subtract_states!(
+function get_state_diff!(
     m::Model,
     Δx::AbstractVector{<:Real},
     x1::AbstractVector{<:Real},

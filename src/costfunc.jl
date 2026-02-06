@@ -24,7 +24,7 @@ end
 
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
-@views function (cache::TrajectoryCostFunction{T,Lk,Lf})(
+function (cache::TrajectoryCostFunction{T,Lk,Lf})(
     X::AbstractVector{V},
     U::AbstractVector{V},
     Xref::AbstractVector{V},
@@ -42,13 +42,13 @@ Callable struct method for the `TrajectoryCostFunction` struct that computes the
     J = zero(el_super)
 
     @inbounds @simd for k in 1:(length(Uref))
-        subtract_states!(m, xerr, X[k], Xref[k])    # Compute state error
+        get_state_diff!(m, xerr, X[k], Xref[k])     # Compute state error
         @. uerr = U[k] - Uref[k]                    # Compute control error
         J += cache.stage(xerr, uerr)                # Add stage cost
     end
 
     # Add terminal cost
-    subtract_states!(m, xerr, X[end], Xref[end])
+    get_state_diff!(m, xerr, X[end], Xref[end])
     J += cache.term(xerr)
     return J
 end
