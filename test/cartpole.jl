@@ -19,7 +19,7 @@ struct CartpoleDynamics{T<:AbstractFloat}
 
     function CartpoleDynamics{T}(;
         mc::Real=1.0, mp::Real=0.1, l::Real=0.5, g::Real=9.81
-    ) where {T<:AbstractFloat}
+    ) where {T}
         nx = 4
         nu = 1
         xdot = DiffCache(zeros(T, nx))
@@ -66,7 +66,7 @@ struct CartpoleSimulator{T<:AbstractFloat}
 
     function CartpoleSimulator{T}(;
         mc::Real=1.0, mp::Real=0.1, l::Real=0.5, g::Real=9.81, dt::Real=0.05
-    ) where {T<:AbstractFloat}
+    ) where {T}
         dynamics = CartpoleDynamics{T}(; mc=mc, mp=mp, l=l, g=g)
         xtmp = DiffCache(zeros(T, dynamics.nx))
         xdot_tmp = DiffCache(zeros(T, dynamics.nx))
@@ -150,7 +150,7 @@ struct QuadraticCostFunction{T<:AbstractFloat}
         Q::AbstractMatrix{<:Real},
         R::AbstractMatrix{<:Real},
         Qf::AbstractMatrix{<:Real},
-    ) where {T<:AbstractFloat}
+    ) where {T}
         xtmp = DiffCache(zeros(T, size(Q)[1]))
         utmp = DiffCache(zeros(T, size(R)[1]))
         return new{T}(T.(Q), T.(R), T.(Qf), xtmp, utmp)

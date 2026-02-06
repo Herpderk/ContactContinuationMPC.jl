@@ -12,7 +12,7 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
 
     function TrajectoryCostFunction{T,Lk,Lf}(
         m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
-    ) where {T<:AbstractFloat,Lk,Lf}
+    ) where {T,Lk,Lf}
         xerr = DiffCache(zeros(T, get_ndx(m)))
         uerr = DiffCache(zeros(T, m.nu))
         return new{T,Lk,Lf}(m, costfunc_stage, costfunc_term, xerr, uerr)

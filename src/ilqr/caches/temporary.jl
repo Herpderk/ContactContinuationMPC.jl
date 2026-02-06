@@ -15,7 +15,7 @@ end
 
 function TemporaryCache{T}(
     nx::Int, ndx::Int, nu::Int
-)::TemporaryCache{T} where {T<:AbstractFloat}
+)::TemporaryCache{T} where {T}
     singleton = zeros(T, 1, 1)
     x = zeros(T, nx)
     u = zeros(T, nu)

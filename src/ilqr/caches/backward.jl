@@ -5,7 +5,7 @@ end
 
 function SimulatorExpansion{T}(
     ndx::Int, nu::Int
-)::SimulatorExpansion{T} where {T<:AbstractFloat}
+)::SimulatorExpansion{T} where {T}
     Fx = zeros(T, ndx, ndx)
     Fu = zeros(T, ndx, nu)
     return SimulatorExpansion{T}(Fx, Fu)
@@ -20,7 +20,7 @@ end
 
 function CostFunctionExpansion{T}(
     ndx::Int, nu::Int
-)::CostFunctionExpansion{T} where {T<:AbstractFloat}
+)::CostFunctionExpansion{T} where {T}
     Lx = zeros(T, ndx)
     Lu = zeros(T, nu)
     Lxx = zeros(T, ndx, ndx)
@@ -35,7 +35,7 @@ end
 
 function ValueFunctionExpansion{T}(
     ndx::Int
-)::ValueFunctionExpansion{T} where {T<:AbstractFloat}
+)::ValueFunctionExpansion{T} where {T}
     Vx = zeros(T, ndx)
     Vxx = zeros(T, ndx, ndx)
     return ValueFunctionExpansion{T}(Vx, Vxx)
@@ -52,7 +52,7 @@ end
 
 function ActionValueFunctionExpansion{T}(
     ndx::Int, nu::Int
-)::ActionValueFunctionExpansion{T} where {T<:AbstractFloat}
+)::ActionValueFunctionExpansion{T} where {T}
     Qx = zeros(T, ndx)
     Qu = zeros(T, nu)
     Qxx = zeros(T, ndx, ndx)
@@ -74,9 +74,7 @@ mutable struct BackwardCache{T<:AbstractFloat}
     ΔJ::T
 end
 
-function BackwardCache{T}(
-    ndx::Int, nu::Int, N::Int
-)::BackwardCache{T} where {T<:AbstractFloat}
+function BackwardCache{T}(ndx::Int, nu::Int, N::Int)::BackwardCache{T} where {T}
     F = SimulatorExpansion{T}(ndx, nu)
     L = CostFunctionExpansion{T}(ndx, nu)
     V = ValueFunctionExpansion{T}(ndx)

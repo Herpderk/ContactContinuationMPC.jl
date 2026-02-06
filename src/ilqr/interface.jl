@@ -19,7 +19,7 @@ function TrajoptParameters{T,Lk,Lf}(
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
-) where {T<:AbstractFloat,Lk,Lf}
+) where {T,Lk,Lf}
     # Get problem dimensions
     nx = get_nx(mfwd)
     nu = m.nu
@@ -105,9 +105,9 @@ mutable struct TrajoptSolution{T<:AbstractFloat}
     is_optimal::Bool
 end
 
-function TrajoptSolution{T}(
+function TrajoptSolution(
     params::TrajoptParameters{T,Lk,Lf}
-)::TrajoptSolution{T} where {T<:AbstractFloat,Lk,Lf}
+)::TrajoptSolution{T} where {T,Lk,Lf}
     # Get problem dims
     nx = get_nx(params.mfwd)
     nu = params.mfwd.nu
@@ -121,18 +121,15 @@ function TrajoptSolution{T}(
     return TrajoptSolution{T}(X, U, J, is_optimal)
 end
 
-# Default type parameter
-TrajoptSolution(args...) = TrajoptSolution{DEFAULT_DTYPE}(args...)
-
 mutable struct ILqrCache{T<:AbstractFloat}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
 end
 
-function ILqrCache{T}(
+function ILqrCache(
     params::TrajoptParameters{T,Lk,Lf}
-)::ILqrCache{T} where {T<:AbstractFloat,Lk,Lf}
+)::ILqrCache{T} where {T,Lk,Lf}
     # Get problem dims
     nx = get_nx(params.mfwd)
     ndx = get_ndx(params.mfwd)
@@ -145,9 +142,6 @@ function ILqrCache{T}(
     tmp = TemporaryCache{T}(nx, ndx, nu)
     return ILqrCache{T}(fwd, bwd, tmp)
 end
-
-# Default type parameter
-ILqrCache(args...) = ILqrCache{DEFAULT_DTYPE}(args...)
 
 @option struct DefaultILqrOptions{T<:AbstractFloat}
     alpha_mul::T
@@ -176,7 +170,7 @@ function ILqrOptions{T}(;
     maxiter_ilqr::Union{Int,Nothing}=nothing,
     maxiter_ls::Union{Int,Nothing}=nothing,
     is_verbose::Union{Bool,Nothing}=nothing,
-)::ILqrOptions{T} where {T<:AbstractFloat}
+)::ILqrOptions{T} where {T}
     # Load default options from config
     default = fromtoml(
         DefaultILqrOptions{T}, joinpath(@__DIR__, "config/default_opts.toml")
@@ -204,4 +198,4 @@ function ILqrOptions{T}(;
 end
 
 # Default type parameter
-ILqrOptions(args...) = ILqrOptions{DEFAULT_DTYPE}(args...)
+ILqrOptions(args...) = ILqrOptions{T_DEFAULT}(args...)
