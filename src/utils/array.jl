@@ -9,7 +9,7 @@ function copy_nested_array!(
         )
     end
     @inbounds @simd for i in eachindex(dst)
-        copy!(dst[i], src[i])
+        copyto!(dst[i], src[i])
     end
     return nothing
 end

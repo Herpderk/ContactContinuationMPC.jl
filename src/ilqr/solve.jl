@@ -84,7 +84,7 @@ function init_solver!(
     fill_nested_array!(bwd.ds, 0.0)
 
     # Set initial conditions
-    copy!(sol.X[1], params.xic)
+    copyto!(sol.X[1], params.xic)
 
     # Initialize solution terms
     sol.J = Inf

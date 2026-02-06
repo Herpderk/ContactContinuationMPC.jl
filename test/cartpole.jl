@@ -1,5 +1,3 @@
-using Pkg
-Pkg.activate(joinpath(@__DIR__, ".."))
 using LinearAlgebra
 using ForwardDiff
 using PreallocationTools
@@ -202,7 +200,7 @@ function clean_solve(
     return sol
 end
 
-@testset "iLQR Cartpole Integration Test" begin
+@testset "iLQR Cartpole Test" begin
     dt = 0.05
     sim = CartpoleSimulator{Float64}(; dt=dt)
 
