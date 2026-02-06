@@ -4,14 +4,14 @@
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
 mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
-    m::Model
+    m::MuJoCo.Model
     stage::Lk
     term::Lf
     xerr::DiffCache{Vector{T},Vector{T}}
     uerr::DiffCache{Vector{T},Vector{T}}
 
     function TrajectoryCostFunction{T,Lk,Lf}(
-        m::Model, costfunc_stage::Lk, costfunc_term::Lf
+        m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
     ) where {T<:AbstractFloat,Lk,Lf}
         xerr = DiffCache(zeros(T, get_ndx(m)))
         uerr = DiffCache(zeros(T, m.nu))

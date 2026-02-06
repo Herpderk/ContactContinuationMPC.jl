@@ -76,8 +76,9 @@ function init_solver!(
     # Set backtracking contraction rate
     fwd.α_mul = opts.alpha_mul
 
-    # Set regularizer matrix
+    # Set regularizer matrix and FD epsilon
     mul!(bwd.μ, opts.eps_reg, I)
+    bwd.ϵ = opts.eps_fd
 
     # Initialize gains
     fill_nested_array!(bwd.Ks, 0.0)

@@ -11,17 +11,38 @@ function roll_out!(
 
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
+        # Reference simulator model
+        m = params.mfwd
+
         # Update control input
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
+        #=
         mul!(tmp.u, fwd.α, bwd.ds[k])
         axpy!(-1.0, tmp.u, fwd.U[k])
         copyto!(tmp.x, fwd.X[k])
         axpy!(-1.0, sol.X[k], tmp.x)
         mul!(tmp.u, bwd.Ks[k], tmp.x)
         axpy!(-1.0, tmp.u, fwd.U[k])
+        =#
+        mul!(tmp.u, fwd.α, bwd.ds[k])
+        @. fwd.U[k] -= tmp.u
+
+        # Compute state difference in tangent space
+        get_state_diff!(m, tmp.dx, fwd.X[k], sol.X[k])
+        mul!(tmp.u, bwd.Ks[k], tmp.dx)
+        @. fwd.U[k] -= tmp.u
 
         # Step simulator
-        params.simfunc_fwd!(fwd.X[k + 1], fwd.X[k], fwd.U[k])
+        d = params.dfwd
+        @. d.ctrl = fwd.U[k]
+        step!(m, d)
+
+        # Save next state
+        x1 = fwd.X[k + 1]
+        q1, v1, a1 = get_q(m, x1), get_v(m, x1), get_a(m, x1)
+        @. q1 = d.qpos
+        @. v1 = d.qvel
+        @. a1 = d.act
     end
     return nothing
 end
