@@ -63,8 +63,8 @@ function expand_F!(
     forward!(m, d)
     mjd_transitionFD(m, d, bwd.ϵ, true, F.dx, F.u, nothing, nothing)
 
-    println("Fx: $(F.dx)")
-    println("Fu: $(F.u)")
+    #println("Fx: $(F.dx)")
+    #println("Fu: $(F.u)")
     return nothing
 end
 
@@ -78,11 +78,6 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     copyto!(tmp.dxdx, F.dx)
     mul!(Q.dx, tmp.dxdx, V.dx)
     @. Q.dx += L.dx
-    copyto!(Q.dx, L.dx)
-
-    # Q.u = L.u + F.u'*V.dx
-    copyto!(Q.u, L.u)
-    BLAS.gemv!('T', 1.0, F.u, V.dx, 1.0, Q.u)
 
     # Action-value hessians
     # Q.dxdx = L.dxdx + F.dx'*V.dxdx*F.dx
@@ -95,14 +90,21 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     # `tmp.dxdx2` is storing F.dx'*V.dxdx
     mul!(Q.dxu, tmp.dxdx2, F.u)
 
-    # Q.uu = L.uu + F.u'*V.dxdx*F.u + μ*I
-    BLAS.gemm!('T', 'N', 1.0, F.u, V.dxdx, 0.0, tmp.udx)
-    mul!(Q.uu, tmp.udx, F.u)
-    @. Q.uu += L.uu + bwd.μ
+    # Q.u = L.u + F.u'*V.dx
+    # Since F.u is row-major, copying to col-major is equivalent to transpose
+    copyto!(tmp.udx, F.u)
+    mul!(Q.u, tmp.udx, V.dx)
+    @. Q.u += L.u
+
+    # Q.uu = L.uu + F.u'*V.dxdx*F.u + μI
+    # `tmp.udx` is storing F.u'
+    mul!(tmp.udx2, tmp.udx, V.dxdx)
+    mul!(Q.uu, tmp.udx2, F.u)
+    @. Q.uu += L.uu + bwd.μI
 
     # Q.udx = F.u'*V.dxdx*F.dx
-    # `tmp.udx` is storing F.u'*V.dxdx
-    mul!(Q.udx, tmp.udx, F.dx)
+    # `tmp.udx2` is storing F.u'*V.dxdx
+    mul!(Q.udx, tmp.udx2, F.dx)
     return nothing
 end
 

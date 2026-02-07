@@ -5,16 +5,14 @@ function roll_out!(
     sol::TrajoptSolution,
     params::TrajoptParameters,
 )::Nothing
+    # Reference forward model
+    m, d = params.mfwd, params.dfwd
+    reset!(m, d)
+    copy_state_to_data!(d, params.xic)
+
     # Initialize trajectory with previous solution
     copy_nested_array!(fwd.X, sol.X)
     copy_nested_array!(fwd.U, sol.U)
-
-    # Reference forward model
-    m, d = params.mfwd, params.dfwd
-
-    # Set initial conditions
-    reset!(m, d)
-    copy_state_to_data!(d, params.xic)
 
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
@@ -64,10 +62,8 @@ function forward_pass!(
         # Roll out new gains
         roll_out!(fwd, bwd, tmp, sol, params)
 
-        # Evaluate trajectory cost
-        J_ls = params.costfunc(fwd.X, fwd.U, params.Xref, params.Uref)
-
         # Use decreasing cost as line search criteria
+        J_ls = params.costfunc(fwd.X, fwd.U, params.Xref, params.Uref)
         J_ls < sol.J ? break : nothing
 
         # Shrink step size

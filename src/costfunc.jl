@@ -25,11 +25,11 @@ end
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
 function (cache::TrajectoryCostFunction{T,Lk,Lf})(
-    X::AbstractVector{V},
-    U::AbstractVector{V},
-    Xref::AbstractVector{V},
-    Uref::AbstractVector{V},
-)::Union{T,ForwardDiff.Dual} where {T,Lk,Lf,V<:AbstractVector{<:Real}}
+    X::AbstractVector{Tx},
+    U::AbstractVector{Tu},
+    Xref::AbstractVector{Txr},
+    Uref::AbstractVector{Tur},
+)::Union{T,ForwardDiff.Dual} where {Tx,Tu,Txr,Tur,T,Lk,Lf}
     # Reference model
     m = cache.m
 

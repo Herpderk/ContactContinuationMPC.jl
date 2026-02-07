@@ -1,5 +1,5 @@
 function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
-    return cache.bwd.ΔJ < tol_converge
+    return cache.fwd.ΔJ < tol_converge
 end
 
 function log(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
@@ -8,7 +8,6 @@ function log(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
         println("iter      J          ΔJ         α")
         println("-----------------------------------")
     end
-
     @printf(
         "%4.04i   %8.2e   %8.2e   %6.4f\n",
         iter,
@@ -76,18 +75,14 @@ function init_solver!(
     # Set backtracking contraction rate
     fwd.α_mul = opts.alpha_mul
 
-    # Set regularizer matrix and FD epsilon
-    mul!(bwd.μ, opts.eps_reg, I)
+    # Set regularizer matrix, FD epsilon, and gains
+    mul!(bwd.μI, opts.eps_reg, I)
     bwd.ϵ = opts.eps_fd
-
-    # Initialize gains
     fill_nested_array!(bwd.Ks, 0.0)
     fill_nested_array!(bwd.ds, 0.0)
 
-    # Set initial conditions
+    # Set initial conditions and solution terms
     copyto!(sol.X[1], params.xic)
-
-    # Initialize solution terms
     sol.J = Inf
     sol.is_optimal = false
 
