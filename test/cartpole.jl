@@ -219,7 +219,7 @@ end
     params = TrajoptParameters{Float64,S,S,C,C}(
         sim, sim, costfunc, costfunc, Xref, Uref, xic
     )
-    opts = ILqrOptions()
+    opts = ILqrOptions(; maxiter_ilqr=1)
     sol = clean_solve(params, opts)
     sol = clean_solve(params, opts; use_time=true)
     @test sol.is_optimal

@@ -167,4 +167,4 @@ function ILqrOptions{T}(;
 end
 
 # Default type parameter
-ILqrOptions(args...) = ILqrOptions{DEFAULT_DTYPE}(args...)
+ILqrOptions(; args...) = ILqrOptions{DEFAULT_DTYPE}(; args...)
