@@ -82,7 +82,7 @@ end
     N = 100
     Xref = [[0.0, pi, 0.0, 0.0] for k in 1:N]
     Uref = [zeros(1) for k in 1:(N - 1)]
-    xic = 1e-3 * ones(get_nx(m))
+    xic = 1e-2 * ones(get_nx(m))
 
     # Declare cost function
     T = Float64
@@ -99,5 +99,6 @@ end
     # Solve trajectory optimization
     sol = fresh_solve(params, opts)
     sol = fresh_solve(params, opts; use_time=true)
+    println("Final state: $(sol.X[end])")
     @test sol.is_optimal
 end

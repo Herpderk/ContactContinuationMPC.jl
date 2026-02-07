@@ -1,5 +1,5 @@
 function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
-    return cache.fwd.ΔJ < tol_converge
+    return cache.bwd.ΔJ < tol_converge
 end
 
 function log(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
@@ -62,12 +62,12 @@ function assert_opts!(opts::ILqrOptions)::Nothing
     return nothing
 end
 
-function init_solver!(
-    sol::TrajoptSolution,
-    cache::ILqrCache,
-    params::TrajoptParameters,
-    opts::ILqrOptions,
-)::Nothing
+function init_ilqr!(
+    sol::TrajoptSolution{Ts},
+    cache::ILqrCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+    opts::ILqrOptions{To},
+)::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     # Get references to ILqrCache structs
     fwd = cache.fwd
     bwd = cache.bwd
@@ -92,16 +92,13 @@ function init_solver!(
 end
 
 function run_ilqr!(
-    sol::TrajoptSolution,
-    cache::ILqrCache,
-    params::TrajoptParameters,
-    opts::ILqrOptions=ILqrOptions(),
-)::Nothing
-    # Verify options are valid
+    sol::TrajoptSolution{Ts},
+    cache::ILqrCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+    opts::ILqrOptions{To}=ILqrOptions{Tp}(),
+)::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     assert_opts!(opts)
-
-    # Initialize solver variables
-    init_solver!(sol, cache, params, opts)
+    init_ilqr!(sol, cache, params, opts)
 
     # Main solve loop
     for i in 1:opts.maxiter_ilqr
@@ -121,8 +118,8 @@ function run_ilqr!(
 end
 
 function run_ilqr(
-    params::TrajoptParameters, opts::ILqrOptions=ILqrOptions()
-)::TrajoptSolution
+    params::TrajoptParameters{Tp,Lk,Lf}, opts::ILqrOptions{To}=ILqrOptions{Tp}()
+)::TrajoptSolution where {To,Tp,Lk,Lf}
     sol = TrajoptSolution(params)
     cache = ILqrCache(params)
     run_ilqr!(sol, cache, params, opts)

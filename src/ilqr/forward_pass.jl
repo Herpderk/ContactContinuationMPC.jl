@@ -70,7 +70,7 @@ function forward_pass!(
         fwd.α *= fwd.α_mul
     end
 
-    # Save solver iteration data
+    # Save iLQR iteration data
     fwd.ΔJ = abs(J_ls - sol.J)
     sol.J = J_ls
     copy_nested_array!(sol.X, fwd.X)
