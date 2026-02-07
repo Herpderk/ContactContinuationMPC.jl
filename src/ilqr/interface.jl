@@ -198,4 +198,4 @@ function ILqrOptions{T}(;
 end
 
 # Default type parameter
-ILqrOptions(args...) = ILqrOptions{T_DEFAULT}(args...)
+ILqrOptions(; args...) = ILqrOptions{T_DEFAULT}(; args...)

@@ -14,6 +14,8 @@ function roll_out!(
 
     # Set initial conditions
     copy_state_to_data!(d, params.xic)
+    println(d.qpos)
+    println(d.qvel)
 
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)

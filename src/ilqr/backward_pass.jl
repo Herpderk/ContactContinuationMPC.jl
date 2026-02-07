@@ -60,6 +60,9 @@ function expand_F!(
     copy_state_to_data!(d, fwd.X[k])
     copyto!(d.ctrl, fwd.U[k])
     mjd_transitionFD(m, d, bwd.ϵ, true, F.dx, F.u, nothing, nothing)
+
+    println("Fx: $(F.dx)")
+    println("Fu: $(F.u)")
     return nothing
 end
 
