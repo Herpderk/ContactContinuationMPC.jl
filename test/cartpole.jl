@@ -76,13 +76,7 @@ end
 
     # Set model options
     m.opt.timestep = 0.05
-    # m.opt.integrator = MuJoCo.mjINT_RK4
-
-    # Declare cost function
-    Q = diagm([0.01, 1.0, 1.0, 1.0])
-    R = 1e-2 * Matrix(I(m.nu))
-    Qf = 1e+2 * Q
-    costfunc = QuadraticCostFunction{Float64}(Q, R, Qf)
+    m.opt.integrator = MuJoCo.mjINT_RK4
 
     # Declare references and initial conditions
     N = 100
@@ -90,11 +84,16 @@ end
     Uref = [zeros(1) for k in 1:(N - 1)]
     xic = 1e-3 * ones(get_nx(m))
 
+    # Declare cost function
+    T = Float64
+    Q = diagm([0.1, 1.0, 1.0, 1.0])
+    R = 1e-2 * Matrix(I(m.nu))
+    Qf = 1e+2 * Q
+    costfunc = QuadraticCostFunction{T}(Q, R, Qf)
+
     # Declare parameters and options
-    T, C = Float64, typeof(costfunc)
-    params = TrajoptParameters{Float64,C,C}(
-        m, m, costfunc, costfunc, Xref, Uref, xic
-    )
+    L = typeof(costfunc)
+    params = TrajoptParameters{T,L,L}(m, m, costfunc, costfunc, Xref, Uref, xic)
     opts = ILqrOptions{T}()
 
     # Solve trajectory optimization
