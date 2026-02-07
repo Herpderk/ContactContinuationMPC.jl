@@ -9,11 +9,14 @@ function roll_out!(
     copy_nested_array!(fwd.X, sol.X)
     copy_nested_array!(fwd.U, sol.U)
 
+    # Reference forward model
+    m, d = params.mfwd, params.dfwd
+
+    # Set initial conditions
+    copy_state_to_data!(d, params.xic)
+
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
-        # Reference simulator model
-        m = params.mfwd
-
         # Update control input
         #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
         #=
@@ -33,16 +36,9 @@ function roll_out!(
         @. fwd.U[k] -= tmp.u
 
         # Step simulator
-        d = params.dfwd
-        @. d.ctrl = fwd.U[k]
+        copyto!(d.ctrl, fwd.U[k])
         step!(m, d)
-
-        # Save next state
-        x1 = fwd.X[k + 1]
-        q1, v1, a1 = get_q(m, x1), get_v(m, x1), get_a(m, x1)
-        @. q1 = d.qpos
-        @. v1 = d.qvel
-        @. a1 = d.act
+        copy_data_to_state!(fwd.X[k + 1], d)
     end
     return nothing
 end

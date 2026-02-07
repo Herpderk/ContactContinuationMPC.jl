@@ -22,3 +22,11 @@ function fill_nested_array!(
     end
     return nothing
 end
+
+function null_length(arr::T)::Int where {T<:Union{AbstractArray,Nothing}}
+    if isnothing(arr)
+        return 0
+    else
+        return length(arr)
+    end
+end

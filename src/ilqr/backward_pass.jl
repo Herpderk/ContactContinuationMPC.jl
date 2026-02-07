@@ -5,7 +5,7 @@ function expand_term_L!(
     params::TrajoptParameters,
 )::Nothing
     # Get terminal x error
-    get_state_diff!(bwd.m, tmp.dx, fwd.X[end], fwd.Xref[end])
+    get_state_diff!(params.mfwd, tmp.dx, fwd.X[end], params.Xref[end])
 
     # Get terminal costfunc hessian wrt x
     tmp.hess_dxdx = ForwardDiff.hessian!(
@@ -27,7 +27,7 @@ function expand_stage_L!(
     k::Int,
 )::Nothing
     # Get k-th x and u errors
-    get_state_diff!(bwd.m, tmp.dx, fwd.X[k], fwd.Xref[k])
+    get_state_diff!(params.mfwd, tmp.dx, fwd.X[k], params.Xref[k])
     @. tmp.u = fwd.U[k] - params.Uref[k]
 
     # Get gradients and hessians of stage cost wrt x and u
@@ -50,12 +50,15 @@ end
 function expand_F!(
     bwd::BackwardCache, fwd::ForwardCache, params::TrajoptParameters, k::Int
 )::Nothing
+    # Reference backward model
+    m, d = params.mbwd, params.dbwd
+
     # Reference k-th dynamics jacobians, state, and control input
     F = bwd.F
-    x1, x0, u0 = fwd.X[k + 1], fwd.X[k], fwd.U[k]
 
-    # Get simulator jacobians
-    m, d = params.mbwd, params.dbwd
+    # Evaluate dynamics jacobians at xk, uk
+    copy_state_to_data!(d, fwd.X[k])
+    copyto!(d.ctrl, fwd.U[k])
     mjd_transitionFD(m, d, bwd.ϵ, true, F.dx, F.u, nothing, nothing)
     return nothing
 end
@@ -66,9 +69,11 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
 
     # Action-value gradients
     # Q.dx = L.dx + F.dx'*V.dx
-    #mul!(Q.dx, F.dx', V.dx)
+    # Since F.dx is row-major, copying to col-major is equivalent to transpose
+    copyto!(tmp.dxdx, F.dx)
+    mul!(Q.dx, tmp.dxdx, V.dx)
+    @. Q.dx += L.dx
     copyto!(Q.dx, L.dx)
-    BLAS.gemv!('T', 1.0, F.dx, V.dx, 1.0, Q.dx)
 
     # Q.u = L.u + F.u'*V.dx
     copyto!(Q.u, L.u)
@@ -76,21 +81,22 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
 
     # Action-value hessians
     # Q.dxdx = L.dxdx + F.dx'*V.dxdx*F.dx
-    BLAS.gemm!('T', 'N', 1.0, F.dx, V.dxdx, 0.0, tmp.dxdx)
-    mul!(Q.dxdx, tmp.dxdx, F.dx)
+    # `tmp.dxdx` is storing F.dx'
+    mul!(tmp.dxdx2, tmp.dxdx, V.dxdx)
+    mul!(Q.dxdx, tmp.dxdx2, F.dx)
     @. Q.dxdx += L.dxdx
+
+    # Q.dxu = F.dx'*V.dxdx*F.u
+    # `tmp.dxdx2` is storing F.dx'*V.dxdx
+    mul!(Q.dxu, tmp.dxdx2, F.u)
 
     # Q.uu = L.uu + F.u'*V.dxdx*F.u + μ*I
     BLAS.gemm!('T', 'N', 1.0, F.u, V.dxdx, 0.0, tmp.udx)
     mul!(Q.uu, tmp.udx, F.u)
     @. Q.uu += L.uu + bwd.μ
 
-    # Q.dxu = F.dx'*V.dxdx*F.u
-    BLAS.gemm!('T', 'N', 1.0, F.dx, V.dxdx, 0.0, tmp.dxdx)
-    mul!(Q.dxu, tmp.dxdx, F.u)
-
     # Q.udx = F.u'*V.dxdx*F.dx
-    BLAS.gemm!('T', 'N', 1.0, F.u, V.dxdx, 0.0, tmp.udx)
+    # `tmp.udx` is storing F.u'*V.dxdx
     mul!(Q.udx, tmp.udx, F.dx)
     return nothing
 end

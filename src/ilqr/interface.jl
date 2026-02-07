@@ -12,8 +12,6 @@ end
 function TrajoptParameters{T,Lk,Lf}(
     mfwd::MuJoCo.Model,
     mbwd::MuJoCo.Model,
-    dfwd::MuJoCo.Data,
-    dbwd::MuJoCo.Data,
     costfunc_stage::Lk,
     costfunc_term::Lf,
     Xref::AbstractVector{<:AbstractVector{<:Real}},
@@ -22,7 +20,7 @@ function TrajoptParameters{T,Lk,Lf}(
 ) where {T,Lk,Lf}
     # Get problem dimensions
     nx = get_nx(mfwd)
-    nu = m.nu
+    nu = mfwd.nu
     N = length(Xref)
 
     # Assert dimensions
@@ -47,7 +45,7 @@ function TrajoptParameters{T,Lk,Lf}(
             ),
         )
     end
-    if mbwd.nu != nu
+    if mbwd.nu != mbwd.nu
         throw(
             DimensionMismatch(
                 "Forward and backward models do not match in control input dimensions",
@@ -87,6 +85,7 @@ function TrajoptParameters{T,Lk,Lf}(
         end
     end
 
+    dfwd, dbwd = init_data(mfwd), init_data(mbwd)
     costfunc = TrajectoryCostFunction{T,Lk,Lf}(
         mfwd, costfunc_stage, costfunc_term
     )
@@ -146,6 +145,7 @@ end
 @option struct DefaultILqrOptions{T<:AbstractFloat}
     alpha_mul::T
     eps_reg::T
+    eps_fd::T
     tol_converge::T
     maxiter_ilqr::Int
     maxiter_ls::Int
@@ -172,7 +172,7 @@ function ILqrOptions{T}(;
     is_verbose::Union{Bool,Nothing}=nothing,
 )::ILqrOptions{T} where {T}
     # Load default options from config
-    default = fromtoml(
+    default = from_toml(
         DefaultILqrOptions{T}, joinpath(@__DIR__, "config/default_opts.toml")
     )
 
