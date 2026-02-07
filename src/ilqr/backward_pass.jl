@@ -57,8 +57,10 @@ function expand_F!(
     F = bwd.F
 
     # Evaluate dynamics jacobians at xk, uk
+    reset!(m, d)
     copy_state_to_data!(d, fwd.X[k])
     copyto!(d.ctrl, fwd.U[k])
+    forward!(m, d)
     mjd_transitionFD(m, d, bwd.ϵ, true, F.dx, F.u, nothing, nothing)
 
     println("Fx: $(F.dx)")
