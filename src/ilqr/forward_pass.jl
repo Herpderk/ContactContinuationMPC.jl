@@ -1,10 +1,10 @@
 function roll_out!(
-    fwd::ForwardCache,
-    bwd::BackwardCache,
-    tmp::TemporaryCache,
-    sol::TrajoptSolution,
-    params::TrajoptParameters,
-)::Nothing
+    fwd::ForwardCache{Tc},
+    bwd::BackwardCache{Tc},
+    tmp::TemporaryCache{Tc},
+    sol::TrajoptSolution{Ts},
+    params::TrajoptParameters{Tp,Lk,Lf},
+)::Nothing where {Tc,Ts,Tp,Lk,Lf}
     # Reference forward model
     m, d = params.mfwd, params.dfwd
     reset!(m, d)
@@ -34,11 +34,11 @@ function roll_out!(
 end
 
 function forward_pass!(
-    sol::TrajoptSolution,
-    cache::ILqrCache,
-    params::TrajoptParameters,
+    sol::TrajoptSolution{Ts},
+    cache::ILqrCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
     maxiter_ls::Int,
-)::Nothing
+)::Nothing where {Ts,Tc,Tp,Lk,Lf}
     # Get references to ILqrCache structs
     fwd = cache.fwd
     bwd = cache.bwd

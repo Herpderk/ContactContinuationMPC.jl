@@ -1,9 +1,9 @@
 function expand_term_L!(
-    bwd::BackwardCache,
-    tmp::TemporaryCache,
-    fwd::ForwardCache,
-    params::TrajoptParameters,
-)::Nothing
+    bwd::BackwardCache{Tc},
+    tmp::TemporaryCache{Tc},
+    fwd::ForwardCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+)::Nothing where {Tc,Tp,Lk,Lf}
     # Get terminal x error
     get_state_diff!(params.mfwd, tmp.dx, fwd.X[end], params.Xref[end])
 
@@ -17,12 +17,12 @@ function expand_term_L!(
 end
 
 function expand_stage_L!(
-    bwd::BackwardCache,
-    tmp::TemporaryCache,
-    fwd::ForwardCache,
-    params::TrajoptParameters,
+    bwd::BackwardCache{Tc},
+    tmp::TemporaryCache{Tc},
+    fwd::ForwardCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
     k::Int,
-)::Nothing
+)::Nothing where {Tc,Tp,Lk,Lf}
     # Get k-th x and u errors
     get_state_diff!(params.mfwd, tmp.dx, fwd.X[k], params.Xref[k])
     @. tmp.u = fwd.U[k] - params.Uref[k]
@@ -44,8 +44,11 @@ function expand_stage_L!(
 end
 
 function expand_F!(
-    bwd::BackwardCache, fwd::ForwardCache, params::TrajoptParameters, k::Int
-)::Nothing
+    bwd::BackwardCache{Tc},
+    fwd::ForwardCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+    k::Int,
+)::Nothing where {Tc,Tp,Lk,Lf}
     # Reference backward model
     m, d = params.mbwd, params.dbwd
 
@@ -60,7 +63,9 @@ function expand_F!(
     return nothing
 end
 
-function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
+function expand_Q!(
+    bwd::BackwardCache{T}, tmp::TemporaryCache{T}
+)::Nothing where {T}
     # Reference k+1-th value expansion and k-th expansions
     V, L, F, Q = bwd.V, bwd.L, bwd.F, bwd.Q
 
@@ -98,7 +103,9 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     return nothing
 end
 
-function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
+function expand_V!(
+    bwd::BackwardCache{T}, tmp::TemporaryCache{T}, k::Int
+)::Nothing where {T}
     # Reference cache variables
     V, Q, K, d = bwd.V, bwd.Q, bwd.Ks[k], bwd.ds[k]
 
@@ -126,7 +133,9 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     return nothing
 end
 
-function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
+function update_gains!(
+    bwd::BackwardCache{T}, tmp::TemporaryCache{T}, k::Int
+)::Nothing where {T}
     # Reference cache variables
     Q, d, K = bwd.Q, bwd.ds[k], bwd.Ks[k]
 
@@ -148,8 +157,8 @@ function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
 end
 
 function update_cost_prediction!(
-    bwd::BackwardCache, tmp::TemporaryCache, k::Int
-)::Nothing
+    bwd::BackwardCache{T}, tmp::TemporaryCache{T}, k::Int
+)::Nothing where {T,Lk,Lf}
     # Reference cache variables
     Q, d = bwd.Q, bwd.ds[k]
 
@@ -162,7 +171,9 @@ function update_cost_prediction!(
     return nothing
 end
 
-function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
+function backward_pass!(
+    cache::ILqrCache{Tc}, params::TrajoptParameters{Tp,Lk,Lf}
+)::Nothing where {Tc,Tp,Lk,Lf}
     # Get references to ILqrCache structs
     fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
