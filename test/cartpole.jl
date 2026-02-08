@@ -95,9 +95,16 @@ end
     params = TrajoptParameters{T,L,L}(m, m, costfunc, costfunc, Xref, Uref, xic)
     opts = ILqrOptions{T}()
 
-    # Solve trajectory optimization
+    # Let the trajpot JIT compile
+    opts.is_verbose = false
     sol = fresh_solve(params, opts)
+
+    # Solve a second time after JIT compilation for accurate timing
+    opts.is_verbose = true
     sol = fresh_solve(params, opts; use_time=true)
-    println("Final state: $(sol.X[end])")
+
+    # Test solution
+    println("\nFinal state: $(sol.X[end])\n")
     @test sol.is_optimal
+    return nothing
 end
