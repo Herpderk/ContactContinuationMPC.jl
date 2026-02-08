@@ -5,18 +5,14 @@ function expand_term_L!(
     params::TrajoptParameters,
 )::Nothing
     # Get terminal x error
-    copyto!(tmp.x, fwd.X[end])
-    axpy!(-1.0, params.Xref[end], tmp.x)
+    get_state_diff!(params.mfwd, tmp.dx, fwd.X[end], params.Xref[end])
 
     # Get terminal costfunc hessian wrt x
-    tmp.hess_xx = ForwardDiff.hessian!(tmp.hess_xx, params.costfunc.term, tmp.x)
+    ForwardDiff.hessian!(bwd.L.dxdx_result, params.costfunc.term, tmp.dx)
 
-    # Reference terminal value expansion
-    V = bwd.V
-
-    # Save terminal costfunc gradient and hessian
-    copyto!(V.x, DiffResults.gradient(tmp.hess_xx))
-    copyto!(V.xx, DiffResults.hessian(tmp.hess_xx))
+    # Initialize value function expansion
+    copyto!(bwd.V.dx, DiffResults.gradient(bwd.L.dxdx_result))
+    copyto!(bwd.V.dxdx, DiffResults.hessian(bwd.L.dxdx_result))
     return nothing
 end
 
@@ -28,40 +24,39 @@ function expand_stage_L!(
     k::Int,
 )::Nothing
     # Get k-th x and u errors
-    copyto!(tmp.x, fwd.X[k])
-    axpy!(-1.0, params.Xref[k], tmp.x)
-
-    copyto!(tmp.u, fwd.U[k])
-    axpy!(-1.0, params.Uref[k], tmp.u)
+    get_state_diff!(params.mfwd, tmp.dx, fwd.X[k], params.Xref[k])
+    @. tmp.u = fwd.U[k] - params.Uref[k]
 
     # Get gradients and hessians of stage cost wrt x and u
-    tmp.hess_xx = ForwardDiff.hessian!(
-        tmp.hess_xx, δx -> params.costfunc.stage(δx, tmp.u), tmp.x
+    ForwardDiff.hessian!(
+        bwd.L.dxdx_result, δx -> params.costfunc.stage(δx, tmp.u), tmp.dx
     )
-    tmp.hess_uu = ForwardDiff.hessian!(
-        tmp.hess_uu, δu -> params.costfunc.stage(tmp.x, δu), tmp.u
+    ForwardDiff.hessian!(
+        bwd.L.uu_result, δu -> params.costfunc.stage(tmp.dx, δu), tmp.u
     )
-
-    # Reference k-th stage costfunc expansion
-    L = bwd.L
 
     # Save stage cost gradients and hessians wrt x and u
-    copyto!(L.x, DiffResults.gradient(tmp.hess_xx))
-    copyto!(L.xx, DiffResults.hessian(tmp.hess_xx))
-
-    copyto!(L.u, DiffResults.gradient(tmp.hess_uu))
-    copyto!(L.uu, DiffResults.hessian(tmp.hess_uu))
+    copyto!(bwd.L.dx, DiffResults.gradient(bwd.L.dxdx_result))
+    copyto!(bwd.L.dxdx, DiffResults.hessian(bwd.L.dxdx_result))
+    copyto!(bwd.L.u, DiffResults.gradient(bwd.L.uu_result))
+    copyto!(bwd.L.uu, DiffResults.hessian(bwd.L.uu_result))
     return nothing
 end
 
 function expand_F!(
     bwd::BackwardCache, fwd::ForwardCache, params::TrajoptParameters, k::Int
 )::Nothing
-    # Reference k-th dynamics jacobians, state, and control input
-    F = bwd.F
-    x1, x0, u0 = fwd.X[k + 1], fwd.X[k], fwd.U[k]
-    # Get simulator jacobians
-    params.simfunc_bwd!(F.x, F.u, x1, x0, u0)
+    # Reference backward model
+    m, d = params.mbwd, params.dbwd
+
+    # Pre-process MuJoCo data
+    reset!(m, d)
+    copy_state_to_data!(d, fwd.X[k])
+    copyto!(d.ctrl, fwd.U[k])
+    forward!(m, d)
+
+    # Evaluate dynamics jacobians at xk, uk
+    mjd_transitionFD(m, d, bwd.ϵ, true, bwd.F.dx, bwd.F.u, nothing, nothing)
     return nothing
 end
 
@@ -70,107 +65,99 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     V, L, F, Q = bwd.V, bwd.L, bwd.F, bwd.Q
 
     # Action-value gradients
-    # Q.x = L.x + F.x'*V.x
-    #mul!(Q.x, F.x', V.x)
-    copyto!(Q.x, L.x)
-    BLAS.gemv!('T', 1.0, F.x, V.x, 1.0, Q.x)
-
-    # Q.u = L.u + F.u'*V.x
-    copyto!(Q.u, L.u)
-    BLAS.gemv!('T', 1.0, F.u, V.x, 1.0, Q.u)
+    # Q.dx = L.dx + F.dx'*V.dx
+    transpose!(tmp.dxdx, F.dx)
+    mul!(Q.dx, tmp.dxdx, V.dx)
+    @. Q.dx += L.dx
 
     # Action-value hessians
-    # Q.xx = L.xx + F.x'*V.xx*F.x
-    BLAS.gemm!('T', 'N', 1.0, F.x, V.xx, 0.0, tmp.xx)
-    mul!(Q.xx, tmp.xx, F.x)
-    axpy!(1.0, L.xx, Q.xx)
+    # Q.dxdx = L.dxdx + F.dx'*V.dxdx*F.dx
+    # `tmp.dxdx` is storing F.dx'
+    mul!(tmp.dxdx2, tmp.dxdx, V.dxdx)
+    mul!(Q.dxdx, tmp.dxdx2, F.dx)
+    @. Q.dxdx += L.dxdx
 
-    # Q.uu = L.uu + F.u'*V.xx*F.u + μ*I
-    BLAS.gemm!('T', 'N', 1.0, F.u, V.xx, 0.0, tmp.ux)
-    mul!(Q.uu, tmp.ux, F.u)
-    axpy!(1.0, L.uu, Q.uu)
-    axpy!(1.0, bwd.μ, Q.uu)
+    # Q.dxu = F.dx'*V.dxdx*F.u
+    # `tmp.dxdx2` is storing F.dx'*V.dxdx
+    mul!(Q.dxu, tmp.dxdx2, F.u)
 
-    # Q.xu = F.x'*V.xx*F.u
-    BLAS.gemm!('T', 'N', 1.0, F.x, V.xx, 0.0, tmp.xx)
-    mul!(Q.xu, tmp.xx, F.u)
+    # Q.u = L.u + F.u'*V.dx
+    transpose!(tmp.udx, F.u)
+    mul!(Q.u, tmp.udx, V.dx)
+    @. Q.u += L.u
 
-    # Q.ux = F.u'*V.xx*F.x
-    BLAS.gemm!('T', 'N', 1.0, F.u, V.xx, 0.0, tmp.ux)
-    mul!(Q.ux, tmp.ux, F.x)
+    # Q.uu = L.uu + F.u'*V.dxdx*F.u + μI
+    # `tmp.udx` is storing F.u'
+    mul!(tmp.udx2, tmp.udx, V.dxdx)
+    mul!(Q.uu, tmp.udx2, F.u)
+    @. Q.uu += L.uu + bwd.μI
+
+    # Q.udx = F.u'*V.dxdx*F.dx
+    # `tmp.udx` is storing F.u'*V.dxdx
+    mul!(Q.udx, tmp.udx2, F.dx)
     return nothing
 end
 
 function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
-    # Reference k-th value and action-value expansion
-    V, Q = bwd.V, bwd.Q
-
-    # Reference k-th gains
-    d, K = bwd.ds[k], bwd.Ks[k]
+    # Reference cache variables
+    V, Q, K, d = bwd.V, bwd.Q, bwd.Ks[k], bwd.ds[k]
 
     # Cost-to-go gradient
-    # V.x = Q.x - K'*Q.u + K'*Q.uu*d - Q.xu*d
-    copyto!(V.x, Q.x)
-    BLAS.gemv!('T', -1.0, K, Q.u, 1.0, V.x)
+    # V.dx = Q.dx - K'*Q.u + K'*Q.uu*d - Q.dxu*d
+    copyto!(V.dx, Q.dx)
+    BLAS.gemv!('T', -1.0, K, Q.u, 1.0, V.dx)
 
     mul!(tmp.uu, Q.uu, d)
-    BLAS.gemm!('T', 'N', 1.0, K, tmp.uu, 1.0, V.x)
+    BLAS.gemm!('T', 'N', 1.0, K, tmp.uu, 1.0, V.dx)
 
-    mul!(tmp.x, Q.xu, d)
-    axpy!(-1.0, tmp.x, V.x)
+    mul!(tmp.dx, Q.dxu, d)
+    @. V.dx -= tmp.dx
 
     # Cost-to-go hessian
-    # V.xx = Q.xx - K'*Q.ux + K'*Q.uu*K - Q.xu*K
-    copyto!(V.xx, Q.xx)
-    BLAS.gemm!('T', 'N', -1.0, K, Q.ux, 1.0, V.xx)
+    # V.dxdx = Q.dxdx - K'*Q.udx + K'*Q.uu*K - Q.dxu*K
+    copyto!(V.dxdx, Q.dxdx)
+    BLAS.gemm!('T', 'N', -1.0, K, Q.udx, 1.0, V.dxdx)
 
-    mul!(tmp.ux, Q.uu, K)
-    BLAS.gemm!('T', 'N', 1.0, K, tmp.ux, 1.0, V.xx)
+    mul!(tmp.udx, Q.uu, K)
+    BLAS.gemm!('T', 'N', 1.0, K, tmp.udx, 1.0, V.dxdx)
 
-    mul!(tmp.xx, Q.xu, K)
-    axpy!(-1.0, tmp.xx, V.xx)
+    mul!(tmp.dxdx, Q.dxu, K)
+    @. V.dxdx -= tmp.dxdx
     return nothing
 end
 
-function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
-    # Reference k-th action-value expansion and matrix inverse helpers
-    Q = bwd.Q
-    Quu_tmp, bkws = tmp.uu, tmp.bkws_uu
-    #luws = tmp.luws_uu
-
-    # Reference k-th control gains
-    d, K = bwd.ds[k], bwd.Ks[k]
+function update_gains!(bwd::BackwardCache, k::Int)::Nothing
+    # Reference cache variables
+    Q, d, K = bwd.Q, bwd.ds[k], bwd.Ks[k]
 
     # Perform lower-triangular Bunch-Kaufman factorization in place
-    # Overwrite Quu_tmp with Bunch-Kaufman factors
-    copyto!(Quu_tmp, Q.uu)
-    LAPACK.sytrf!(bkws, 'L', Quu_tmp)
-    #LAPACK.getrf!(luws, Quu_tmp)
+    LAPACK.sytrf!(Q.bkws, 'L', Q.uu)
+    #LAPACK.getrf!(luws, Q.uu)
 
     # Feedforward gains: d = Q.uu \ Q.u
-    # sytrs! directly overwrites Q.u
     copyto!(d, Q.u)
-    LAPACK.sytrs!('L', Quu_tmp, bkws.ipiv, d)
-    #LAPACK.getrs!('N', Quu_tmp, luws.ipiv, d)
+    LAPACK.sytrs!('L', Q.uu, Q.bkws.ipiv, d)
+    #LAPACK.getrs!('N', Q.uu, luws.ipiv, d)
 
-    # Feedback gains: K = Q.uu \ Q.ux
-    # sytrs! directly overwrites Q.ux
-    copyto!(K, Q.ux)
-    LAPACK.sytrs!('L', Quu_tmp, bkws.ipiv, K)
-    #LAPACK.getrs!('N', Quu_tmp, luws.ipiv, K)
+    # Feedback gains: K = Q.uu \ Q.udx
+    copyto!(K, Q.udx)
+    LAPACK.sytrs!('L', Q.uu, Q.bkws.ipiv, K)
+    #LAPACK.getrs!('N', Q.uu, luws.ipiv, K)
     return nothing
 end
 
 function update_cost_prediction!(
     bwd::BackwardCache, tmp::TemporaryCache, k::Int
 )::Nothing
-    Q = bwd.Q
-    d = bwd.ds[k]
-    singleton = tmp.singleton
+    # Reference cache variables
+    Q, d = bwd.Q, bwd.ds[k]
 
-    # Predicted change in cost: ΔJ += Q.u' * d
-    BLAS.gemm!('T', 'N', 1.0, Q.u, d, 0.0, singleton)
-    bwd.ΔJ += tmp.singleton[1]
+    # First-order predicted change in cost: ΔJ1 += d'*Q.u
+    bwd.ΔJ1 += dot(d, Q.u)
+
+    # Second-order predicted change n cost: ΔJ2 += d'*Q.uu*d
+    mul!(tmp.u, Q.uu, d)
+    bwd.ΔJ2 += dot(d, tmp.u)
     return nothing
 end
 
@@ -179,7 +166,8 @@ function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
     fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
     # Reset predicted change in cost
-    bwd.ΔJ = 0.0
+    bwd.ΔJ1 = 0.0
+    bwd.ΔJ2 = 0.0
 
     # Initialize value expansion
     expand_term_L!(bwd, tmp, fwd, params)
@@ -189,7 +177,7 @@ function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
         expand_stage_L!(bwd, tmp, fwd, params, k) # Stage cost expansion
         expand_F!(bwd, fwd, params, k)  # Dynamics expansion
         expand_Q!(bwd, tmp)          # Action-value expansion
-        update_gains!(bwd, tmp, k)      # Update feedback and feedforward
+        update_gains!(bwd, k)      # Update feedback and feedforward
         expand_V!(bwd, tmp, k)          # Value expansion
         update_cost_prediction!(bwd, tmp, k)
     end

@@ -1,19 +1,33 @@
 function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
-    return cache.bwd.ΔJ < tol_converge
+    return abs(cache.fwd.ΔJ) < tol_converge
+    #return abs(cache.bwd.ΔJ1+ 0.5*cache.bwd.ΔJ2) < tol_converge
 end
 
-function log(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
-    if rem(iter-1, 20) == 0
-        println("-----------------------------------")
-        println("iter      J          ΔJ         α")
-        println("-----------------------------------")
-    end
+function log_converged()::Nothing
+    println("-------------------------------------")
+    println("       Optimal solution found!")
+    println("-------------------------------------")
+    return nothing
+end
 
+function log_not_converged()::Nothing
+    println("-------------------------------------")
+    println("Maximum number of iterations reached!")
+    println("-------------------------------------")
+    return nothing
+end
+
+function log_iter(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
+    if rem(iter-1, 20) == 0
+        println("-------------------------------------")
+        println("iter       J          ΔJ          α")
+        println("-------------------------------------")
+    end
     @printf(
-        "%4.04i   %8.2e   %8.2e   %6.4f\n",
+        "%4.04i   %8.2e   %8.2e   %8.2e\n",
         iter,
         sol.J,
-        cache.fwd.ΔJ,
+        cache.bwd.ΔJ1 + 0.5*cache.bwd.ΔJ2,
         cache.fwd.α,
     )
     return nothing
@@ -63,30 +77,28 @@ function assert_opts!(opts::ILqrOptions)::Nothing
     return nothing
 end
 
-function init_solver!(
-    sol::TrajoptSolution,
-    cache::ILqrCache,
-    params::TrajoptParameters,
-    opts::ILqrOptions,
-)::Nothing
+function init_ilqr!(
+    sol::TrajoptSolution{Ts},
+    cache::ILqrCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+    opts::ILqrOptions{To},
+)::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     # Get references to ILqrCache structs
     fwd = cache.fwd
     bwd = cache.bwd
 
-    # Set backtracking contraction rate
+    # Set line-search contraction rate and merit function tolerance
     fwd.α_mul = opts.alpha_mul
+    fwd.β = opts.tol_ls
 
-    # Set regularizer matrix
-    mul!(bwd.μ, opts.eps_reg, I)
-
-    # Initialize gains
+    # Set regularizer matrix, FD epsilon, and gains
+    mul!(bwd.μI, opts.eps_reg, I)
+    bwd.ϵ = opts.eps_fd
     fill_nested_array!(bwd.Ks, 0.0)
     fill_nested_array!(bwd.ds, 0.0)
 
-    # Set initial conditions
+    # Set initial conditions and solution terms
     copyto!(sol.X[1], params.xic)
-
-    # Initialize solution terms
     sol.J = Inf
     sol.is_optimal = false
 
@@ -96,37 +108,35 @@ function init_solver!(
 end
 
 function run_ilqr!(
-    sol::TrajoptSolution,
-    cache::ILqrCache,
-    params::TrajoptParameters,
-    opts::ILqrOptions=ILqrOptions(),
-)::Nothing
-    # Verify options are valid
+    sol::TrajoptSolution{Ts},
+    cache::ILqrCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+    opts::ILqrOptions{To}=ILqrOptions{Tp}(),
+)::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     assert_opts!(opts)
-
-    # Initialize solver variables
-    init_solver!(sol, cache, params, opts)
+    init_ilqr!(sol, cache, params, opts)
 
     # Main solve loop
     for i in 1:opts.maxiter_ilqr
         backward_pass!(cache, params)
         forward_pass!(sol, cache, params, opts.maxiter_ls)
+        opts.is_verbose ? log_iter(sol, cache, i) : nothing
 
-        opts.is_verbose ? log(sol, cache, i) : nothing
         if is_converged(cache, opts.tol_converge)
             sol.is_optimal = true
-            opts.is_verbose ? println("\nOptimal solution found!\n") : nothing
-            return nothing
+            break
         end
     end
 
-    opts.is_verbose ? println("\nMaximum iterations exceeded!\n") : nothing
+    if opts.is_verbose
+        sol.is_optimal ? log_converged() : log_not_converged()
+    end
     return nothing
 end
 
 function run_ilqr(
-    params::TrajoptParameters, opts::ILqrOptions=ILqrOptions()
-)::TrajoptSolution
+    params::TrajoptParameters{Tp,Lk,Lf}, opts::ILqrOptions{To}=ILqrOptions{Tp}()
+)::TrajoptSolution where {To,Tp,Lk,Lf}
     sol = TrajoptSolution(params)
     cache = ILqrCache(params)
     run_ilqr!(sol, cache, params, opts)

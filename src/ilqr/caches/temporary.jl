@@ -1,32 +1,28 @@
 mutable struct TemporaryCache{T<:AbstractFloat}
-    singleton::Matrix{T}
+    singleton::Vector{T}
     x::Vector{T}
+    dx::Vector{T}
     u::Vector{T}
-    xx::Matrix{T}
+    dxdx::Matrix{T}
+    dxdx2::Matrix{T}
     uu::Matrix{T}
-    xu::Matrix{T}
-    ux::Matrix{T}
-    hess_xx::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
-    hess_uu::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
-    bkws_uu::BunchKaufmanWs
-    #luws_uu::LUWs
-end
+    dxu::Matrix{T}
+    udx::Matrix{T}
+    udx2::Matrix{T}
 
-function TemporaryCache{T}(
-    nx::Int, nu::Int
-)::TemporaryCache{T} where {T<:AbstractFloat}
-    singleton = zeros(T, 1, 1)
-    x = zeros(T, nx)
-    u = zeros(T, nu)
-    xx = zeros(T, nx, nx)
-    uu = zeros(T, nu, nu)
-    xu = zeros(T, nx, nu)
-    ux = zeros(T, nu, nx)
-    hess_xx = DiffResults.HessianResult(zeros(T, nx))
-    hess_uu = DiffResults.HessianResult(zeros(T, nu))
-    bkws_uu = BunchKaufmanWs(uu)
-    #luws_uu = LUWs(uu)
-    return TemporaryCache{T}(
-        singleton, x, u, xx, uu, xu, ux, hess_xx, hess_uu, bkws_uu
-    )#luws_uu)
+    function TemporaryCache{T}(
+        nx::Integer, ndx::Integer, nu::Integer
+    )::TemporaryCache{T} where {T}
+        singleton = zeros(T, 1)
+        x = zeros(T, nx)
+        dx = zeros(T, ndx)
+        u = zeros(T, nu)
+        dxdx = zeros(T, ndx, ndx)
+        dxdx2 = zeros(T, ndx, ndx)
+        uu = zeros(T, nu, nu)
+        dxu = zeros(T, ndx, nu)
+        udx = zeros(T, nu, ndx)
+        udx2 = zeros(T, nu, ndx)
+        return new{T}(singleton, x, dx, u, dxdx, dxdx2, uu, dxu, udx, udx2)
+    end
 end

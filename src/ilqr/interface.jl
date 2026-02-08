@@ -1,27 +1,57 @@
-mutable struct TrajoptParameters{T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
-    simfunc_fwd!::S_fwd      # expects simfunc_fwd!(x1, x0, u0)::Nothing
-    simfunc_bwd!::S_bwd      # expects simfunc_bwd!(A, B, x1, x0, u0)::Nothing
-    costfunc::TrajectoryCostFunction{T,C_stage,C_term}
+mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
+    mfwd::MuJoCo.Model
+    mbwd::MuJoCo.Model
+    dfwd::MuJoCo.Data
+    dbwd::MuJoCo.Data
+    costfunc::TrajectoryCostFunction{T,Lk,Lf}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
 end
 
-function TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
-    simfunc_fwd!::S_fwd,
-    simfunc_bwd!::S_bwd,
-    costfunc_stage::C_stage,
-    costfunc_term::C_term,
+function TrajoptParameters{T,Lk,Lf}(
+    mfwd::MuJoCo.Model,
+    mbwd::MuJoCo.Model,
+    costfunc_stage::Lk,
+    costfunc_term::Lf,
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
-) where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+) where {T,Lk,Lf}
     # Get problem dimensions
-    nx = length(Xref[1])
-    nu = length(Uref[1])
+    nx = get_nx(mfwd)
+    nu = mfwd.nu
     N = length(Xref)
 
     # Assert dimensions
+    if mfwd.nq != mbwd.nq
+        throw(
+            DimensionMismatch(
+                "Forward and backward models do not match in configuration dimensions",
+            ),
+        )
+    end
+    if mfwd.nv != mbwd.nv
+        throw(
+            DimensionMismatch(
+                "Forward and backward models do not match in velocity dimensions",
+            ),
+        )
+    end
+    if mfwd.na != mbwd.na
+        throw(
+            DimensionMismatch(
+                "Forward and backward models do not match in actuator dimensions",
+            ),
+        )
+    end
+    if mbwd.nu != mbwd.nu
+        throw(
+            DimensionMismatch(
+                "Forward and backward models do not match in control input dimensions",
+            ),
+        )
+    end
     if length(Uref) != N-1
         throw(
             DimensionMismatch(
@@ -55,14 +85,15 @@ function TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
         end
     end
 
-    costfunc = TrajectoryCostFunction{T,C_stage,C_term}(
-        costfunc_stage, costfunc_term, nx, nu
+    dfwd, dbwd = init_data(mfwd), init_data(mbwd)
+    costfunc = TrajectoryCostFunction{T,Lk,Lf}(
+        mfwd, costfunc_stage, costfunc_term
     )
     Xref_T = Vector{Vector{T}}(Xref)
     Uref_T = Vector{Vector{T}}(Uref)
     xic_T = Vector{T}(xic)
-    return TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}(
-        simfunc_fwd!, simfunc_bwd!, costfunc, Xref_T, Uref_T, xic_T
+    return TrajoptParameters{T,Lk,Lf}(
+        mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
     )
 end
 
@@ -73,12 +104,12 @@ mutable struct TrajoptSolution{T<:AbstractFloat}
     is_optimal::Bool
 end
 
-function TrajoptSolution{T}(
-    params::TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}
-)::TrajoptSolution{T} where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+function TrajoptSolution(
+    params::TrajoptParameters{T,Lk,Lf}
+)::TrajoptSolution{T} where {T,Lk,Lf}
     # Get problem dims
-    nx = length(params.Xref[1])
-    nu = length(params.Uref[1])
+    nx = get_nx(params.mfwd)
+    nu = params.mfwd.nu
     N = length(params.Xref)
 
     # Initialize solution terms from dims
@@ -89,37 +120,34 @@ function TrajoptSolution{T}(
     return TrajoptSolution{T}(X, U, J, is_optimal)
 end
 
-# Default type parameter
-TrajoptSolution(args...) = TrajoptSolution{DEFAULT_DTYPE}(args...)
-
 mutable struct ILqrCache{T<:AbstractFloat}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
 end
 
-function ILqrCache{T}(
-    params::TrajoptParameters{T,S_fwd,S_bwd,C_stage,C_term}
-)::ILqrCache{T} where {T<:AbstractFloat,S_fwd,S_bwd,C_stage,C_term}
+function ILqrCache(
+    params::TrajoptParameters{T,Lk,Lf}
+)::ILqrCache{T} where {T,Lk,Lf}
     # Get problem dims
-    nx = length(params.Xref[1])
-    nu = length(params.Uref[1])
+    nx = get_nx(params.mfwd)
+    ndx = get_ndx(params.mfwd)
+    nu = params.mfwd.nu
     N = length(params.Xref)
 
     # Initialize caches from dims
     fwd = ForwardCache{T}(nx, nu, N)
-    bwd = BackwardCache{T}(nx, nu, N)
-    tmp = TemporaryCache{T}(nx, nu)
+    bwd = BackwardCache{T}(ndx, nu, N)
+    tmp = TemporaryCache{T}(nx, ndx, nu)
     return ILqrCache{T}(fwd, bwd, tmp)
 end
-
-# Default type parameter
-ILqrCache(args...) = ILqrCache{DEFAULT_DTYPE}(args...)
 
 @option struct DefaultILqrOptions{T<:AbstractFloat}
     alpha_mul::T
     eps_reg::T
+    eps_fd::T
     tol_converge::T
+    tol_ls::T
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
@@ -128,7 +156,9 @@ end
 mutable struct ILqrOptions{T<:AbstractFloat}
     alpha_mul::T
     eps_reg::T
+    eps_fd::T
     tol_converge::T
+    tol_ls::T
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
@@ -137,11 +167,13 @@ end
 function ILqrOptions{T}(;
     alpha_mul::Union{<:AbstractFloat,Nothing}=nothing,
     eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
+    eps_fd::Union{<:AbstractFloat,Nothing}=nothing,
     tol_converge::Union{<:AbstractFloat,Nothing}=nothing,
+    tol_ls::Union{<:AbstractFloat,Nothing}=nothing,
     maxiter_ilqr::Union{Int,Nothing}=nothing,
     maxiter_ls::Union{Int,Nothing}=nothing,
     is_verbose::Union{Bool,Nothing}=nothing,
-)::ILqrOptions{T} where {T<:AbstractFloat}
+)::ILqrOptions{T} where {T}
     # Load default options from config
     default = from_toml(
         DefaultILqrOptions{T}, joinpath(@__DIR__, "config/default_opts.toml")
@@ -150,8 +182,10 @@ function ILqrOptions{T}(;
     # Use default options if the corresponding option is nothing
     alpha_mul_ = isnothing(alpha_mul) ? default.alpha_mul : T(alpha_mul)
     eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
+    eps_fd_ = isnothing(eps_fd) ? default.eps_fd : T(eps_fd)
     tol_converge_ =
         isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
+    tol_ls_ = isnothing(tol_ls) ? default.tol_ls : T(tol_ls)
     maxiter_ilqr_ =
         isnothing(maxiter_ilqr) ? default.maxiter_ilqr : maxiter_ilqr
     maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
@@ -159,7 +193,9 @@ function ILqrOptions{T}(;
     return ILqrOptions{T}(
         alpha_mul_,
         eps_reg_,
+        eps_fd_,
         tol_converge_,
+        tol_ls_,
         maxiter_ilqr_,
         maxiter_ls_,
         is_verbose_,
@@ -167,4 +203,4 @@ function ILqrOptions{T}(;
 end
 
 # Default type parameter
-ILqrOptions(; args...) = ILqrOptions{DEFAULT_DTYPE}(; args...)
+ILqrOptions(; args...) = ILqrOptions{T_DEFAULT}(; args...)

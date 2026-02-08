@@ -1,65 +1,71 @@
 struct SimulatorExpansion{T<:AbstractFloat}
-    x::Matrix{T}
-    u::Matrix{T}
-end
+    dx::Transpose{T,Matrix{T}}
+    u::Transpose{T,Matrix{T}}
 
-function SimulatorExpansion{T}(
-    nx::Int, nu::Int
-)::SimulatorExpansion{T} where {T<:AbstractFloat}
-    Fx = zeros(T, nx, nx)
-    Fu = zeros(T, nx, nu)
-    return SimulatorExpansion{T}(Fx, Fu)
+    function SimulatorExpansion{T}(
+        ndx::Integer, nu::Integer
+    )::SimulatorExpansion{T} where {T}
+        Fx = mj_zeros(T, ndx, ndx)
+        Fu = mj_zeros(T, ndx, nu)
+        return new{T}(Fx, Fu)
+    end
 end
 
 struct CostFunctionExpansion{T<:AbstractFloat}
-    x::Vector{T}
+    dx::Vector{T}
     u::Vector{T}
-    xx::Matrix{T}
+    dxdx::Matrix{T}
     uu::Matrix{T}
-end
+    dxdx_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
+    uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
 
-function CostFunctionExpansion{T}(
-    nx::Int, nu::Int
-)::CostFunctionExpansion{T} where {T<:AbstractFloat}
-    Lx = zeros(T, nx)
-    Lu = zeros(T, nu)
-    Lxx = zeros(T, nx, nx)
-    Luu = zeros(T, nu, nu)
-    return CostFunctionExpansion{T}(Lx, Lu, Lxx, Luu)
+    function CostFunctionExpansion{T}(
+        ndx::Integer, nu::Integer
+    )::CostFunctionExpansion{T} where {T}
+        Lx = zeros(T, ndx)
+        Lu = zeros(T, nu)
+        Lxx = zeros(T, ndx, ndx)
+        Luu = zeros(T, nu, nu)
+        Lxx_result = DiffResults.HessianResult(zeros(T, ndx))
+        Luu_result = DiffResults.HessianResult(zeros(T, nu))
+        return new{T}(Lx, Lu, Lxx, Luu, Lxx_result, Luu_result)
+    end
 end
 
 struct ValueFunctionExpansion{T<:AbstractFloat}
-    x::Vector{T}
-    xx::Matrix{T}
-end
+    dx::Vector{T}
+    dxdx::Matrix{T}
 
-function ValueFunctionExpansion{T}(
-    nx::Int
-)::ValueFunctionExpansion{T} where {T<:AbstractFloat}
-    Vx = zeros(T, nx)
-    Vxx = zeros(T, nx, nx)
-    return ValueFunctionExpansion{T}(Vx, Vxx)
+    function ValueFunctionExpansion{T}(
+        ndx::Integer
+    )::ValueFunctionExpansion{T} where {T}
+        Vx = zeros(T, ndx)
+        Vxx = zeros(T, ndx, ndx)
+        return new{T}(Vx, Vxx)
+    end
 end
 
 struct ActionValueFunctionExpansion{T<:AbstractFloat}
-    x::Vector{T}
+    dx::Vector{T}
     u::Vector{T}
-    xx::Matrix{T}
-    xu::Matrix{T}
-    ux::Matrix{T}
+    dxdx::Matrix{T}
+    dxu::Matrix{T}
+    udx::Matrix{T}
     uu::Matrix{T}
-end
+    bkws::BunchKaufmanWs
 
-function ActionValueFunctionExpansion{T}(
-    nx::Int, nu::Int
-)::ActionValueFunctionExpansion{T} where {T<:AbstractFloat}
-    Qx = zeros(T, nx)
-    Qu = zeros(T, nu)
-    Qxx = zeros(T, nx, nx)
-    Qxu = zeros(T, nx, nu)
-    Qux = zeros(T, nu, nx)
-    Quu = zeros(T, nu, nu)
-    return ActionValueFunctionExpansion{T}(Qx, Qu, Qxx, Qxu, Qux, Quu)
+    function ActionValueFunctionExpansion{T}(
+        ndx::Integer, nu::Integer
+    )::ActionValueFunctionExpansion{T} where {T}
+        Qx = zeros(T, ndx)
+        Qu = zeros(T, nu)
+        Qxx = zeros(T, ndx, ndx)
+        Qxu = zeros(T, ndx, nu)
+        Qux = zeros(T, nu, ndx)
+        Quu = zeros(T, nu, nu)
+        bkws = BunchKaufmanWs(Quu)
+        return new{T}(Qx, Qu, Qxx, Qxu, Qux, Quu, bkws)
+    end
 end
 
 mutable struct BackwardCache{T<:AbstractFloat}
@@ -69,20 +75,24 @@ mutable struct BackwardCache{T<:AbstractFloat}
     Q::ActionValueFunctionExpansion{T}
     Ks::Vector{Matrix{T}}
     ds::Vector{Vector{T}}
-    μ::Matrix{T}
-    ΔJ::T
-end
+    μI::Matrix{T}
+    ϵ::T
+    ΔJ1::T
+    ΔJ2::T
 
-function BackwardCache{T}(
-    nx::Int, nu::Int, N::Int
-)::BackwardCache{T} where {T<:AbstractFloat}
-    F = SimulatorExpansion{T}(nx, nu)
-    L = CostFunctionExpansion{T}(nx, nu)
-    V = ValueFunctionExpansion{T}(nx)
-    Q = ActionValueFunctionExpansion{T}(nx, nu)
-    Ks = [zeros(T, nu, nx) for k in 1:(N - 1)]
-    ds = [zeros(T, nu) for k in 1:(N - 1)]
-    μ = Matrix{T}(I(nu))
-    ΔJ = zero(T)
-    return BackwardCache{T}(F, L, V, Q, Ks, ds, μ, ΔJ)
+    function BackwardCache{T}(
+        ndx::Integer, nu::Integer, N::Integer
+    )::BackwardCache{T} where {T}
+        F = SimulatorExpansion{T}(ndx, nu)
+        L = CostFunctionExpansion{T}(ndx, nu)
+        V = ValueFunctionExpansion{T}(ndx)
+        Q = ActionValueFunctionExpansion{T}(ndx, nu)
+        Ks = [zeros(T, nu, ndx) for k in 1:(N - 1)]
+        ds = [zeros(T, nu) for k in 1:(N - 1)]
+        μI = Matrix{T}(I(nu))
+        ϵ = zero(T)
+        ΔJ1 = zero(T)
+        ΔJ2 = zero(T)
+        return new{T}(F, L, V, Q, Ks, ds, μI, ϵ, ΔJ1, ΔJ2)
+    end
 end

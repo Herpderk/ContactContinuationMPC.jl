@@ -3,18 +3,19 @@
 
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
-mutable struct TrajectoryCostFunction{T<:AbstractFloat,C_stage,C_term}
-    stage::C_stage
-    term::C_term
+mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
+    m::MuJoCo.Model
+    stage::Lk
+    term::Lf
     xerr::DiffCache{Vector{T},Vector{T}}
     uerr::DiffCache{Vector{T},Vector{T}}
 
-    function TrajectoryCostFunction{T,C_stage,C_term}(
-        costfunc_stage::C_stage, costfunc_term::C_term, nx::Int, nu::Int
-    ) where {T<:AbstractFloat,C_stage,C_term}
-        xerr = DiffCache(zeros(T, nx))
-        uerr = DiffCache(zeros(T, nu))
-        return new{T,C_stage,C_term}(costfunc_stage, costfunc_term, xerr, uerr)
+    function TrajectoryCostFunction{T,Lk,Lf}(
+        m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
+    ) where {T,Lk,Lf}
+        xerr = DiffCache(zeros(T, get_ndx(m)))
+        uerr = DiffCache(zeros(T, m.nu))
+        return new{T,Lk,Lf}(m, costfunc_stage, costfunc_term, xerr, uerr)
     end
 end
 
@@ -23,27 +24,31 @@ end
 
 Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
 """
-function (cache::TrajectoryCostFunction{T,C_stage,C_term})(
-    X::AbstractVector{<:AbstractVector{<:Real}},
-    U::AbstractVector{<:AbstractVector{<:Real}},
-    Xref::AbstractVector{<:AbstractVector{<:Real}},
-    Uref::AbstractVector{<:AbstractVector{<:Real}},
-)::Union{T,ForwardDiff.Dual} where {T,C_stage,C_term}
+function (cache::TrajectoryCostFunction{T,Lk,Lf})(
+    X::AbstractVector{Tx},
+    U::AbstractVector{Tu},
+    Xref::AbstractVector{Txr},
+    Uref::AbstractVector{Tur},
+)::Union{T,ForwardDiff.Dual} where {Tx,Tu,Txr,Tur,T,Lk,Lf}
+    # Reference model
+    m = cache.m
+
     # Get temporary error vectors
     xerr = get_tmp(cache.xerr, X[1])
     uerr = get_tmp(cache.uerr, U[1])
 
-    # Sum costs
-    super_el = X[1][1] + U[1][1]
-    J = zero(super_el)
+    # Initialize trajectory cost
+    el_super = X[1][1] + U[1][1]
+    J = zero(el_super)
 
     @inbounds @simd for k in 1:(length(Uref))
-        @. xerr = X[k] - Xref[k]
-        @. uerr = U[k] - Uref[k]
-        J += cache.stage(xerr, uerr)
+        get_state_diff!(m, xerr, X[k], Xref[k])     # Compute state error
+        @. uerr = U[k] - Uref[k]                    # Compute control error
+        J += cache.stage(xerr, uerr)                # Add stage cost
     end
 
-    @. xerr = X[end] - Xref[end]
+    # Add terminal cost
+    get_state_diff!(m, xerr, X[end], Xref[end])
     J += cache.term(xerr)
     return J
 end
