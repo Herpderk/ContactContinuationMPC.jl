@@ -20,7 +20,7 @@ end
 function log_iter(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
         println("-------------------------------------")
-        println("iter       J          ΔJ          α")
+        println("iter       J         ΔJ          α")
         println("-------------------------------------")
     end
     @printf(
@@ -50,11 +50,27 @@ function assert_opts!(opts::ILqrOptions)::Nothing
             ),
         )
     end
+    if opts.eps_fd <= 0.0
+        throw(
+            DomainError(
+                opts.eps_fd,
+                "The finite-difference coefficient should be greater than 0",
+            ),
+        )
+    end
     if opts.tol_converge <= 0.0
         throw(
             DomainError(
                 opts.tol_converge,
                 "The stationarity tolerance should be greater than 0",
+            ),
+        )
+    end
+    if opts.margin_ls <= 0.0
+        throw(
+            DomainError(
+                opts.margin_ls,
+                "The merit function margin factor should be greater than 0",
             ),
         )
     end
@@ -70,7 +86,7 @@ function assert_opts!(opts::ILqrOptions)::Nothing
         throw(
             DomainError(
                 opts.maxiter_ls,
-                "The max number of line search iterations should be greater than 0",
+                "The max number of line-search iterations should be greater than 0",
             ),
         )
     end
@@ -89,7 +105,7 @@ function init_ilqr!(
 
     # Set line-search contraction rate and merit function tolerance
     fwd.α_mul = opts.alpha_mul
-    fwd.β = opts.tol_ls
+    fwd.β = opts.margin_ls
 
     # Set regularizer matrix, FD epsilon, and gains
     mul!(bwd.μI, opts.eps_reg, I)
