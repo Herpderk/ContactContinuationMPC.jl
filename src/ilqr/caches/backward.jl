@@ -52,7 +52,7 @@ struct ActionValueFunctionExpansion{T<:AbstractFloat}
     dxu::Matrix{T}
     udx::Matrix{T}
     uu::Matrix{T}
-    bkws::BunchKaufmanWs
+    #bkws::BunchKaufmanWs
 
     function ActionValueFunctionExpansion{T}(
         ndx::Integer, nu::Integer
@@ -63,8 +63,8 @@ struct ActionValueFunctionExpansion{T<:AbstractFloat}
         Qxu = zeros(T, ndx, nu)
         Qux = zeros(T, nu, ndx)
         Quu = zeros(T, nu, nu)
-        bkws = BunchKaufmanWs(Quu)
-        return new{T}(Qx, Qu, Qxx, Qxu, Qux, Quu, bkws)
+        #bkws = BunchKaufmanWs(Quu)
+        return new{T}(Qx, Qu, Qxx, Qxu, Qux, Quu)#, bkws)
     end
 end
 
