@@ -4,6 +4,7 @@ mutable struct ForwardCache{T<:AbstractFloat}
     ΔJ::T
     α::T
     α_mul::T
+    β::T
 
     function ForwardCache{T}(
         nx::Integer, nu::Integer, N::Integer
@@ -13,6 +14,7 @@ mutable struct ForwardCache{T<:AbstractFloat}
         ΔJ = zero(T)
         α = zero(T)
         α_mul = zero(T)
-        return new{T}(X, U, ΔJ, α, α_mul)
+        β = zero(T)
+        return new{T}(X, U, ΔJ, α, α_mul, β)
     end
 end

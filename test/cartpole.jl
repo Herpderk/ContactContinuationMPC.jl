@@ -75,19 +75,18 @@ end
     d = init_data(m)
 
     # Set model options
-    m.opt.timestep = 0.05
-    m.opt.integrator = MuJoCo.mjINT_RK4
+    m.opt.timestep = 0.01
 
     # Declare references and initial conditions
-    N = 100
+    N = 400
     Xref = [[0.0, pi, 0.0, 0.0] for k in 1:N]
     Uref = [zeros(1) for k in 1:(N - 1)]
     xic = 1e-2 * ones(get_nx(m))
 
     # Declare cost function
     T = Float64
-    Q = diagm([0.1, 1.0, 1.0, 1.0])
-    R = 1e-2 * Matrix(I(m.nu))
+    Q = 1e-3 * diagm([0.0, 1.0, 1.0, 1.0])
+    R = 1e-6 * Matrix(I(m.nu))
     Qf = 1e+2 * Q
     costfunc = QuadraticCostFunction{T}(Q, R, Qf)
 

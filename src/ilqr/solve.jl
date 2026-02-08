@@ -1,18 +1,33 @@
 function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
-    return cache.bwd.ΔJ < tol_converge
+    return abs(cache.fwd.ΔJ) < tol_converge
+    #return abs(cache.bwd.ΔJ1+ 0.5*cache.bwd.ΔJ2) < tol_converge
 end
 
-function log(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
+function log_converged()::Nothing
+    println("-------------------------------------")
+    println("       Optimal solution found!")
+    println("-------------------------------------")
+    return nothing
+end
+
+function log_not_converged()::Nothing
+    println("-------------------------------------")
+    println("Maximum number of iterations reached!")
+    println("-------------------------------------")
+    return nothing
+end
+
+function log_iter(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
-        println("-----------------------------------")
-        println("iter      J          ΔJ         α")
-        println("-----------------------------------")
+        println("-------------------------------------")
+        println("iter       J          ΔJ          α")
+        println("-------------------------------------")
     end
     @printf(
-        "%4.04i   %8.2e   %8.2e   %6.4f\n",
+        "%4.04i   %8.2e   %8.2e   %8.2e\n",
         iter,
         sol.J,
-        cache.fwd.ΔJ,
+        cache.bwd.ΔJ1 + 0.5*cache.bwd.ΔJ2,
         cache.fwd.α,
     )
     return nothing
@@ -72,8 +87,9 @@ function init_ilqr!(
     fwd = cache.fwd
     bwd = cache.bwd
 
-    # Set backtracking contraction rate
+    # Set line-search contraction rate and merit function tolerance
     fwd.α_mul = opts.alpha_mul
+    fwd.β = opts.tol_ls
 
     # Set regularizer matrix, FD epsilon, and gains
     mul!(bwd.μI, opts.eps_reg, I)
@@ -104,16 +120,17 @@ function run_ilqr!(
     for i in 1:opts.maxiter_ilqr
         backward_pass!(cache, params)
         forward_pass!(sol, cache, params, opts.maxiter_ls)
+        opts.is_verbose ? log_iter(sol, cache, i) : nothing
 
-        opts.is_verbose ? log(sol, cache, i) : nothing
         if is_converged(cache, opts.tol_converge)
             sol.is_optimal = true
-            opts.is_verbose ? println("\nOptimal solution found!\n") : nothing
-            return nothing
+            break
         end
     end
 
-    opts.is_verbose ? println("\nMaximum iterations exceeded!\n") : nothing
+    if opts.is_verbose
+        sol.is_optimal ? log_converged() : log_not_converged()
+    end
     return nothing
 end
 

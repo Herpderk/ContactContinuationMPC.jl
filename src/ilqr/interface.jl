@@ -147,6 +147,7 @@ end
     eps_reg::T
     eps_fd::T
     tol_converge::T
+    tol_ls::T
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
@@ -157,6 +158,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
     eps_reg::T
     eps_fd::T
     tol_converge::T
+    tol_ls::T
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
@@ -167,6 +169,7 @@ function ILqrOptions{T}(;
     eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
     eps_fd::Union{<:AbstractFloat,Nothing}=nothing,
     tol_converge::Union{<:AbstractFloat,Nothing}=nothing,
+    tol_ls::Union{<:AbstractFloat,Nothing}=nothing,
     maxiter_ilqr::Union{Int,Nothing}=nothing,
     maxiter_ls::Union{Int,Nothing}=nothing,
     is_verbose::Union{Bool,Nothing}=nothing,
@@ -182,6 +185,7 @@ function ILqrOptions{T}(;
     eps_fd_ = isnothing(eps_fd) ? default.eps_fd : T(eps_fd)
     tol_converge_ =
         isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
+    tol_ls_ = isnothing(tol_ls) ? default.tol_ls : T(tol_ls)
     maxiter_ilqr_ =
         isnothing(maxiter_ilqr) ? default.maxiter_ilqr : maxiter_ilqr
     maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
@@ -191,6 +195,7 @@ function ILqrOptions{T}(;
         eps_reg_,
         eps_fd_,
         tol_converge_,
+        tol_ls_,
         maxiter_ilqr_,
         maxiter_ls_,
         is_verbose_,

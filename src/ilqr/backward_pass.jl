@@ -75,36 +75,38 @@ function expand_Q!(bwd::BackwardCache, tmp::TemporaryCache)::Nothing
     # Action-value gradients
     # Q.dx = L.dx + F.dx'*V.dx
     # Since F.dx is row-major, copying to col-major is equivalent to transpose
-    copyto!(tmp.dxdx, F.dx)
-    mul!(Q.dx, tmp.dxdx, V.dx)
+    #copyto!(tmp.dxdx, F.dx)
+    mul!(Q.dx, F.dx', V.dx)
     @. Q.dx += L.dx
 
     # Action-value hessians
     # Q.dxdx = L.dxdx + F.dx'*V.dxdx*F.dx
     # `tmp.dxdx` is storing F.dx'
-    mul!(tmp.dxdx2, tmp.dxdx, V.dxdx)
-    mul!(Q.dxdx, tmp.dxdx2, F.dx)
+    #mul!(tmp.dxdx2, tmp.dxdx, V.dxdx)
+    mul!(Q.dxdx, F.dx'*V.dxdx, F.dx)
     @. Q.dxdx += L.dxdx
 
     # Q.dxu = F.dx'*V.dxdx*F.u
     # `tmp.dxdx2` is storing F.dx'*V.dxdx
-    mul!(Q.dxu, tmp.dxdx2, F.u)
+    mul!(Q.dxu, F.dx'*V.dxdx, F.u)
 
     # Q.u = L.u + F.u'*V.dx
     # Since F.u is row-major, copying to col-major is equivalent to transpose
-    copyto!(tmp.udx, F.u)
-    mul!(Q.u, tmp.udx, V.dx)
+    #copyto!(tmp.udx, F.u)
+    mul!(Q.u, F.u', V.dx)
     @. Q.u += L.u
 
     # Q.uu = L.uu + F.u'*V.dxdx*F.u + μI
     # `tmp.udx` is storing F.u'
-    mul!(tmp.udx2, tmp.udx, V.dxdx)
-    mul!(Q.uu, tmp.udx2, F.u)
+    #mul!(tmp.udx2, tmp.udx, V.dxdx)
+    mul!(Q.uu, F.u'*V.dxdx, F.u)
     @. Q.uu += L.uu + bwd.μI
+    #println("Fu: $(F.u)")
+    #println("Quu: $(Q.uu)")
 
     # Q.udx = F.u'*V.dxdx*F.dx
     # `tmp.udx2` is storing F.u'*V.dxdx
-    mul!(Q.udx, tmp.udx2, F.dx)
+    mul!(Q.udx, F.u'*V.dxdx, F.dx)
     return nothing
 end
 
@@ -173,11 +175,13 @@ function update_cost_prediction!(
 )::Nothing
     Q = bwd.Q
     d = bwd.ds[k]
-    singleton = tmp.singleton
 
-    # Predicted change in cost: ΔJ += Q.u' * d
-    BLAS.gemm!('T', 'N', 1.0, Q.u, d, 0.0, singleton)
-    bwd.ΔJ += tmp.singleton[1]
+    # First-order predicted change in cost: ΔJ1 += d'*Q.u
+    bwd.ΔJ1 += dot(d, Q.u)
+
+    # Second-order predicted change n cost: ΔJ2 += d'*Q.uu*d
+    mul!(tmp.u, Q.uu, d)
+    bwd.ΔJ2 += dot(d, tmp.u)
     return nothing
 end
 
@@ -186,7 +190,8 @@ function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
     fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
     # Reset predicted change in cost
-    bwd.ΔJ = 0.0
+    bwd.ΔJ1 = 0.0
+    bwd.ΔJ2 = 0.0
 
     # Initialize value expansion
     expand_term_L!(bwd, tmp, fwd, params)

@@ -1,5 +1,5 @@
 mutable struct TemporaryCache{T<:AbstractFloat}
-    singleton::Matrix{T}
+    singleton::Vector{T}
     x::Vector{T}
     dx::Vector{T}
     u::Vector{T}
@@ -17,7 +17,7 @@ mutable struct TemporaryCache{T<:AbstractFloat}
     function TemporaryCache{T}(
         nx::Integer, ndx::Integer, nu::Integer
     )::TemporaryCache{T} where {T}
-        singleton = zeros(T, 1, 1)
+        singleton = zeros(T, 1)
         x = zeros(T, nx)
         dx = zeros(T, ndx)
         u = zeros(T, nu)

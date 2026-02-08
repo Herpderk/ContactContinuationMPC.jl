@@ -17,15 +17,6 @@ function roll_out!(
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
         # Update control input
-        #fwd.U[k] = sol.U[k] - α*ds[k] - Ks[k]*(fwd.X[k] - sol.X[k])
-        #=
-        mul!(tmp.u, fwd.α, bwd.ds[k])
-        axpy!(-1.0, tmp.u, fwd.U[k])
-        copyto!(tmp.x, fwd.X[k])
-        axpy!(-1.0, sol.X[k], tmp.x)
-        mul!(tmp.u, bwd.Ks[k], tmp.x)
-        axpy!(-1.0, tmp.u, fwd.U[k])
-        =#
         mul!(tmp.u, fwd.α, bwd.ds[k])
         @. fwd.U[k] -= tmp.u
 
@@ -53,25 +44,26 @@ function forward_pass!(
     bwd = cache.bwd
     tmp = cache.tmp
 
-    # Initialize line search step size and trajectory cost
+    # Iterate backtracking line search
     fwd.α = 1.0
     J_ls = 0.0
 
-    # Iterate backtracking line search
     @inbounds for i in 1:maxiter_ls
-        # Roll out new gains
+        # Roll out new trajectory
         roll_out!(fwd, bwd, tmp, sol, params)
-
-        # Use decreasing cost as line search criteria
         J_ls = params.costfunc(fwd.X, fwd.U, params.Xref, params.Uref)
-        J_ls < sol.J ? break : nothing
+
+        # Line-search criteria
+        # Actual change in cost must be as good as β*predicted change
+        ΔJ_pred = bwd.ΔJ1*fwd.α + 0.5*bwd.ΔJ2*fwd.α^2
+        fwd.ΔJ = J_ls - sol.J
+        fwd.ΔJ < -fwd.β * ΔJ_pred ? break : nothing
 
         # Shrink step size
         fwd.α *= fwd.α_mul
     end
 
-    # Save iLQR iteration data
-    fwd.ΔJ = abs(J_ls - sol.J)
+    # Save new solution
     sol.J = J_ls
     copy_nested_array!(sol.X, fwd.X)
     copy_nested_array!(sol.U, fwd.U)
