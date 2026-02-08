@@ -126,23 +126,24 @@ function expand_V!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     return nothing
 end
 
-function update_gains!(bwd::BackwardCache, k::Int)::Nothing
+function update_gains!(bwd::BackwardCache, tmp::TemporaryCache, k::Int)::Nothing
     # Reference cache variables
     Q, d, K = bwd.Q, bwd.ds[k], bwd.Ks[k]
 
-    # Perform lower-triangular Bunch-Kaufman factorization in place
-    LAPACK.sytrf!(Q.bkws, 'L', Q.uu)
-    #LAPACK.getrf!(luws, Q.uu)
+    # Upper-triangular Cholesky factorization
+    copyto!(tmp.uu, Q.uu)
+    LAPACK.potrf!('U', tmp.uu)
+    #LAPACK.sytrf!(Q.bkws, 'U', Q.uu)
 
     # Feedforward gains: d = Q.uu \ Q.u
     copyto!(d, Q.u)
-    LAPACK.sytrs!('L', Q.uu, Q.bkws.ipiv, d)
-    #LAPACK.getrs!('N', Q.uu, luws.ipiv, d)
+    LAPACK.potrs!('U', tmp.uu, d)
+    #LAPACK.sytrs!('U', Q.uu, Q.bkws.ipiv, d)
 
     # Feedback gains: K = Q.uu \ Q.udx
     copyto!(K, Q.udx)
-    LAPACK.sytrs!('L', Q.uu, Q.bkws.ipiv, K)
-    #LAPACK.getrs!('N', Q.uu, luws.ipiv, K)
+    LAPACK.potrs!('U', tmp.uu, K)
+    #LAPACK.sytrs!('U', Q.uu, Q.bkws.ipiv, K)
     return nothing
 end
 
@@ -177,7 +178,7 @@ function backward_pass!(cache::ILqrCache, params::TrajoptParameters)::Nothing
         expand_stage_L!(bwd, tmp, fwd, params, k) # Stage cost expansion
         expand_F!(bwd, fwd, params, k)  # Dynamics expansion
         expand_Q!(bwd, tmp)          # Action-value expansion
-        update_gains!(bwd, k)      # Update feedback and feedforward
+        update_gains!(bwd, tmp, k)      # Update feedback and feedforward
         expand_V!(bwd, tmp, k)          # Value expansion
         update_cost_prediction!(bwd, tmp, k)
     end

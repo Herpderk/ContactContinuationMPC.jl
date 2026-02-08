@@ -2,7 +2,7 @@ module MjContactImplicit
 
 using MuJoCo
 using LinearAlgebra
-using FastLapackInterface
+#using FastLapackInterface
 using ForwardDiff
 using DiffResults
 using PreallocationTools
