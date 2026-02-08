@@ -1,4 +1,4 @@
-module MjContactImplicit
+module ContactContinuationMPC
 
 using MuJoCo
 using LinearAlgebra
@@ -42,4 +42,4 @@ include("ilqr/backward_pass.jl")
 include("ilqr/forward_pass.jl")
 include("ilqr/solve.jl")
 
-end # module MjContactImplicit
+end # module ContactContinuationMPC

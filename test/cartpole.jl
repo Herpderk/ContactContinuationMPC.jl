@@ -4,7 +4,7 @@ using PreallocationTools
 using Printf
 using Test
 using MuJoCo
-using MjContactImplicit
+using ContactContinuationMPC
 
 """
 Struct for storing quadratic cost function weights and caches.
