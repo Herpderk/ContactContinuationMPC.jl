@@ -9,10 +9,6 @@ mutable struct TemporaryCache{T<:AbstractFloat}
     dxu::Matrix{T}
     udx::Matrix{T}
     udx2::Matrix{T}
-    hess_dxdx::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
-    hess_uu::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
-    bkws_uu::BunchKaufmanWs
-    #luws_uu::LUWs
 
     function TemporaryCache{T}(
         nx::Integer, ndx::Integer, nu::Integer
@@ -27,24 +23,6 @@ mutable struct TemporaryCache{T<:AbstractFloat}
         dxu = zeros(T, ndx, nu)
         udx = zeros(T, nu, ndx)
         udx2 = zeros(T, nu, ndx)
-        hess_dxdx = DiffResults.HessianResult(zeros(T, ndx))
-        hess_uu = DiffResults.HessianResult(zeros(T, nu))
-        bkws_uu = BunchKaufmanWs(uu)
-        #luws_uu = LUWs(uu)
-        return new{T}(
-            singleton,
-            x,
-            dx,
-            u,
-            dxdx,
-            dxdx2,
-            uu,
-            dxu,
-            udx,
-            udx2,
-            hess_dxdx,
-            hess_uu,
-            bkws_uu,
-        )#luws_uu)
+        return new{T}(singleton, x, dx, u, dxdx, dxdx2, uu, dxu, udx, udx2)
     end
 end

@@ -16,6 +16,8 @@ struct CostFunctionExpansion{T<:AbstractFloat}
     u::Vector{T}
     dxdx::Matrix{T}
     uu::Matrix{T}
+    dxdx_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
+    uu_result::DiffResults.DiffResult{2,T,Tuple{Vector{T},Matrix{T}}}
 
     function CostFunctionExpansion{T}(
         ndx::Integer, nu::Integer
@@ -24,7 +26,9 @@ struct CostFunctionExpansion{T<:AbstractFloat}
         Lu = zeros(T, nu)
         Lxx = zeros(T, ndx, ndx)
         Luu = zeros(T, nu, nu)
-        return new{T}(Lx, Lu, Lxx, Luu)
+        Lxx_result = DiffResults.HessianResult(zeros(T, ndx))
+        Luu_result = DiffResults.HessianResult(zeros(T, nu))
+        return new{T}(Lx, Lu, Lxx, Luu, Lxx_result, Luu_result)
     end
 end
 
@@ -48,6 +52,7 @@ struct ActionValueFunctionExpansion{T<:AbstractFloat}
     dxu::Matrix{T}
     udx::Matrix{T}
     uu::Matrix{T}
+    bkws::BunchKaufmanWs
 
     function ActionValueFunctionExpansion{T}(
         ndx::Integer, nu::Integer
@@ -58,7 +63,8 @@ struct ActionValueFunctionExpansion{T<:AbstractFloat}
         Qxu = zeros(T, ndx, nu)
         Qux = zeros(T, nu, ndx)
         Quu = zeros(T, nu, nu)
-        return new{T}(Qx, Qu, Qxx, Qxu, Qux, Quu)
+        bkws = BunchKaufmanWs(Quu)
+        return new{T}(Qx, Qu, Qxx, Qxu, Qux, Quu, bkws)
     end
 end
 
