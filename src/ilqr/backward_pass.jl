@@ -158,7 +158,7 @@ end
 
 function update_cost_prediction!(
     bwd::BackwardCache{T}, tmp::TemporaryCache{T}, k::Int
-)::Nothing where {T,Lk,Lf}
+)::Nothing where {T}
     # Reference cache variables
     Q, d = bwd.Q, bwd.ds[k]
 

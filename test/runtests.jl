@@ -1,5 +1,5 @@
 using SafeTestsets
 
-@safetestset "MjContactImplicit.jl" begin
+@safetestset "ContactContinuationMPC.jl" begin
     include("cartpole.jl")
 end

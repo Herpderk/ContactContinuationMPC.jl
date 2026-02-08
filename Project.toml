@@ -1,4 +1,4 @@
-name = "MjContactImplicit"
+name = "ContactContinuationMPC"
 uuid = "8e007fce-f233-4ed5-8309-16381886d233"
 authors = ["Derek Fan <derekfan.18.2002@gmail.com>"]
 version = "0.1.0"
