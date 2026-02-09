@@ -1,6 +1,6 @@
 function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
-    return abs(cache.fwd.ΔJ) < tol_converge
-    #return abs(cache.bwd.ΔJ1+ 0.5*cache.bwd.ΔJ2) < tol_converge
+    #return abs(cache.fwd.ΔJ) < tol_converge
+    return abs(cache.bwd.ΔJ1 + 0.5*cache.bwd.ΔJ2) < tol_converge
 end
 
 function log_converged()::Nothing
