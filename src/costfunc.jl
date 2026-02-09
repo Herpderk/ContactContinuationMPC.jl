@@ -1,60 +1,5 @@
 """
-    TrajectoryCostFunction(stage, term, nx, nu, N)
-
-Callable struct containing a given problem's dimensions, indices, and cost functions.
-"""
-mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
-    m::MuJoCo.Model
-    stage::Lk
-    term::Lf
-    xerr::DiffCache{Vector{T},Vector{T}}
-    uerr::DiffCache{Vector{T},Vector{T}}
-
-    function TrajectoryCostFunction{T,Lk,Lf}(
-        m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
-    ) where {T,Lk,Lf}
-        xerr = DiffCache(zeros(T, get_ndx(m)))
-        uerr = DiffCache(zeros(T, m.nu))
-        return new{T,Lk,Lf}(m, costfunc_stage, costfunc_term, xerr, uerr)
-    end
-end
-
-"""
-    costfunc(X, U, Xref, Uref)
-
-Callable struct method for the `TrajectoryCostFunction` struct that computes the accumulated cost over a trajectory given a sequence of references.
-"""
-function (cache::TrajectoryCostFunction{T,Lk,Lf})(
-    X::AbstractVector{Tx},
-    U::AbstractVector{Tu},
-    Xref::AbstractVector{Txr},
-    Uref::AbstractVector{Tur},
-)::Union{T,ForwardDiff.Dual} where {Tx,Tu,Txr,Tur,T,Lk,Lf}
-    # Reference model
-    m = cache.m
-
-    # Get temporary error vectors
-    xerr = get_tmp(cache.xerr, X[1])
-    uerr = get_tmp(cache.uerr, U[1])
-
-    # Initialize trajectory cost
-    el_super = X[1][1] + U[1][1]
-    J = zero(el_super)
-
-    @inbounds @simd for k in 1:(length(Uref))
-        get_state_diff!(m, xerr, X[k], Xref[k])     # Compute state error
-        @. uerr = U[k] - Uref[k]                    # Compute control error
-        J += cache.stage(xerr, uerr)                # Add stage cost
-    end
-
-    # Add terminal cost
-    get_state_diff!(m, xerr, X[end], Xref[end])
-    J += cache.term(xerr)
-    return J
-end
-
-"""
-    QuadraticCostFunction(Q, R, Qf)
+    QuadraticCostFunction{T}(Q, R, Qf)
 
 Callable struct containing quadratic cost weights. Call method is overloaded
 with stage and terminal cost functions.
@@ -83,9 +28,21 @@ struct QuadraticCostFunction{T<:AbstractFloat}
 end
 
 """
+    QuadraticCostFunction(Q, R, Qf)
+
+Convenience constructor for initialization from dtype of weight matrices.
+"""
+function QuadraticCostFunction(
+    Q::AbstractMatrix{T}, R::AbstractMatrix{T}, Qf::AbstractMatrix{T}
+)::QuadraticCostFunction{T} where {T}
+    return QuadraticCostFunction{T}(Q, R, Qf)
+end
+
+"""
     (cache::QuadraticCostFunction)(xerr, uerr)
 
-Quadratic stage cost function. Computes the cost given the state error xerr and control error uerr.
+Quadratic stage cost function. Computes the cost given the state error xerr and
+control error uerr.
 """
 function (cache::QuadraticCostFunction{T})(
     xerr::AbstractVector{Tx}, uerr::AbstractVector{Tu}
@@ -109,4 +66,84 @@ function (cache::QuadraticCostFunction{T})(
     xtmp = get_tmp(cache.xtmp, xerr)
     mul!(xtmp, cache.Qf, xerr)
     return 0.5 * dot(xerr, xtmp)
+end
+
+"""
+    TrajectoryCostFunction(m, costfunc_stage, costfunc_term)
+
+Callable struct containing a given problem's dimensions, indices, and cost functions.
+"""
+mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
+    m::MuJoCo.Model
+    stage::Lk
+    term::Lf
+    xerr::DiffCache{Vector{T},Vector{T}}
+    uerr::DiffCache{Vector{T},Vector{T}}
+
+    function TrajectoryCostFunction{T}(
+        m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
+    ) where {T,Lk,Lf}
+        if isempty(methods(costfunc_stage))
+            throw(
+                ArgumentError(
+                    "The provided stage cost function is not callable"
+                ),
+            )
+        end
+        if isempty(methods(costfunc_term))
+            throw(
+                ArgumentError(
+                    "The provided terminal cost function is not callable"
+                ),
+            )
+        end
+        xerr = DiffCache(zeros(T, get_ndx(m)))
+        uerr = DiffCache(zeros(T, m.nu))
+        return new{T,Lk,Lf}(m, costfunc_stage, costfunc_term, xerr, uerr)
+    end
+end
+
+"""
+    TrajectoryCostFunction(m, costfunc_quad)
+
+Convenience constructor for initialization from a quadratic cost function.
+"""
+function TrajectoryCostFunction(
+    m::MuJoCo.Model, costfunc_quad::L
+)::TrajectoryCostFunction{T,L,L} where {T,L<:QuadraticCostFunction{T}}
+    return TrajectoryCostFunction{T,L,L}(m, costfunc_quad, costfunc_quad)
+end
+
+"""
+    costfunc(X, U, Xref, Uref)
+
+Computes the accumulated cost over a trajectory given a sequence of references.
+"""
+function (cache::TrajectoryCostFunction{T,Lk,Lf})(
+    X::AbstractVector{Tx},
+    U::AbstractVector{Tu},
+    Xref::AbstractVector{Txr},
+    Uref::AbstractVector{Tur},
+)::Union{T,ForwardDiff.Dual} where {Tx,Tu,Txr,Tur,T,Lk,Lf}
+    # Reference model
+    m = cache.m
+
+    # Get temporary error vectors
+    xerr = get_tmp(cache.xerr, X[1])
+    uerr = get_tmp(cache.uerr, U[1])
+
+    # Initialize trajectory cost
+    el_super = X[1][1] + U[1][1]
+    J = zero(el_super)
+
+    @inbounds @simd for k in 1:(length(Uref))
+        get_state_diff!(m, xerr, X[k], Xref[k])     # Compute state error
+        @. uerr = U[k] - Uref[k]                    # Compute control error
+        J += cache.stage(xerr, uerr)                # Add stage cost
+    end
+
+    # Add terminal cost
+    get_state_diff!(m, xerr, X[end], Xref[end])
+    J += cache.term(xerr)
+    return J
 end

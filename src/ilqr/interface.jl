@@ -7,93 +7,106 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
+
+    function TrajoptParameters{T}(
+        mfwd::MuJoCo.Model,
+        mbwd::MuJoCo.Model,
+        costfunc_stage::Lk,
+        costfunc_term::Lf,
+        Xref::AbstractVector{<:AbstractVector{<:Real}},
+        Uref::AbstractVector{<:AbstractVector{<:Real}},
+        xic::AbstractVector{<:Real},
+    ) where {T,Lk,Lf}
+        # Get problem dimensions
+        nx = get_nx(mfwd)
+        nu = mfwd.nu
+        N = length(Xref)
+
+        # Assert dimensions
+        if mfwd.nq != mbwd.nq
+            throw(
+                DimensionMismatch(
+                    "Forward and backward models do not match in configuration dimensions",
+                ),
+            )
+        end
+        if mfwd.nv != mbwd.nv
+            throw(
+                DimensionMismatch(
+                    "Forward and backward models do not match in velocity dimensions",
+                ),
+            )
+        end
+        if mfwd.na != mbwd.na
+            throw(
+                DimensionMismatch(
+                    "Forward and backward models do not match in actuator dimensions",
+                ),
+            )
+        end
+        if mbwd.nu != mbwd.nu
+            throw(
+                DimensionMismatch(
+                    "Forward and backward models do not match in control input dimensions",
+                ),
+            )
+        end
+        if length(Uref) != N-1
+            throw(
+                DimensionMismatch(
+                    "Number of reference inputs should be 1 less than number of reference states",
+                ),
+            )
+        end
+        if length(xic) != nx
+            throw(
+                DimensionMismatch(
+                    "Initial conditions dimensions do not match those of reference states",
+                ),
+            )
+        end
+        for xref in Xref
+            if length(xref) != nx
+                throw(
+                    DimensionMismatch(
+                        "Reference state dimensions are not consistent"
+                    ),
+                )
+            end
+        end
+        for uref in Uref
+            if length(uref) != nu
+                throw(
+                    DimensionMismatch(
+                        "Reference input dimensions are not consistent"
+                    ),
+                )
+            end
+        end
+
+        dfwd, dbwd = init_data(mfwd), init_data(mbwd)
+        costfunc = TrajectoryCostFunction{T}(
+            mfwd, costfunc_stage, costfunc_term
+        )
+        Xref_T = Vector{Vector{T}}(Xref)
+        Uref_T = Vector{Vector{T}}(Uref)
+        xic_T = Vector{T}(xic)
+        return new{T,Lk,Lf}(
+            mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
+        )
+    end
 end
 
-function TrajoptParameters{T,Lk,Lf}(
+function TrajoptParameters(
     mfwd::MuJoCo.Model,
     mbwd::MuJoCo.Model,
-    costfunc_stage::Lk,
-    costfunc_term::Lf,
+    costfunc_quad::L,
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
-) where {T,Lk,Lf}
-    # Get problem dimensions
-    nx = get_nx(mfwd)
-    nu = mfwd.nu
-    N = length(Xref)
-
-    # Assert dimensions
-    if mfwd.nq != mbwd.nq
-        throw(
-            DimensionMismatch(
-                "Forward and backward models do not match in configuration dimensions",
-            ),
-        )
-    end
-    if mfwd.nv != mbwd.nv
-        throw(
-            DimensionMismatch(
-                "Forward and backward models do not match in velocity dimensions",
-            ),
-        )
-    end
-    if mfwd.na != mbwd.na
-        throw(
-            DimensionMismatch(
-                "Forward and backward models do not match in actuator dimensions",
-            ),
-        )
-    end
-    if mbwd.nu != mbwd.nu
-        throw(
-            DimensionMismatch(
-                "Forward and backward models do not match in control input dimensions",
-            ),
-        )
-    end
-    if length(Uref) != N-1
-        throw(
-            DimensionMismatch(
-                "Number of reference inputs should be 1 less than number of reference states",
-            ),
-        )
-    end
-    if length(xic) != nx
-        throw(
-            DimensionMismatch(
-                "Initial conditions dimensions do not match those of reference states",
-            ),
-        )
-    end
-    for xref in Xref
-        if length(xref) != nx
-            throw(
-                DimensionMismatch(
-                    "Reference state dimensions are not consistent"
-                ),
-            )
-        end
-    end
-    for uref in Uref
-        if length(uref) != nu
-            throw(
-                DimensionMismatch(
-                    "Reference input dimensions are not consistent"
-                ),
-            )
-        end
-    end
-
-    dfwd, dbwd = init_data(mfwd), init_data(mbwd)
-    costfunc = TrajectoryCostFunction{T,Lk,Lf}(
-        mfwd, costfunc_stage, costfunc_term
-    )
-    Xref_T = Vector{Vector{T}}(Xref)
-    Uref_T = Vector{Vector{T}}(Uref)
-    xic_T = Vector{T}(xic)
-    return TrajoptParameters{T,Lk,Lf}(
-        mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
+)::TrajoptParameters{T,L,L} where {T,L<:QuadraticCostFunction{T}}
+    return TrajoptParameters{T}(
+        mfwd, mbwd, costfunc_quad, costfunc_quad, Xref, Uref, xic
     )
 end
 

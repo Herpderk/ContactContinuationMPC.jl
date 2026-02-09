@@ -31,16 +31,14 @@ end
     xic = 1e-2 * ones(get_nx(m))
 
     # Declare cost function
-    T = Float64
     Q = 1e-3 * diagm([0.0, 1.0, 1.0, 1.0])
     R = 1e-6 * Matrix(I(m.nu))
     Qf = 1e+2 * Q
-    costfunc = QuadraticCostFunction{T}(Q, R, Qf)
+    costfunc = QuadraticCostFunction(Q, R, Qf)
 
     # Declare parameters and options
-    L = typeof(costfunc)
-    params = TrajoptParameters{T,L,L}(m, m, costfunc, costfunc, Xref, Uref, xic)
-    opts = ILqrOptions{T}()
+    params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
+    opts = ILqrOptions()
 
     # Let the trajpot JIT compile
     opts.is_verbose = false
