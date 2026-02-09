@@ -10,7 +10,9 @@ using Printf
 using Plots
 using Configurations
 
-export TrajoptParameters,
+export QuadraticCostFunction,
+    TrajectoryCostFunction,
+    TrajoptParameters,
     TrajoptSolution,
     ILqrCache,
     ILqrOptions,
@@ -27,7 +29,7 @@ export TrajoptParameters,
     get_state_diff!,
     copy_data_to_state!,
     copy_state_to_data!,
-    plot_2d_states
+    get_joint_names
 
 include("utils/array.jl")
 include("utils/mujoco.jl")

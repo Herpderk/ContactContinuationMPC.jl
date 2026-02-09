@@ -114,8 +114,8 @@ function expand_V!(
     copyto!(V.dx, Q.dx)
     BLAS.gemv!('T', -1.0, K, Q.u, 1.0, V.dx)
 
-    mul!(tmp.uu, Q.uu, d)
-    BLAS.gemm!('T', 'N', 1.0, K, tmp.uu, 1.0, V.dx)
+    mul!(tmp.u, Q.uu, d)
+    BLAS.gemm!('T', 'N', 1.0, K, tmp.u, 1.0, V.dx)
 
     mul!(tmp.dx, Q.dxu, d)
     @. V.dx -= tmp.dx
@@ -165,7 +165,7 @@ function update_cost_prediction!(
     # First-order predicted change in cost: ΔJ1 += d'*Q.u
     bwd.ΔJ1 += dot(d, Q.u)
 
-    # Second-order predicted change n cost: ΔJ2 += d'*Q.uu*d
+    # Second-order predicted change in cost: ΔJ2 += d'*Q.uu*d
     mul!(tmp.u, Q.uu, d)
     bwd.ΔJ2 += dot(d, tmp.u)
     return nothing
