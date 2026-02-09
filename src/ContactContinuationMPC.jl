@@ -29,7 +29,7 @@ export QuadraticCostFunction,
     get_state_diff!,
     copy_data_to_state!,
     copy_state_to_data!,
-    plot_2d_states
+    get_joint_names
 
 include("utils/array.jl")
 include("utils/mujoco.jl")

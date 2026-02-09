@@ -164,3 +164,17 @@ function copy_state_to_data!(
     end
     return nothing
 end
+
+function get_joint_names(m::MuJoCo.Model)::Vector{String}
+    names = ["" for i in 1:m.nq]
+    for i in 1:m.nq
+        ptr = mj_id2name(m, MuJoCo.mjOBJ_JOINT, i)
+        if ptr != C_NULL
+            name = unsafe_string(ptr)
+        else
+            name = "unnamed"
+        end
+        names[i] = name
+    end
+    return names
+end
