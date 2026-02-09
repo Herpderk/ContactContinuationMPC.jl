@@ -52,3 +52,61 @@ function (cache::TrajectoryCostFunction{T,Lk,Lf})(
     J += cache.term(xerr)
     return J
 end
+
+"""
+    QuadraticCostFunction(Q, R, Qf)
+
+Callable struct containing quadratic cost weights. Call method is overloaded
+with stage and terminal cost functions.
+"""
+struct QuadraticCostFunction{T<:AbstractFloat}
+    Q::Matrix{T}
+    R::Matrix{T}
+    Qf::Matrix{T}
+    xtmp::DiffCache{Vector{T},Vector{T}}
+    utmp::DiffCache{Vector{T},Vector{T}}
+
+    function QuadraticCostFunction{T}(
+        Q::AbstractMatrix{<:Real},
+        R::AbstractMatrix{<:Real},
+        Qf::AbstractMatrix{<:Real},
+    ) where {T}
+        if size(Q) != size(Qf)
+            throw(
+                DimensionMismatch("Q and Qf matrices must have the same size")
+            )
+        end
+        xtmp = DiffCache(zeros(T, size(Q)[1]))
+        utmp = DiffCache(zeros(T, size(R)[1]))
+        return new{T}(T.(Q), T.(R), T.(Qf), xtmp, utmp)
+    end
+end
+
+"""
+    (cache::QuadraticCostFunction)(xerr, uerr)
+
+Quadratic stage cost function. Computes the cost given the state error xerr and control error uerr.
+"""
+function (cache::QuadraticCostFunction{T})(
+    xerr::AbstractVector{Tx}, uerr::AbstractVector{Tu}
+)::Union{T,ForwardDiff.Dual} where {Tx,Tu,T}
+    super_el = xerr[1] + uerr[1]
+    xtmp = get_tmp(cache.xtmp, super_el)
+    utmp = get_tmp(cache.utmp, super_el)
+    mul!(xtmp, cache.Q, xerr)
+    mul!(utmp, cache.R, uerr)
+    return 0.5 * (dot(xerr, xtmp) + dot(uerr, utmp))
+end
+
+"""
+    (cache::QuadraticCostFunction)(xerr)
+
+Quadratic terminal cost function. Computes the cost given the state error xerr.
+"""
+function (cache::QuadraticCostFunction{T})(
+    xerr::AbstractVector{Tx}
+)::Union{T,ForwardDiff.Dual} where {Tx,T}
+    xtmp = get_tmp(cache.xtmp, xerr)
+    mul!(xtmp, cache.Qf, xerr)
+    return 0.5 * dot(xerr, xtmp)
+end

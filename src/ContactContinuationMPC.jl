@@ -10,7 +10,9 @@ using Printf
 using Plots
 using Configurations
 
-export TrajoptParameters,
+export QuadraticCostFunction,
+    TrajectoryCostFunction,
+    TrajoptParameters,
     TrajoptSolution,
     ILqrCache,
     ILqrOptions,
