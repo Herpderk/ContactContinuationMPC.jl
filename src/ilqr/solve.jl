@@ -10,9 +10,16 @@ function log_converged()::Nothing
     return nothing
 end
 
-function log_not_converged()::Nothing
+function log_maxiter()::Nothing
     println("-------------------------------------")
     println("Maximum number of iterations reached!")
+    println("-------------------------------------")
+    return nothing
+end
+
+function log_interrupted()::Nothing
+    println("-------------------------------------")
+    println("          iLQR interrupted!")
     println("-------------------------------------")
     return nothing
 end
@@ -133,19 +140,27 @@ function run_ilqr!(
     init_ilqr!(sol, cache, params, opts)
 
     # Main solve loop
-    for i in 1:opts.maxiter_ilqr
-        backward_pass!(cache, params)
-        forward_pass!(sol, cache, params, opts.maxiter_ls)
-        opts.is_verbose ? log_iter(sol, cache, i) : nothing
-
-        if is_converged(cache, opts.tol_converge)
-            sol.is_optimal = true
-            break
+    i = 1
+    try
+        while i <= opts.maxiter_ilqr
+            backward_pass!(cache, params)
+            forward_pass!(sol, cache, params, opts.maxiter_ls)
+            opts.is_verbose ? log_iter(sol, cache, i) : nothing
+            if is_converged(cache, opts.tol_converge)
+                sol.is_optimal = true
+                break
+            end
+            i += 1
         end
+    catch e
+        e isa InterruptException ? log_interrupted() : rethrow(e)
     end
-
     if opts.is_verbose
-        sol.is_optimal ? log_converged() : log_not_converged()
+        if sol.is_optimal
+            log_converged()
+        elseif i == opts.maxiter_ilqr
+            log_maxiter()
+        end
     end
     return nothing
 end
