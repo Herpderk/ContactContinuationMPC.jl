@@ -1,4 +1,5 @@
 mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
+    cinterps::Union{ContactParameterInterpolations{T},Nothing}
     mfwd::MuJoCo.Model
     mbwd::MuJoCo.Model
     dfwd::MuJoCo.Data
@@ -16,6 +17,8 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Xref::AbstractVector{<:AbstractVector{<:Real}},
         Uref::AbstractVector{<:AbstractVector{<:Real}},
         xic::AbstractVector{<:Real},
+        num_interps::Integer=0,
+        geom_name::String="",
     ) where {T,Lk,Lf}
         # Get problem dimensions
         nx = get_nx(mfwd)
@@ -84,6 +87,13 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
             end
         end
 
+        if num_interps > 0
+            cbwd = ContactParameters{T}(geom_name, mbwd)
+            cfwd = ContactParameters{T}(geom_name, mfwd)
+            cinterps = ContactParameterInterpolations(cbwd, cfwd, num_interps)
+        else
+            cinterps = nothing
+        end
         dfwd, dbwd = init_data(mfwd), init_data(mbwd)
         costfunc = TrajectoryCostFunction{T}(
             mfwd, costfunc_stage, costfunc_term
@@ -92,7 +102,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Uref_T = Vector{Vector{T}}(Uref)
         xic_T = Vector{T}(xic)
         return new{T,Lk,Lf}(
-            mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
+            cinterps, mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
         )
     end
 end
@@ -104,9 +114,19 @@ function TrajoptParameters(
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
+    num_interps::Integer=0,
+    geom_name::String="",
 )::TrajoptParameters{T,L,L} where {T,L<:QuadraticCostFunction{T}}
     return TrajoptParameters{T}(
-        mfwd, mbwd, costfunc_quad, costfunc_quad, Xref, Uref, xic
+        mfwd,
+        mbwd,
+        costfunc_quad,
+        costfunc_quad,
+        Xref,
+        Uref,
+        xic,
+        num_interps,
+        geom_name,
     )
 end
 
