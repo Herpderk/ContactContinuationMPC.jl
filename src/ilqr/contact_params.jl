@@ -57,7 +57,7 @@ end
 
 function ContactParameters{T}(
     geomname::AbstractString, m::MuJoCo.Model
-)::ContactParameters{T} where {T}
+) where {T}
     id = 1 + mj_name2id(m, MuJoCo.mjOBJ_GEOM, geomname)
     if id == 0
         throwarg("Geometry name $geomname is invalid")
@@ -124,7 +124,7 @@ end
 
 function ContactParameterInterpolations(
     c1::ContactParameters{T}, c2::ContactParameters{T}, num_interps::Integer
-)::ContactParameterInterpolations{T} where {T}
+) where {T}
     return ContactParameterInterpolations{T}(c1, c2, num_interps)
 end
 

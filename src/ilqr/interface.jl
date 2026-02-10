@@ -93,13 +93,13 @@ end
 function TrajoptParameters(
     mfwd::MuJoCo.Model,
     mbwd::MuJoCo.Model,
-    costfunc_quad::L,
+    costfunc_quad::QuadraticCostFunction{T},
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
     geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
     num_interps::Integer=0,
-)::TrajoptParameters{T,L,L} where {T,L<:QuadraticCostFunction{T}}
+) where {T}
     return TrajoptParameters{T}(
         mfwd,
         mbwd,
@@ -184,7 +184,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         maxiter_ilqr::Union{Int,Nothing}=nothing,
         maxiter_ls::Union{Int,Nothing}=nothing,
         is_verbose::Union{Bool,Nothing}=nothing,
-    )::ILqrOptions{T} where {T}
+    ) where {T}
         # Load default options from config
         default = from_toml(
             DefaultILqrOptions{T},

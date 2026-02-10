@@ -32,7 +32,7 @@ Convenience constructor for initialization from dtype of weight matrices.
 """
 function QuadraticCostFunction(
     Q::AbstractMatrix{T}, R::AbstractMatrix{T}, Qf::AbstractMatrix{T}
-)::QuadraticCostFunction{T} where {T}
+) where {T}
     return QuadraticCostFunction{T}(Q, R, Qf)
 end
 
@@ -99,8 +99,8 @@ end
 Convenience constructor for initialization from a quadratic cost function.
 """
 function TrajectoryCostFunction(
-    m::MuJoCo.Model, costfunc_quad::L
-)::TrajectoryCostFunction{T,L,L} where {T,L<:QuadraticCostFunction{T}}
+    m::MuJoCo.Model, costfunc_quad::QuadraticCostFunction{T}
+) where {T}
     return TrajectoryCostFunction{T,L,L}(m, costfunc_quad, costfunc_quad)
 end
 
