@@ -140,25 +140,27 @@ function run_ilqr!(
     init_ilqr!(sol, cache, params, opts)
 
     # Main solve loop
-    i = 1
+    iter = 0
     try
-        while i <= opts.maxiter_ilqr
+        while iter < opts.maxiter_ilqr
+            iter += 1
             backward_pass!(cache, params)
             forward_pass!(sol, cache, params, opts.maxiter_ls)
-            opts.is_verbose ? log_iter(sol, cache, i) : nothing
+            opts.is_verbose ? log_iter(sol, cache, iter) : nothing
+
             if is_converged(cache, opts.tol_converge)
                 sol.is_optimal = true
                 break
             end
-            i += 1
         end
     catch e
         e isa InterruptException ? log_interrupted() : rethrow(e)
     end
+
     if opts.is_verbose
         if sol.is_optimal
             log_converged()
-        elseif i == opts.maxiter_ilqr
+        elseif iter == opts.maxiter_ilqr
             log_maxiter()
         end
     end
