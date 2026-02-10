@@ -16,7 +16,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         costfunc_term::Lf,
         Xref::AbstractVector{<:AbstractVector{<:Real}},
         Uref::AbstractVector{<:AbstractVector{<:Real}},
-        xic::AbstractVector{<:Real},
+        xic::AbstractVector{<:Real};
         geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
         num_interps::Integer=0,
     ) where {T,Lk,Lf}
@@ -96,7 +96,7 @@ function TrajoptParameters(
     costfunc_quad::QuadraticCostFunction{T},
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
-    xic::AbstractVector{<:Real},
+    xic::AbstractVector{<:Real};
     geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
     num_interps::Integer=0,
 ) where {T}
@@ -107,10 +107,14 @@ function TrajoptParameters(
         costfunc_quad,
         Xref,
         Uref,
-        xic,
-        geomnames_interp,
-        num_interps,
+        xic;
+        geomnames_interp=geomnames_interp,
+        num_interps=num_interps,
     )
+end
+
+function TrajoptParameters(args...; kwargs...)
+    TrajoptParameters{T_DEFAULT}(args...; kwargs...)
 end
 
 mutable struct TrajoptSolution{T<:AbstractFloat}
