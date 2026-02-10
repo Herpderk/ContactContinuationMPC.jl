@@ -55,9 +55,7 @@ struct ContactParameters{T<:AbstractFloat}
     end
 end
 
-function ContactParameters{T}(
-    geomname::AbstractString, m::MuJoCo.Model
-) where {T}
+function ContactParameters{T}(geomname::AbstractString, m::Model) where {T}
     id = 1 + mj_name2id(m, MuJoCo.mjOBJ_GEOM, geomname)
     if id == 0
         throwarg("Geometry name $geomname is invalid")

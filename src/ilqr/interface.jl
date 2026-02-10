@@ -1,17 +1,17 @@
 mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
     cinterps::Dict{String,ContactParameterInterpolations{T}}
-    mfwd::MuJoCo.Model
-    mbwd::MuJoCo.Model
-    dfwd::MuJoCo.Data
-    dbwd::MuJoCo.Data
+    mfwd::Model
+    mbwd::Model
+    dfwd::Data
+    dbwd::Data
     costfunc::TrajectoryCostFunction{T,Lk,Lf}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
 
     function TrajoptParameters{T}(
-        mfwd::MuJoCo.Model,
-        mbwd::MuJoCo.Model,
+        mfwd::Model,
+        mbwd::Model,
         costfunc_stage::Lk,
         costfunc_term::Lf,
         Xref::AbstractVector{<:AbstractVector{<:Real}},
@@ -91,8 +91,8 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
 end
 
 function TrajoptParameters(
-    mfwd::MuJoCo.Model,
-    mbwd::MuJoCo.Model,
+    mfwd::Model,
+    mbwd::Model,
     costfunc_quad::QuadraticCostFunction{T},
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
