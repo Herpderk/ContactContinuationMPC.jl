@@ -28,7 +28,9 @@ mutable struct ContactParameters{T<:AbstractFloat}
         if !(0 <= dmax <= 1)
             throw(DomainError("dmax must be between 0 and 1"))
         end
-        0 < width ? nothing : throw(DomainError("width must be greater than 0"))
+        if !(0 < width)
+            throw(DomainError("width must be greater than 0"))
+        end
         if !(0 < midpoint < 1)
             throw(DomainError("midpoint must be between 0 and 1"))
         end
