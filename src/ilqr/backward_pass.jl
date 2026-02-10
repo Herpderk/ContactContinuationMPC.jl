@@ -7,12 +7,18 @@ function expand_term_L!(
     # Get terminal x error
     get_state_diff!(params.mfwd, tmp.dx, fwd.X[end], params.Xref[end])
 
-    # Get terminal costfunc hessian wrt x
-    ForwardDiff.hessian!(bwd.L.dxdx_result, params.costfunc.term, tmp.dx)
-
-    # Initialize value function expansion
-    copyto!(bwd.V.dx, DiffResults.gradient(bwd.L.dxdx_result))
-    copyto!(bwd.V.dxdx, DiffResults.hessian(bwd.L.dxdx_result))
+    # Initialize value expansion with terminal costfunc gradient and hessian wrt xf
+    if Lf <: QuadraticCostFunction
+        # Compute terminal costfunc gradient and hessian via analytic expression
+        Qf = params.costfunc.term.Qf
+        mul!(bwd.V.dx, Qf, tmp.dx)
+        copyto!(bwd.V.dxdx, Qf)
+    else
+        # Compute terminal costfunc gradient and hessian via autodiff
+        ForwardDiff.hessian!(bwd.L.dxdx_result, params.costfunc.term, tmp.dx)
+        copyto!(bwd.V.dx, DiffResults.gradient(bwd.L.dxdx_result))
+        copyto!(bwd.V.dxdx, DiffResults.hessian(bwd.L.dxdx_result))
+    end
     return nothing
 end
 
@@ -28,18 +34,26 @@ function expand_stage_L!(
     @. tmp.u = fwd.U[k] - params.Uref[k]
 
     # Get gradients and hessians of stage cost wrt x and u
-    ForwardDiff.hessian!(
-        bwd.L.dxdx_result, δx -> params.costfunc.stage(δx, tmp.u), tmp.dx
-    )
-    ForwardDiff.hessian!(
-        bwd.L.uu_result, δu -> params.costfunc.stage(tmp.dx, δu), tmp.u
-    )
-
-    # Save stage cost gradients and hessians wrt x and u
-    copyto!(bwd.L.dx, DiffResults.gradient(bwd.L.dxdx_result))
-    copyto!(bwd.L.dxdx, DiffResults.hessian(bwd.L.dxdx_result))
-    copyto!(bwd.L.u, DiffResults.gradient(bwd.L.uu_result))
-    copyto!(bwd.L.uu, DiffResults.hessian(bwd.L.uu_result))
+    if Lk <: QuadraticCostFunction
+        # Compute stage costfunc gradient and hessian via analytic expression
+        Q, R = params.costfunc.stage.Q, params.costfunc.stage.R
+        mul!(bwd.L.dx, Q, tmp.dx)
+        copyto!(bwd.L.dxdx, Q)
+        mul!(bwd.L.u, R, tmp.u)
+        copyto!(bwd.L.uu, R)
+    else
+        # Compute stage costfunc gradient and hessian via autodiff
+        ForwardDiff.hessian!(
+            bwd.L.dxdx_result, δx -> params.costfunc.stage(δx, tmp.u), tmp.dx
+        )
+        ForwardDiff.hessian!(
+            bwd.L.uu_result, δu -> params.costfunc.stage(tmp.dx, δu), tmp.u
+        )
+        copyto!(bwd.L.dx, DiffResults.gradient(bwd.L.dxdx_result))
+        copyto!(bwd.L.dxdx, DiffResults.hessian(bwd.L.dxdx_result))
+        copyto!(bwd.L.u, DiffResults.gradient(bwd.L.uu_result))
+        copyto!(bwd.L.uu, DiffResults.hessian(bwd.L.uu_result))
+    end
     return nothing
 end
 

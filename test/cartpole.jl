@@ -19,7 +19,6 @@ end
 @testset "iLQR Cartpole Test" begin
     # Mujoco dynamics model
     m = load_model(joinpath(@__DIR__, "..", "assets", "cartpole.xml"))
-    d = init_data(m)
 
     # Set model options
     m.opt.timestep = 0.01
