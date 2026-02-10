@@ -46,7 +46,7 @@ solref="0.02 1"
             noslip_tolerance="1e-8"/>
   <default>
   <geom margin="0.5" gap="0.0"
-        solimp="0.001 0.95 1.35 0.5 8"
+        solimp="0.001 0.8 1.35 0.5 8"
         solref="0.02 1"
         conaffinity="0" condim="3" contype="1" friction=".4 .1 .1" rgba="0.8 0.6 .4 1"/>
     <joint armature=".1" damping=".01" limited="true" solimplimit="0 .8 .03" solreflimit=".02 1" stiffness="8"/>
