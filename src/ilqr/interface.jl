@@ -1,21 +1,24 @@
 mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
-    mfwd::MuJoCo.Model
-    mbwd::MuJoCo.Model
-    dfwd::MuJoCo.Data
-    dbwd::MuJoCo.Data
+    cinterps::Dict{String,ContactParameterInterpolations{T}}
+    mfwd::Model
+    mbwd::Model
+    dfwd::Data
+    dbwd::Data
     costfunc::TrajectoryCostFunction{T,Lk,Lf}
     Xref::Vector{Vector{T}}
     Uref::Vector{Vector{T}}
     xic::Vector{T}
 
     function TrajoptParameters{T}(
-        mfwd::MuJoCo.Model,
-        mbwd::MuJoCo.Model,
+        mfwd::Model,
+        mbwd::Model,
         costfunc_stage::Lk,
         costfunc_term::Lf,
         Xref::AbstractVector{<:AbstractVector{<:Real}},
         Uref::AbstractVector{<:AbstractVector{<:Real}},
         xic::AbstractVector{<:Real},
+        geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
+        num_interps::Integer=0,
     ) where {T,Lk,Lf}
         # Get problem dimensions
         nx = get_nx(mfwd)
@@ -23,65 +26,55 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         N = length(Xref)
 
         # Assert dimensions
-        if mfwd.nq != mbwd.nq
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in configuration dimensions",
-                ),
-            )
-        end
-        if mfwd.nv != mbwd.nv
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in velocity dimensions",
-                ),
-            )
-        end
-        if mfwd.na != mbwd.na
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in actuator dimensions",
-                ),
-            )
-        end
-        if mbwd.nu != mbwd.nu
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in control input dimensions",
-                ),
-            )
+        dims_same, mismatches = same_dims(mfwd, mbwd)
+        if !dims_same
+            throwdim("Models have mismatched dimensions:\n$mismatches")
         end
         if length(Uref) != N-1
-            throw(
-                DimensionMismatch(
-                    "Number of reference inputs should be 1 less than number of reference states",
-                ),
+            throwdim(
+                "Number of reference inputs should be 1 less than number of reference states",
             )
         end
         if length(xic) != nx
-            throw(
-                DimensionMismatch(
-                    "Initial conditions dimensions do not match those of reference states",
-                ),
+            throwdim(
+                "Initial conditions dimensions do not match those of reference states",
             )
         end
         for xref in Xref
             if length(xref) != nx
-                throw(
-                    DimensionMismatch(
-                        "Reference state dimensions are not consistent"
-                    ),
-                )
+                throwdim("Reference state dimensions are not consistent")
             end
         end
         for uref in Uref
             if length(uref) != nu
-                throw(
-                    DimensionMismatch(
-                        "Reference input dimensions are not consistent"
-                    ),
-                )
+                throwdim("Reference input dimensions are not consistent")
             end
+        end
+
+        # Check geometry names
+        all_geomnames = get_geom_names(mfwd)
+        if get_geom_names(mbwd) != all_geomnames
+            throwarg("Geometry names between models are not consistent")
+        end
+        for geomname_interp in geomnames_interp
+            if !(geomname_interp in all_geomnames)
+                throwarg("Geometry $geomname_interp is not in the models")
+            end
+        end
+
+        # Populate contact parameter interpolation dict
+        cinterps = Dict{String,ContactParameterInterpolations{T}}()
+        for geomname in all_geomnames
+            cfwd = ContactParameters{T}(geomname, mfwd)
+            cbwd = ContactParameters{T}(geomname, mbwd)
+            if geomname in geomnames_interp # Interpolate for specified geoms
+                cinterp = ContactParameterInterpolations(
+                    cbwd, cfwd, num_interps
+                )
+            else                            # No interpolated values otherwise
+                cinterp = ContactParameterInterpolations(cbwd, cfwd, 0)
+            end
+            cinterps[geomname] = cinterp
         end
 
         dfwd, dbwd = init_data(mfwd), init_data(mbwd)
@@ -92,21 +85,31 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Uref_T = Vector{Vector{T}}(Uref)
         xic_T = Vector{T}(xic)
         return new{T,Lk,Lf}(
-            mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
+            cinterps, mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
         )
     end
 end
 
 function TrajoptParameters(
-    mfwd::MuJoCo.Model,
-    mbwd::MuJoCo.Model,
-    costfunc_quad::L,
+    mfwd::Model,
+    mbwd::Model,
+    costfunc_quad::QuadraticCostFunction{T},
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
-)::TrajoptParameters{T,L,L} where {T,L<:QuadraticCostFunction{T}}
+    geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
+    num_interps::Integer=0,
+) where {T}
     return TrajoptParameters{T}(
-        mfwd, mbwd, costfunc_quad, costfunc_quad, Xref, Uref, xic
+        mfwd,
+        mbwd,
+        costfunc_quad,
+        costfunc_quad,
+        Xref,
+        Uref,
+        xic,
+        geomnames_interp,
+        num_interps,
     )
 end
 
@@ -181,7 +184,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         maxiter_ilqr::Union{Int,Nothing}=nothing,
         maxiter_ls::Union{Int,Nothing}=nothing,
         is_verbose::Union{Bool,Nothing}=nothing,
-    )::ILqrOptions{T} where {T}
+    ) where {T}
         # Load default options from config
         default = from_toml(
             DefaultILqrOptions{T},

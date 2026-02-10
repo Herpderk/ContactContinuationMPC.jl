@@ -10,9 +10,7 @@ mutable struct TemporaryCache{T<:AbstractFloat}
     udx::Matrix{T}
     udx2::Matrix{T}
 
-    function TemporaryCache{T}(
-        nx::Integer, ndx::Integer, nu::Integer
-    )::TemporaryCache{T} where {T}
+    function TemporaryCache{T}(nx::Integer, ndx::Integer, nu::Integer) where {T}
         singleton = zeros(T, 1)
         x = zeros(T, nx)
         dx = zeros(T, ndx)

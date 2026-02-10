@@ -31,14 +31,17 @@ export QuadraticCostFunction,
     copy_state_to_data!,
     get_joint_names
 
+include("utils/exceptions.jl")
 include("utils/array.jl")
 include("utils/mujoco.jl")
+include("utils/interpolate.jl")
 include("plot.jl")
 include("costfunc.jl")
 include("ilqr/config/consts.jl")
 include("ilqr/caches/backward.jl")
 include("ilqr/caches/forward.jl")
 include("ilqr/caches/temporary.jl")
+include("ilqr/contact_params.jl")
 include("ilqr/interface.jl")
 include("ilqr/backward_pass.jl")
 include("ilqr/forward_pass.jl")

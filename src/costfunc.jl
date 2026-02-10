@@ -17,9 +17,7 @@ struct QuadraticCostFunction{T<:AbstractFloat}
         Qf::AbstractMatrix{<:Real},
     ) where {T}
         if size(Q) != size(Qf)
-            throw(
-                DimensionMismatch("Q and Qf matrices must have the same size")
-            )
+            throwdim("Q and Qf matrices must have the same size")
         end
         xtmp = DiffCache(zeros(T, size(Q)[1]))
         utmp = DiffCache(zeros(T, size(R)[1]))
@@ -34,7 +32,7 @@ Convenience constructor for initialization from dtype of weight matrices.
 """
 function QuadraticCostFunction(
     Q::AbstractMatrix{T}, R::AbstractMatrix{T}, Qf::AbstractMatrix{T}
-)::QuadraticCostFunction{T} where {T}
+) where {T}
     return QuadraticCostFunction{T}(Q, R, Qf)
 end
 
@@ -74,28 +72,20 @@ end
 Callable struct containing a given problem's dimensions, indices, and cost functions.
 """
 mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
-    m::MuJoCo.Model
+    m::Model
     stage::Lk
     term::Lf
     xerr::DiffCache{Vector{T},Vector{T}}
     uerr::DiffCache{Vector{T},Vector{T}}
 
     function TrajectoryCostFunction{T}(
-        m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
+        m::Model, costfunc_stage::Lk, costfunc_term::Lf
     ) where {T,Lk,Lf}
         if isempty(methods(costfunc_stage))
-            throw(
-                ArgumentError(
-                    "The provided stage cost function is not callable"
-                ),
-            )
+            throwarg("The provided stage cost function is not callable")
         end
         if isempty(methods(costfunc_term))
-            throw(
-                ArgumentError(
-                    "The provided terminal cost function is not callable"
-                ),
-            )
+            throwarg("The provided terminal cost function is not callable")
         end
         xerr = DiffCache(zeros(T, get_ndx(m)))
         uerr = DiffCache(zeros(T, m.nu))
@@ -109,8 +99,8 @@ end
 Convenience constructor for initialization from a quadratic cost function.
 """
 function TrajectoryCostFunction(
-    m::MuJoCo.Model, costfunc_quad::L
-)::TrajectoryCostFunction{T,L,L} where {T,L<:QuadraticCostFunction{T}}
+    m::Model, costfunc_quad::QuadraticCostFunction{T}
+) where {T}
     return TrajectoryCostFunction{T,L,L}(m, costfunc_quad, costfunc_quad)
 end
 

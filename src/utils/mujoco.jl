@@ -1,30 +1,30 @@
-function get_nx(m::MuJoCo.Model)::Int
+function get_nx(m::Model)::Int
     return m.nq + m.nv + m.na
 end
 
-function get_nx(d::MuJoCo.Data)::Int
+function get_nx(d::Data)::Int
     return null_length(d.qpos) + null_length(d.qvel) + null_length(d.act)
 end
 
-function get_ndx(m::MuJoCo.Model)::Int
+function get_ndx(m::Model)::Int
     return 2 * m.nv + m.na
 end
 
-function get_ndx(d::MuJoCo.Data)::Int
+function get_ndx(d::Data)::Int
     return 2 * null_length(d.qvel) + null_length(d.act)
 end
 
 """
 Assume x = [q, v, a]
 """
-function get_q(m::MuJoCo.Model, x::AbstractVector{T})::SubArray{T} where {T}
+function get_q(m::Model, x::AbstractVector{T})::SubArray{T} where {T}
     return view(x, 1:m.nq)
 end
 
 """
 Assume x = [q, v, a]
 """
-function get_q(d::MuJoCo.Data, x::AbstractVector{T})::SubArray{T} where {T}
+function get_q(d::Data, x::AbstractVector{T})::SubArray{T} where {T}
     nq = null_length(d.qpos)
     return view(x, 1:nq)
 end
@@ -32,14 +32,14 @@ end
 """
 Assume x = [q, v, a]
 """
-function get_v(m::MuJoCo.Model, x::AbstractVector{T})::SubArray{T} where {T}
+function get_v(m::Model, x::AbstractVector{T})::SubArray{T} where {T}
     return view(x, (m.nq + 1):(m.nq + m.nv))
 end
 
 """
 Assume x = [q, v, a]
 """
-function get_v(d::MuJoCo.Data, x::AbstractVector{T})::SubArray{T} where {T}
+function get_v(d::Data, x::AbstractVector{T})::SubArray{T} where {T}
     nq = null_length(d.qpos)
     nv = null_length(d.qvel)
     return view(x, (nq + 1):(nq + nv))
@@ -48,14 +48,14 @@ end
 """
 Assume x = [q, v, a]
 """
-function get_a(m::MuJoCo.Model, x::AbstractVector{T})::SubArray{T} where {T}
+function get_a(m::Model, x::AbstractVector{T})::SubArray{T} where {T}
     return view(x, (m.nq + m.nv + 1):(m.nq + m.nv + m.na))
 end
 
 """
 Assume x = [q, v, a]
 """
-function get_a(d::MuJoCo.Data, x::AbstractVector{T})::SubArray{T} where {T}
+function get_a(d::Data, x::AbstractVector{T})::SubArray{T} where {T}
     nq = null_length(d.qpos)
     nv = null_length(d.qvel)
     na = null_length(d.act)
@@ -65,14 +65,14 @@ end
 """
 Assume dx = [dq, dv, da]
 """
-function get_dq(m::MuJoCo.Model, dx::AbstractVector{T})::SubArray{T} where {T}
+function get_dq(m::Model, dx::AbstractVector{T})::SubArray{T} where {T}
     return view(dx, 1:m.nv)
 end
 
 """
 Assume dx = [dq, dv, da]
 """
-function get_dq(d::MuJoCo.Data, dx::AbstractVector{T})::SubArray{T} where {T}
+function get_dq(d::Data, dx::AbstractVector{T})::SubArray{T} where {T}
     nv = null_length(d.qvel)
     return view(dx, 1:nv)
 end
@@ -80,14 +80,14 @@ end
 """
 Assume dx = [dq, dv, da]
 """
-function get_dv(m::MuJoCo.Model, dx::AbstractVector{T})::SubArray{T} where {T}
+function get_dv(m::Model, dx::AbstractVector{T})::SubArray{T} where {T}
     return view(dx, (m.nv + 1):(m.nv + m.nv))
 end
 
 """
 Assume dx = [dq, dv, da]
 """
-function get_dv(d::MuJoCo.Data, dx::AbstractVector{T})::SubArray{T} where {T}
+function get_dv(d::Data, dx::AbstractVector{T})::SubArray{T} where {T}
     nv = null_length(d.qvel)
     return view(dx, (nv + 1):(2 * nv))
 end
@@ -95,7 +95,7 @@ end
 """
 Assume dx = [dq, dv, da]
 """
-function get_da(m::MuJoCo.Model, dx::AbstractVector{T})::SubArray{T} where {T}
+function get_da(m::Model, dx::AbstractVector{T})::SubArray{T} where {T}
     start = 2 * m.nv
     return view(dx, (start + 1):(start + m.na))
 end
@@ -103,7 +103,7 @@ end
 """
 Assume dx = [dq, dv, da]
 """
-function get_da(d::MuJoCo.Data, dx::AbstractVector{T})::SubArray{T} where {T}
+function get_da(d::Data, dx::AbstractVector{T})::SubArray{T} where {T}
     nv = null_length(d.qvel)
     na = null_length(d.act)
     start = 2*nv
@@ -116,7 +116,7 @@ end
 Get the state difference (x1 - x2) in tangent space coordinates.
 """
 function get_state_diff!(
-    m::MuJoCo.Model,
+    m::Model,
     Δx::AbstractVector{TΔ},
     x1::AbstractVector{T1},
     x2::AbstractVector{T2},
@@ -135,9 +135,7 @@ function get_state_diff!(
     return nothing
 end
 
-function copy_data_to_state!(
-    x::AbstractVector{T}, d::MuJoCo.Data
-)::Nothing where {T}
+function copy_data_to_state!(x::AbstractVector{T}, d::Data)::Nothing where {T}
     if !isnothing(d.qpos)
         copyto!(get_q(d, x), d.qpos)
     end
@@ -150,9 +148,7 @@ function copy_data_to_state!(
     return nothing
 end
 
-function copy_state_to_data!(
-    d::MuJoCo.Data, x::AbstractVector{T}
-)::Nothing where {T}
+function copy_state_to_data!(d::Data, x::AbstractVector{T})::Nothing where {T}
     if !isnothing(d.qpos)
         copyto!(d.qpos, get_q(d, x))
     end
@@ -165,10 +161,10 @@ function copy_state_to_data!(
     return nothing
 end
 
-function get_joint_names(m::MuJoCo.Model)::Vector{String}
+function get_joint_names(m::Model)::Vector{String}
     names = ["" for i in 1:m.nq]
     for i in 1:m.nq
-        ptr = mj_id2name(m, MuJoCo.mjOBJ_JOINT, i)
+        ptr = mj_id2name(m, MuJoCo.mjOBJ_JOINT, i-1)
         if ptr != C_NULL
             name = unsafe_string(ptr)
         else
@@ -177,4 +173,49 @@ function get_joint_names(m::MuJoCo.Model)::Vector{String}
         names[i] = name
     end
     return names
+end
+
+function get_geom_names(m::Model)::Vector{String}
+    names = ["" for i in 1:m.nq]
+    for i in 1:m.nq
+        ptr = mj_id2name(m, MuJoCo.mjOBJ_GEOM, i-1)
+        if ptr != C_NULL
+            name = unsafe_string(ptr)
+        else
+            name = "unnamed"
+        end
+        names[i] = name
+    end
+    return names
+end
+
+"""
+    same_dims(m1::Model, m2::Model)
+
+Checks if two MuJoCo models have the same counts for all attributes starting with 'n'.
+Returns (true, []) if they match, or (false, mismatched_fields) if they don't.
+"""
+function same_dims(m1::Model, m2::Model)::Tuple{Bool,Vector{String}}
+    mismatches = Vector{String}()
+
+    # Get all field names from the Model struct
+    fields = String.(fieldnames(Model))
+
+    for field in fields
+        # Check if the field starts with 'n'
+        if startswith(field, "n")
+            val1 = m1.field
+            val2 = m2.field
+
+            # Only compare if they are integer dimensions
+            if val1 isa Integer && val2 isa Integer
+                if val1 != val2
+                    push!(mismatches, field)
+                end
+            end
+        end
+    end
+
+    flag = isempty(mismatches) ? true : false
+    return flag, mismatches
 end
