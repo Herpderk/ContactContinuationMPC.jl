@@ -1,5 +1,5 @@
 mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
-    cinterps::Union{ContactParameterInterpolations{T},Nothing}
+    cinterps::Dict{String,ContactParameterInterpolations{T}}
     mfwd::MuJoCo.Model
     mbwd::MuJoCo.Model
     dfwd::MuJoCo.Data
@@ -17,8 +17,8 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Xref::AbstractVector{<:AbstractVector{<:Real}},
         Uref::AbstractVector{<:AbstractVector{<:Real}},
         xic::AbstractVector{<:Real},
+        geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
         num_interps::Integer=0,
-        geom_name::String="",
     ) where {T,Lk,Lf}
         # Get problem dimensions
         nx = get_nx(mfwd)
@@ -26,31 +26,11 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         N = length(Xref)
 
         # Assert dimensions
-        if mfwd.nq != mbwd.nq
+        dims_same, mismatches = same_dims(mfwd, mbwd)
+        if !dims_same
             throw(
                 DimensionMismatch(
-                    "Forward and backward models do not match in configuration dimensions",
-                ),
-            )
-        end
-        if mfwd.nv != mbwd.nv
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in velocity dimensions",
-                ),
-            )
-        end
-        if mfwd.na != mbwd.na
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in actuator dimensions",
-                ),
-            )
-        end
-        if mbwd.nu != mbwd.nu
-            throw(
-                DimensionMismatch(
-                    "Forward and backward models do not match in control input dimensions",
+                    "Models have mismatched dimensions:\n$mismatches"
                 ),
             )
         end
@@ -87,13 +67,40 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
             end
         end
 
-        if num_interps > 0
-            cbwd = ContactParameters{T}(geom_name, mbwd)
-            cfwd = ContactParameters{T}(geom_name, mfwd)
-            cinterps = ContactParameterInterpolations(cbwd, cfwd, num_interps)
-        else
-            cinterps = nothing
+        # Check geometry names
+        all_geomnames = get_geom_names(mfwd)
+        if get_geom_names(mbwd) != all_geomnames
+            throw(
+                ArgumentError(
+                    "Geometry names between models are not consistent"
+                ),
+            )
         end
+        for geomname_interp in geomnames_interp
+            if !(geomname_interp in all_geomnames)
+                throw(
+                    ArgumentError(
+                        "Geometry $geomname_interp is not in the models"
+                    ),
+                )
+            end
+        end
+
+        # Populate contact parameter interpolation dict
+        cinterps = Dict{String,ContactParameterInterpolations{T}}()
+        for geomname in all_geomnames
+            cfwd = ContactParameters{T}(geomname, mfwd)
+            cbwd = ContactParameters{T}(geomname, mbwd)
+            if geomname in geomnames_interp # Interpolate for specified geoms
+                cinterp = ContactParameterInterpolations(
+                    cbwd, cfwd, num_interps
+                )
+            else                            # No interpolated values otherwise
+                cinterp = ContactParameterInterpolations(cbwd, cfwd, 0)
+            end
+            cinterps[geomname] = cinterp
+        end
+
         dfwd, dbwd = init_data(mfwd), init_data(mbwd)
         costfunc = TrajectoryCostFunction{T}(
             mfwd, costfunc_stage, costfunc_term
@@ -114,8 +121,8 @@ function TrajoptParameters(
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real},
+    geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
     num_interps::Integer=0,
-    geom_name::String="",
 )::TrajoptParameters{T,L,L} where {T,L<:QuadraticCostFunction{T}}
     return TrajoptParameters{T}(
         mfwd,
@@ -125,8 +132,8 @@ function TrajoptParameters(
         Xref,
         Uref,
         xic,
+        geomnames_interp,
         num_interps,
-        geom_name,
     )
 end
 

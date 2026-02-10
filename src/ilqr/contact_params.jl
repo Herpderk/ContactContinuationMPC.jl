@@ -1,24 +1,22 @@
-mutable struct ContactParameters{T<:AbstractFloat}
-    geom_name::String
+struct ContactParameters{T<:AbstractFloat}
     margin::T
     gap::T
     dmin::T
     dmax::T
     width::T
     midpoint::T
-    power::Int
+    power::T
     timeconst::T
     dampratio::T
 
-    function ContactParameters{T}(
-        geom_name::String;
+    function ContactParameters{T}(;
         margin::Real,
         gap::Real,
         dmin::Real,
         dmax::Real,
         width::Real,
         midpoint::Real,
-        power::Integer,
+        power::Real,
         timeconst::Real,
         dampratio::Real,
     ) where {T}
@@ -44,7 +42,6 @@ mutable struct ContactParameters{T<:AbstractFloat}
             throw(DomainError("dampration must be greater than 0"))
         end
         return new{T}(
-            geom_name,
             margin,
             gap,
             dmin,
@@ -59,40 +56,50 @@ mutable struct ContactParameters{T<:AbstractFloat}
 end
 
 function ContactParameters{T}(
-    geom_name::String, m::MuJoCo.Model
+    geomname::AbstractString, m::MuJoCo.Model
 )::ContactParameters{T} where {T}
-    geom_id = 1 + mj_name2id(m, mjtObj.mjOBJ_GEOM, geom_name)
-    margin = m.geom_margin[geom_id]
-    gap = m.geom_gap[geom_id]
-    dmin, dmax, width, midpoint, power = m.geom_solimp[:, geom_id]
-    timeconst, dampratio = m.geom_solref[:, geom_id]
-    return ContactParameters{T}(
-        geom_name;
-        margin=margin,
-        gap=gap,
-        dmin=dmin,
-        dmax=dmax,
-        width=width,
-        midpoint=midpoint,
-        power=power,
-        timeconst=timeconst,
-        dampratio=dampratio,
+    id = 1 + mj_name2id(m, MuJoCo.mjOBJ_GEOM, geomname)
+    if id == 0
+        throw(ArgumentError("Geometry name $geomname is invalid"))
+    end
+
+    # Grab contact parameters from specified id
+    margin = m.geom_margin[id]
+    gap = m.geom_gap[id]
+
+    # Solimp is stored as pointer array. Wrap in Julia array first
+    solimp_T = unsafe_wrap(Array, m.geom_solimp, Int.((5, m.ngeom)))
+    solimp = solimp_T'  # Need to transpose because the pointer is row-major
+    dmin, dmax, width, midpoint, power = solimp[id, :]
+
+    # Repeat for solref
+    solref_T = unsafe_wrap(Array, m.geom_solref, Int.((2, m.ngeom)))
+    solref = solref_T'  # Need to transpose because the pointer is row-major
+    timeconst, dampratio = solref[id, :]
+    return ContactParameters{T}(;
+        margin=T(margin),
+        gap=T(gap),
+        dmin=T(dmin),
+        dmax=T(dmax),
+        width=T(width),
+        midpoint=T(midpoint),
+        power=T(power),
+        timeconst=T(timeconst),
+        dampratio=T(dampratio),
     )
 end
 
-function ContactParameters(geom_name::String; args...)
-    ContactParameters{T_DEFAULT}(geom_name::String; args...)
-end
+ContactParameters(; args...) = ContactParameters{T_DEFAULT}(; args...)
 ContactParameters(args...) = ContactParameters{T_DEFAULT}(args...)
 
-mutable struct ContactParameterInterpolations{T<:AbstractFloat}
+struct ContactParameterInterpolations{T<:AbstractFloat}
     margin::Vector{T}
     gap::Vector{T}
     dmin::Vector{T}
     dmax::Vector{T}
     width::Vector{T}
     midpoint::Vector{T}
-    power::Vector{Int}
+    power::Vector{T}
     timeconst::Vector{T}
     dampratio::Vector{T}
 
@@ -101,22 +108,26 @@ mutable struct ContactParameterInterpolations{T<:AbstractFloat}
         c2::ContactParameters{T2},
         num_interps::Integer,
     ) where {T,T1,T2}
-        return new{T}(
-            interpolate(c1.margin, c2.margin, num_interps),
-            interpolate(c1.gap, c2.gap, num_interps),
-            interpolate(c1.dmin, c2.dmin, num_interps),
-            interpolate(c1.dmax, c2.dmax, num_interps),
-            interpolate(c1.width, c2.width, num_interps),
-            interpolate(c1.midpoint, c2.midpoint, num_interps),
-            interpolate(c1.power, c2.power, num_interps),
-            interpolate(c1.timeconst, c2.timeconst, num_interps),
-            interpolate(c1.dampratio, c2.dampratio, num_interps),
+        return new{T1}(
+            interpolate(T(c1.margin), T(c2.margin), num_interps),
+            interpolate(T(c1.gap), T(c2.gap), num_interps),
+            interpolate(T(c1.dmin), T(c2.dmin), num_interps),
+            interpolate(T(c1.dmax), T(c2.dmax), num_interps),
+            interpolate(T(c1.width), T(c2.width), num_interps),
+            interpolate(T(c1.midpoint), T(c2.midpoint), num_interps),
+            interpolate(T(c1.power), T(c2.power), num_interps),
+            interpolate(T(c1.timeconst), T(c2.timeconst), num_interps),
+            interpolate(T(c1.dampratio), T(c2.dampratio), num_interps),
         )
     end
 end
 
 function ContactParameterInterpolations(
     c1::ContactParameters{T}, c2::ContactParameters{T}, num_interps::Integer
-) where {T}
+)::ContactParameterInterpolations{T} where {T}
     return ContactParameterInterpolations{T}(c1, c2, num_interps)
+end
+
+function ContactParameterInterpolations(args...)
+    ContactParameterInterpolations{T_DEFAULT}(args...)
 end

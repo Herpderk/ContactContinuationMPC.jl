@@ -168,7 +168,7 @@ end
 function get_joint_names(m::MuJoCo.Model)::Vector{String}
     names = ["" for i in 1:m.nq]
     for i in 1:m.nq
-        ptr = mj_id2name(m, MuJoCo.mjOBJ_JOINT, i)
+        ptr = mj_id2name(m, MuJoCo.mjOBJ_JOINT, i-1)
         if ptr != C_NULL
             name = unsafe_string(ptr)
         else
@@ -177,4 +177,51 @@ function get_joint_names(m::MuJoCo.Model)::Vector{String}
         names[i] = name
     end
     return names
+end
+
+function get_geom_names(m::MuJoCo.Model)::Vector{String}
+    names = ["" for i in 1:m.nq]
+    for i in 1:m.nq
+        ptr = mj_id2name(m, MuJoCo.mjOBJ_GEOM, i-1)
+        if ptr != C_NULL
+            name = unsafe_string(ptr)
+        else
+            name = "unnamed"
+        end
+        names[i] = name
+    end
+    return names
+end
+
+"""
+    same_dims(m1::MuJoCo.Model, m2::MuJoCo.Model)
+
+Checks if two MuJoCo models have the same counts for all attributes starting with 'n'.
+Returns (true, []) if they match, or (false, mismatched_fields) if they don't.
+"""
+function same_dims(
+    m1::MuJoCo.Model, m2::MuJoCo.Model
+)::Tuple{Bool,Vector{String}}
+    mismatches = Vector{String}()
+
+    # Get all field names from the Model struct
+    fields = String.(fieldnames(MuJoCo.Model))
+
+    for field in fields
+        # Check if the field starts with 'n'
+        if startswith(field, "n")
+            val1 = m1.field
+            val2 = m2.field
+
+            # Only compare if they are integer dimensions
+            if val1 isa Integer && val2 isa Integer
+                if val1 != val2
+                    push!(mismatches, field)
+                end
+            end
+        end
+    end
+
+    flag = isempty(mismatches) ? true : false
+    return flag, mismatches
 end
