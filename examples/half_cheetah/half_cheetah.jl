@@ -4,27 +4,25 @@ using LinearAlgebra
 using MuJoCo
 using ContactContinuationMPC
 
-function fresh_solve(
-    params::TrajoptParameters, opts::ILqrOptions; use_time::Bool=false
-)::TrajoptSolution
-    sol = TrajoptSolution(params)
-    cache = ILqrCache(params)
-    if use_time
-        @time run_ilqr!(sol, cache, params, opts)
-    else
-        run_ilqr!(sol, cache, params, opts)
-    end
-    return sol
+USE_CC = true
+
+# Get smoothed dynamics model
+if USE_CC
+    mbwd = load_model(
+        joinpath(@__DIR__, "../../assets/half_cheetah_smooth.xml")
+    )
+else
+    mbwd = load_model(joinpath(@__DIR__, "../../assets/half_cheetah.xml"))
 end
 
-# Mujoco dynamics model
-m = load_model(joinpath(@__DIR__, "../../assets/half_cheetah.xml"))
-d = init_data(m)
-nx = get_nx(m)
-nu = m.nu
+# Forward model is always stiff
+mfwd = load_model(joinpath(@__DIR__, "../../assets/half_cheetah.xml"))
+d = init_data(mfwd)
+nx = get_nx(mfwd)
+nu = mfwd.nu
 
 println("Joint names:")
-joint_names = get_joint_names(m)
+joint_names = get_joint_names(mfwd)
 for name in joint_names
     println(name)
 end
@@ -32,7 +30,8 @@ end
 # Declare references and initial conditions
 N = 500
 
-xidx = 1 + MuJoCo.LibMuJoCo.mj_name2id(m, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootx")
+xidx =
+    1 + MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootx")
 Xref = [zeros(nx) for k in 1:N]
 for k in 1:N
     copy_data_to_state!(Xref[k], d)
@@ -44,32 +43,38 @@ xic = zeros(nx)
 copy_data_to_state!(xic, d)
 
 # Declare cost function (Penalize horizontal position)
+zidx =
+    1 + MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootz")
 Q = 1e-5 * Matrix(I(nx))
 Q[xidx, xidx] *= 10.0
+Q[zidx, zidx] *= 2.0
 
 # Penalize vertical position on the terminal state
-Qf = 1e+2 * Q
-zidx = 1 + MuJoCo.LibMuJoCo.mj_name2id(m, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootz")
-Qf[zidx, zidx] *= 50.0
+Qf = 1e+0 * Q
+Qf[zidx, zidx] *= 10.0
 
-R = 1e-7 * Matrix(I(m.nu))
+R = 1e-3 * Matrix(I(mfwd.nu))
 costfunc = QuadraticCostFunction(Q, R, Qf)
 
 # Declare parameters and options
-params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-opts = ILqrOptions(; maxiter_ilqr=1000, margin_ls=5e-2, tol_converge=1e-2)
+params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
+opts = ILqrOptions(;
+    maxiter_ilqr=200,
+    maxiter_ls=50,
+    alpha_mul=0.8,
+    tol_converge=5e-1,
+    margin_ls=1e-2,
+    eps_fd=1e-12,
+)
 
-# Let the trajpot JIT compile
-opts.is_verbose = true
-sol = fresh_solve(params, opts)
-
-# Solve a second time after JIT compilation for accurate timing
-#opts.is_verbose = true
-#sol = fresh_solve(params, opts; use_time=true)
+# Solve trajopt
+sol = TrajoptSolution(params)
+cache = ILqrCache(params)
+@time run_ilqr!(sol, cache, params, opts)
 
 # Visualize solution
 println("\nFinal state: $(sol.X[end])\n")
 
 traj = stack(sol.X)
 init_visualiser()
-visualise!(m, d; trajectories=traj)
+visualise!(mfwd, d; trajectories=traj)
