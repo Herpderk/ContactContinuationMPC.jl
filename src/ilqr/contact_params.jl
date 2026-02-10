@@ -106,7 +106,7 @@ struct ContactParameterInterpolations{T<:AbstractFloat}
         c2::ContactParameters{T2},
         num_interps::Integer,
     ) where {T,T1,T2}
-        return new{T1}(
+        return new{T}(
             interpolate(T(c1.margin), T(c2.margin), num_interps),
             interpolate(T(c1.gap), T(c2.gap), num_interps),
             interpolate(T(c1.dmin), T(c2.dmin), num_interps),
