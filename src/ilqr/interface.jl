@@ -28,61 +28,37 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         # Assert dimensions
         dims_same, mismatches = same_dims(mfwd, mbwd)
         if !dims_same
-            throw(
-                DimensionMismatch(
-                    "Models have mismatched dimensions:\n$mismatches"
-                ),
-            )
+            throwdim("Models have mismatched dimensions:\n$mismatches")
         end
         if length(Uref) != N-1
-            throw(
-                DimensionMismatch(
-                    "Number of reference inputs should be 1 less than number of reference states",
-                ),
+            throwdim(
+                "Number of reference inputs should be 1 less than number of reference states",
             )
         end
         if length(xic) != nx
-            throw(
-                DimensionMismatch(
-                    "Initial conditions dimensions do not match those of reference states",
-                ),
+            throwdim(
+                "Initial conditions dimensions do not match those of reference states",
             )
         end
         for xref in Xref
             if length(xref) != nx
-                throw(
-                    DimensionMismatch(
-                        "Reference state dimensions are not consistent"
-                    ),
-                )
+                throwdim("Reference state dimensions are not consistent")
             end
         end
         for uref in Uref
             if length(uref) != nu
-                throw(
-                    DimensionMismatch(
-                        "Reference input dimensions are not consistent"
-                    ),
-                )
+                throwdim("Reference input dimensions are not consistent")
             end
         end
 
         # Check geometry names
         all_geomnames = get_geom_names(mfwd)
         if get_geom_names(mbwd) != all_geomnames
-            throw(
-                ArgumentError(
-                    "Geometry names between models are not consistent"
-                ),
-            )
+            throwarg("Geometry names between models are not consistent")
         end
         for geomname_interp in geomnames_interp
             if !(geomname_interp in all_geomnames)
-                throw(
-                    ArgumentError(
-                        "Geometry $geomname_interp is not in the models"
-                    ),
-                )
+                throwarg("Geometry $geomname_interp is not in the models")
             end
         end
 

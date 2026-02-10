@@ -17,9 +17,7 @@ struct QuadraticCostFunction{T<:AbstractFloat}
         Qf::AbstractMatrix{<:Real},
     ) where {T}
         if size(Q) != size(Qf)
-            throw(
-                DimensionMismatch("Q and Qf matrices must have the same size")
-            )
+            throwdim("Q and Qf matrices must have the same size")
         end
         xtmp = DiffCache(zeros(T, size(Q)[1]))
         utmp = DiffCache(zeros(T, size(R)[1]))
@@ -84,18 +82,10 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
         m::MuJoCo.Model, costfunc_stage::Lk, costfunc_term::Lf
     ) where {T,Lk,Lf}
         if isempty(methods(costfunc_stage))
-            throw(
-                ArgumentError(
-                    "The provided stage cost function is not callable"
-                ),
-            )
+            throwarg("The provided stage cost function is not callable")
         end
         if isempty(methods(costfunc_term))
-            throw(
-                ArgumentError(
-                    "The provided terminal cost function is not callable"
-                ),
-            )
+            throwarg("The provided terminal cost function is not callable")
         end
         xerr = DiffCache(zeros(T, get_ndx(m)))
         uerr = DiffCache(zeros(T, m.nu))

@@ -21,25 +21,25 @@ struct ContactParameters{T<:AbstractFloat}
         dampratio::Real,
     ) where {T}
         if !(0 <= dmin <= 1)
-            throw(DomainError("dmin must be between 0 and 1"))
+            throwdom(dmin, "dmin must be between 0 and 1")
         end
         if !(0 <= dmax <= 1)
-            throw(DomainError("dmax must be between 0 and 1"))
+            throwdom(dmax, "dmax must be between 0 and 1")
         end
         if !(0 < width)
-            throw(DomainError("width must be greater than 0"))
+            throwdom(width, "width must be greater than 0")
         end
         if !(0 < midpoint < 1)
-            throw(DomainError("midpoint must be between 0 and 1"))
+            throwdom(midpoint, "midpoint must be between 0 and 1")
         end
         if !(1 <= power)
-            throw(DomainError("power must be greater than or equal to 1"))
+            throwdom(power, "power must be greater than or equal to 1")
         end
         if !(0 < timeconst)
-            throw(DomainError("timeconst must be greater than 0"))
+            throwdom(timeconst, "timeconst must be greater than 0")
         end
         if !(0 < dampratio)
-            throw(DomainError("dampration must be greater than 0"))
+            throwdom(dampratio, "dampratio must be greater than 0")
         end
         return new{T}(
             margin,
@@ -60,7 +60,7 @@ function ContactParameters{T}(
 )::ContactParameters{T} where {T}
     id = 1 + mj_name2id(m, MuJoCo.mjOBJ_GEOM, geomname)
     if id == 0
-        throw(ArgumentError("Geometry name $geomname is invalid"))
+        throwarg("Geometry name $geomname is invalid")
     end
 
     # Grab contact parameters from specified id

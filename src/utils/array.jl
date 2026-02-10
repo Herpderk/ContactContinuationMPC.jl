@@ -2,11 +2,7 @@ function copy_nested_array!(
     dest::AbstractArray{Td}, src::AbstractArray{Ts}
 )::Nothing where {Td,Ts}
     if size(dest) != size(src)
-        throw(
-            DimensionMismatch(
-                "Size of destination array must equal that of source array."
-            ),
-        )
+        throwdim("Size of destination array must equal that of source array")
     end
     @inbounds @simd for i in eachindex(dest)
         copyto!(dest[i], src[i])

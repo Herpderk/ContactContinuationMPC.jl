@@ -31,6 +31,7 @@ export QuadraticCostFunction,
     copy_state_to_data!,
     get_joint_names
 
+include("utils/exceptions.jl")
 include("utils/array.jl")
 include("utils/mujoco.jl")
 include("utils/interpolate.jl")
