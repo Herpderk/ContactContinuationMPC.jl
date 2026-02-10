@@ -38,13 +38,6 @@ end
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
     opts = ILqrOptions()
-
-    # Let the trajpot JIT compile
-    opts.is_verbose = false
-    sol = fresh_solve(params, opts)
-
-    # Solve a second time after JIT compilation for accurate timing
-    opts.is_verbose = true
     sol = fresh_solve(params, opts; use_time=true)
 
     # Test solution
