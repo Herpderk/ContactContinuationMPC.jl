@@ -1,7 +1,7 @@
 alpha_mul = 0.5
 margin_ls = 1e-2
 eps_reg = 1e-6
-eps_fd = 1e-6
+eps_fd = 1e-12
 tol_converge = 1e-2
 maxiter_ilqr = 1000
 maxiter_ls = 20

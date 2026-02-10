@@ -64,7 +64,6 @@ opts = ILqrOptions(;
     alpha_mul=0.8,
     tol_converge=5e-1,
     margin_ls=1e-2,
-    eps_fd=1e-12,
 )
 
 # Solve trajopt
