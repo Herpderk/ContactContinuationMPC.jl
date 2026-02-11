@@ -6,14 +6,14 @@ using ContactContinuationMPC
 
 USE_CC = true
 HALF_CHEETAH = joinpath(@__DIR__, "../assets/half_cheetah.xml")
-HALF_CHEETAH_SMOOTH = joinpath(@__DIR__, "../assets/half_cheetah_smooth.xml")
+HALF_CHEETAH_CC = joinpath(@__DIR__, "../assets/half_cheetah_cc.cml")
 
 init_visualiser()
 
 function main(use_cc::Bool)
     # Get smoothed dynamics model
     if use_cc
-        mbwd = load_model(HALF_CHEETAH_SMOOTH)
+        mbwd = load_model(HALF_CHEETAH_CC)
     else
         mbwd = load_model(HALF_CHEETAH)
     end
@@ -67,7 +67,7 @@ function main(use_cc::Bool)
         maxiter_ilqr=200,
         maxiter_ls=50,
         alpha_mul=0.8,
-        tol_converge=5e-1,
+        tol_converge=1e-1,
         margin_ls=1e-2,
     )
 
