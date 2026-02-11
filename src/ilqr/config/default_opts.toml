@@ -6,3 +6,4 @@ tol_converge = 1e-2
 maxiter_ilqr = 1000
 maxiter_ls = 20
 is_verbose = true
+save_bestsol = true

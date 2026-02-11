@@ -112,7 +112,7 @@ function init_ilqr!(
     sol.is_optimal = false
 
     # Roll out warm-start
-    forward_pass!(sol, cache, params, 1)
+    forward_pass!(sol, cache, params, 1, opts.save_bestsol)
     return nothing
 end
 
@@ -131,7 +131,9 @@ function run_ilqr!(
         while iter < opts.maxiter_ilqr
             iter += 1
             backward_pass!(cache, params)
-            forward_pass!(sol, cache, params, opts.maxiter_ls)
+            forward_pass!(
+                sol, cache, params, opts.maxiter_ls, opts.save_bestsol
+            )
             opts.is_verbose ? log_iter(cache, iter) : nothing
 
             if is_converged(cache, opts.tol_converge)

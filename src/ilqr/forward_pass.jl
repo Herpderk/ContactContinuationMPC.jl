@@ -37,6 +37,7 @@ function forward_pass!(
     cache::ILqrCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     maxiter_ls::Int,
+    save_bestsol::Bool,
 )::Nothing where {Ts,Tc,Tp,Lk,Lf}
     # Get references to ILqrCache structs
     fwd = cache.fwd
@@ -68,7 +69,7 @@ function forward_pass!(
     copy_nested_array!(fwd.Uprev, fwd.U)
 
     # Update solution if new one is better
-    if fwd.Jprev < sol.J
+    if (!save_bestsol) || (save_bestsol && fwd.Jprev < sol.J)
         sol.J = fwd.Jprev
         copy_nested_array!(sol.X, fwd.Xprev)
         copy_nested_array!(sol.U, fwd.Uprev)
