@@ -167,6 +167,7 @@ end
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
+    save_bestsol::Bool
 end
 
 mutable struct ILqrOptions{T<:AbstractFloat}
@@ -178,6 +179,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
+    save_bestsol::Bool
 
     function ILqrOptions{T}(;
         alpha_mul::Union{<:AbstractFloat,Nothing}=nothing,
@@ -188,6 +190,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         maxiter_ilqr::Union{Int,Nothing}=nothing,
         maxiter_ls::Union{Int,Nothing}=nothing,
         is_verbose::Union{Bool,Nothing}=nothing,
+        save_bestsol::Union{Bool,Nothing}=nothing,
     ) where {T}
         # Load default options from config
         default = from_toml(
@@ -206,6 +209,8 @@ mutable struct ILqrOptions{T<:AbstractFloat}
             isnothing(maxiter_ilqr) ? default.maxiter_ilqr : maxiter_ilqr
         maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
         is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
+        save_bestsol_ =
+            isnothing(save_bestsol) ? default.save_bestsol : save_bestsol
         return new{T}(
             alpha_mul_,
             margin_ls_,
@@ -215,6 +220,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
             maxiter_ilqr_,
             maxiter_ls_,
             is_verbose_,
+            save_bestsol_,
         )
     end
 end

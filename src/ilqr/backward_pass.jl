@@ -5,7 +5,7 @@ function expand_term_L!(
     params::TrajoptParameters{Tp,Lk,Lf},
 )::Nothing where {Tc,Tp,Lk,Lf}
     # Get terminal x error
-    get_state_diff!(params.mfwd, tmp.dx, fwd.X[end], params.Xref[end])
+    get_state_diff!(params.mfwd, tmp.dx, fwd.Xprev[end], params.Xref[end])
 
     # Initialize value expansion with terminal costfunc gradient and hessian wrt xf
     if Lf <: QuadraticCostFunction
@@ -30,8 +30,8 @@ function expand_stage_L!(
     k::Int,
 )::Nothing where {Tc,Tp,Lk,Lf}
     # Get k-th x and u errors
-    get_state_diff!(params.mfwd, tmp.dx, fwd.X[k], params.Xref[k])
-    @. tmp.u = fwd.U[k] - params.Uref[k]
+    get_state_diff!(params.mfwd, tmp.dx, fwd.Xprev[k], params.Xref[k])
+    @. tmp.u = fwd.Uprev[k] - params.Uref[k]
 
     # Get gradients and hessians of stage cost wrt x and u
     if Lk <: QuadraticCostFunction
@@ -68,8 +68,8 @@ function expand_F!(
 
     # Pre-process MuJoCo data
     reset!(m, d)
-    copy_state_to_data!(d, fwd.X[k])
-    copyto!(d.ctrl, fwd.U[k])
+    copy_state_to_data!(d, fwd.Xprev[k])
+    copyto!(d.ctrl, fwd.Uprev[k])
     forward!(m, d)
 
     # Evaluate dynamics jacobians at xk, uk
