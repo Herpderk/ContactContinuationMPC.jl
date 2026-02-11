@@ -2,17 +2,16 @@ function roll_out!(
     fwd::ForwardCache{Tc},
     bwd::BackwardCache{Tc},
     tmp::TemporaryCache{Tc},
-    sol::TrajoptSolution{Ts},
     params::TrajoptParameters{Tp,Lk,Lf},
-)::Nothing where {Tc,Ts,Tp,Lk,Lf}
+)::Nothing where {Tc,Tp,Lk,Lf}
     # Reference forward model
     m, d = params.mfwd, params.dfwd
     reset!(m, d)
     copy_state_to_data!(d, params.xic)
 
     # Initialize trajectory with previous solution
-    copy_nested_array!(fwd.X, sol.X)
-    copy_nested_array!(fwd.U, sol.U)
+    copy_nested_array!(fwd.X, fwd.Xprev)
+    copy_nested_array!(fwd.U, fwd.Uprev)
 
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
@@ -21,7 +20,7 @@ function roll_out!(
         @. fwd.U[k] -= tmp.u
 
         # Compute state difference in tangent space
-        get_state_diff!(m, tmp.dx, fwd.X[k], sol.X[k])
+        get_state_diff!(m, tmp.dx, fwd.X[k], fwd.Xprev[k])
         mul!(tmp.u, bwd.Ks[k], tmp.dx)
         @. fwd.U[k] -= tmp.u
 
@@ -50,22 +49,29 @@ function forward_pass!(
 
     @inbounds for i in 1:maxiter_ls
         # Roll out new trajectory
-        roll_out!(fwd, bwd, tmp, sol, params)
+        roll_out!(fwd, bwd, tmp, params)
         J_ls = params.costfunc(fwd.X, fwd.U, params.Xref, params.Uref)
 
         # Line-search criteria
         # Actual change in cost must be as good as β*predicted change
         ΔJ_pred = bwd.ΔJ1*fwd.α + 0.5*bwd.ΔJ2*fwd.α^2
-        fwd.ΔJ = J_ls - sol.J
+        fwd.ΔJ = J_ls - fwd.Jprev
         fwd.ΔJ < -fwd.β * ΔJ_pred ? break : nothing
 
         # Shrink step size
         fwd.α *= fwd.α_mul
     end
 
-    # Save new solution
-    sol.J = J_ls
-    copy_nested_array!(sol.X, fwd.X)
-    copy_nested_array!(sol.U, fwd.U)
+    # Carry solver state
+    fwd.Jprev = J_ls
+    copy_nested_array!(fwd.Xprev, fwd.X)
+    copy_nested_array!(fwd.Uprev, fwd.U)
+
+    # Update solution if new one is better
+    if fwd.Jprev < sol.J
+        sol.J = fwd.Jprev
+        copy_nested_array!(sol.X, fwd.Xprev)
+        copy_nested_array!(sol.U, fwd.Uprev)
+    end
     return nothing
 end

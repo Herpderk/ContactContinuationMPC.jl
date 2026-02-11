@@ -24,7 +24,7 @@ function log_interrupted()::Nothing
     return nothing
 end
 
-function log_iter(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
+function log_iter(cache::ILqrCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
         println("-------------------------------------")
         println("iter       J         ΔJ          α")
@@ -33,7 +33,7 @@ function log_iter(sol::TrajoptSolution, cache::ILqrCache, iter::Int)::Nothing
     @printf(
         "%4.04i   %8.2e   %8.2e   %8.2e\n",
         iter,
-        sol.J,
+        cache.fwd.Jprev,
         cache.bwd.ΔJ1 + 0.5*cache.bwd.ΔJ2,
         cache.fwd.α,
     )
@@ -49,7 +49,8 @@ function assert_opts!(opts::ILqrOptions)::Nothing
     end
     if opts.eps_reg < 0.0
         throwdom(
-            opts.eps_reg, "The regularizer coefficient must be greater than 0"
+            opts.eps_reg,
+            "The regularizer coefficient must be greater than or equal to 0",
         )
     end
     if opts.eps_fd <= 0.0
@@ -64,10 +65,10 @@ function assert_opts!(opts::ILqrOptions)::Nothing
             "The stationarity tolerance must be greater than 0",
         )
     end
-    if opts.margin_ls <= 0.0
+    if opts.margin_ls < 0.0
         throwdom(
             opts.margin_ls,
-            "The merit function margin factor must be greater than 0",
+            "The merit function margin factor must be greater than or equal to 0",
         )
     end
     if opts.maxiter_ilqr <= 0
@@ -131,7 +132,7 @@ function run_ilqr!(
             iter += 1
             backward_pass!(cache, params)
             forward_pass!(sol, cache, params, opts.maxiter_ls)
-            opts.is_verbose ? log_iter(sol, cache, iter) : nothing
+            opts.is_verbose ? log_iter(cache, iter) : nothing
 
             if is_converged(cache, opts.tol_converge)
                 sol.is_optimal = true
