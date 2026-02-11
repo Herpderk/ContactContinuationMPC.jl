@@ -6,7 +6,7 @@ using ContactContinuationMPC
 
 USE_CC = true
 HALF_CHEETAH = joinpath(@__DIR__, "../assets/half_cheetah.xml")
-HALF_CHEETAH_CC = joinpath(@__DIR__, "../assets/half_cheetah_cc.cml")
+HALF_CHEETAH_CC = joinpath(@__DIR__, "../assets/half_cheetah_cc.xml")
 
 init_visualiser()
 
