@@ -1,5 +1,5 @@
 mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
-    cinterps::Dict{String,ContactParameterInterpolations{T}}
+    #cinterps::Dict{String,ContactParameterInterpolations{T}}
     mfwd::Model
     mbwd::Model
     dfwd::Data
@@ -17,8 +17,8 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Xref::AbstractVector{<:AbstractVector{<:Real}},
         Uref::AbstractVector{<:AbstractVector{<:Real}},
         xic::AbstractVector{<:Real};
-        geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
-        num_interps::Integer=0,
+        #geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
+        #num_interps::Integer=0,
     ) where {T,Lk,Lf}
         # Get problem dimensions
         nx = get_nx(mfwd)
@@ -51,6 +51,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
             end
         end
 
+        #=
         # Check geometry names
         all_geomnames = get_geom_names(mfwd)
         if get_geom_names(mbwd) != all_geomnames
@@ -76,6 +77,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
             end
             cinterps[geomname] = cinterp
         end
+        =#
 
         dfwd, dbwd = init_data(mfwd), init_data(mbwd)
         costfunc = TrajectoryCostFunction{T}(
@@ -85,7 +87,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Uref_T = Vector{Vector{T}}(Uref)
         xic_T = Vector{T}(xic)
         return new{T,Lk,Lf}(
-            cinterps, mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
+            mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
         )
     end
 end
@@ -97,8 +99,8 @@ function TrajoptParameters(
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real};
-    geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
-    num_interps::Integer=0,
+    #geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
+    #num_interps::Integer=0,
 ) where {T}
     return TrajoptParameters{T}(
         mfwd,
@@ -108,8 +110,8 @@ function TrajoptParameters(
         Xref,
         Uref,
         xic;
-        geomnames_interp=geomnames_interp,
-        num_interps=num_interps,
+        #geomnames_interp=geomnames_interp,
+        #num_interps=num_interps,
     )
 end
 
@@ -163,6 +165,7 @@ end
     margin_ls::T
     eps_reg::T
     eps_fd::T
+    tol_interp::T
     tol_converge::T
     maxiter_ilqr::Int
     maxiter_ls::Int
@@ -175,6 +178,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
     margin_ls::T
     eps_reg::T
     eps_fd::T
+    tol_interp::T
     tol_converge::T
     maxiter_ilqr::Int
     maxiter_ls::Int
@@ -186,6 +190,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         margin_ls::Union{<:AbstractFloat,Nothing}=nothing,
         eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
         eps_fd::Union{<:AbstractFloat,Nothing}=nothing,
+        tol_interp::Union{<:AbstractFloat,Nothing}=nothing,
         tol_converge::Union{<:AbstractFloat,Nothing}=nothing,
         maxiter_ilqr::Union{Int,Nothing}=nothing,
         maxiter_ls::Union{Int,Nothing}=nothing,
@@ -203,6 +208,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         margin_ls_ = isnothing(margin_ls) ? default.margin_ls : T(margin_ls)
         eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
         eps_fd_ = isnothing(eps_fd) ? default.eps_fd : T(eps_fd)
+        tol_interp_ = isnothing(tol_interp) ? default.tol_interp : T(tol_interp)
         tol_converge_ =
             isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
         maxiter_ilqr_ =
@@ -216,6 +222,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
             margin_ls_,
             eps_reg_,
             eps_fd_,
+            tol_interp_,
             tol_converge_,
             maxiter_ilqr_,
             maxiter_ls_,

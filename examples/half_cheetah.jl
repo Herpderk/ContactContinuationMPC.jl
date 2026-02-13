@@ -31,7 +31,7 @@ function main(use_cc::Bool)
     end
 
     # Declare references and initial conditions
-    N = 500
+    N = 200     #   4s (timestep is 0.02s)
 
     xidx =
         1 +
@@ -39,24 +39,32 @@ function main(use_cc::Bool)
     Xref = [zeros(nx) for k in 1:N]
     for k in 1:N
         copy_data_to_state!(Xref[k], d)
-        Xref[k][xidx] += 10.0    # Set reference position without changing height
+        qref = get_q(d, Xref[k])
+        qref[xidx] += 10.0    # Set reference position without changing height
+        vref = get_v(d, Xref[k])
+        vref[xidx] = 1.0     # Set reference velocity
     end
 
     Uref = [zeros(nu) for k in 1:(N - 1)]
     xic = zeros(nx)
     copy_data_to_state!(xic, d)
 
-    # Declare cost function (Penalize horizontal position)
+    # Declare cost function (Penalize horizontal pos, vertical pos, and pitch)
+    yidx =
+        1 +
+        MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rooty")
     zidx =
         1 +
         MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootz")
     Q = 1e-5 * Matrix(I(nx))
-    Q[xidx, xidx] *= 10.0
+    Q[xidx, xidx] *= 20.0
+    Q[yidx, yidx] *= 5.0
     Q[zidx, zidx] *= 2.0
 
-    # Penalize vertical position on the terminal state
+    # Penalize pitch and vertical position on the terminal state
     Qf = 1e+0 * Q
-    Qf[zidx, zidx] *= 10.0
+    Qf[yidx, yidx] *= 500.0
+    Qf[zidx, zidx] *= 100.0
 
     R = 1e-3 * Matrix(I(mfwd.nu))
     costfunc = QuadraticCostFunction(Q, R, Qf)
@@ -64,17 +72,18 @@ function main(use_cc::Bool)
     # Declare parameters and options
     params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
     opts = ILqrOptions(;
-        maxiter_ilqr=200,
+        maxiter_ilqr=500,
         maxiter_ls=50,
         alpha_mul=0.8,
-        tol_converge=1e-1,
+        tol_interp=1.0,
+        tol_converge=0.5,
         margin_ls=1e-2,
     )
 
     # Solve trajopt
     sol = TrajoptSolution(params)
     cache = ILqrCache(params)
-    @time run_ilqr!(sol, cache, params, opts)
+    run_ilqr!(sol, cache, params, opts)
 
     # Visualize solution
     println("\nFinal state: $(sol.X[end])\n")
