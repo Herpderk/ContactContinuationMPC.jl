@@ -135,7 +135,7 @@ function get_state_diff!(
     return nothing
 end
 
-function copy_data_to_state!(x::AbstractVector{T}, d::Data)::Nothing where {T}
+function copy_data_to_state!(d::Data, x::AbstractVector{T})::Nothing where {T}
     if !isnothing(d.qpos)
         copyto!(get_q(d, x), d.qpos)
     end

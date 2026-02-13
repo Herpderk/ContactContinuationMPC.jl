@@ -38,7 +38,7 @@ function main(use_cc::Bool)
         MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootx")
     Xref = [zeros(nx) for k in 1:N]
     for k in 1:N
-        copy_data_to_state!(Xref[k], d)
+        copy_data_to_state!(d, Xref[k])
         qref = get_q(d, Xref[k])
         qref[xidx] += 10.0    # Set reference position without changing height
         vref = get_v(d, Xref[k])
@@ -47,7 +47,7 @@ function main(use_cc::Bool)
 
     Uref = [zeros(nu) for k in 1:(N - 1)]
     xic = zeros(nx)
-    copy_data_to_state!(xic, d)
+    copy_data_to_state!(d, xic)
 
     # Declare cost function (Penalize horizontal pos, vertical pos, and pitch)
     yidx =

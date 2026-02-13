@@ -27,7 +27,7 @@ function roll_out!(
         # Step simulator
         copyto!(d.ctrl, fwd.U1[k])
         step!(m, d)
-        copy_data_to_state!(fwd.X1[k + 1], d)
+        copy_data_to_state!(d, fwd.X1[k + 1])
     end
     return nothing
 end
