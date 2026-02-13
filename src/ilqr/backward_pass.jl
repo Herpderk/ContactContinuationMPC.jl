@@ -5,7 +5,7 @@ function expand_term_L!(
     params::TrajoptParameters{Tp,Lk,Lf},
 )::Nothing where {Tc,Tp,Lk,Lf}
     # Get terminal x error
-    get_state_diff!(params.mfwd, tmp.dx, fwd.Xprev[end], params.Xref[end])
+    get_state_diff!(params.mfwd, tmp.dx, fwd.X0[end], params.Xref[end])
 
     # Initialize value expansion with terminal costfunc gradient and hessian wrt xf
     if Lf <: QuadraticCostFunction
@@ -30,8 +30,8 @@ function expand_stage_L!(
     k::Int,
 )::Nothing where {Tc,Tp,Lk,Lf}
     # Get k-th x and u errors
-    get_state_diff!(params.mfwd, tmp.dx, fwd.Xprev[k], params.Xref[k])
-    @. tmp.u = fwd.Uprev[k] - params.Uref[k]
+    get_state_diff!(params.mfwd, tmp.dx, fwd.X0[k], params.Xref[k])
+    @. tmp.u = fwd.U0[k] - params.Uref[k]
 
     # Get gradients and hessians of stage cost wrt x and u
     if Lk <: QuadraticCostFunction
@@ -64,7 +64,7 @@ function expand_F!(
     k::Int,
 )::Nothing where {Tc,Tp,Lk,Lf}
     # Get state and control input to differentiate at
-    x, u = fwd.Xprev[k], fwd.Uprev[k]
+    x, u = fwd.X0[k], fwd.U0[k]
 
     # Get forward dynamics jacobian
     mfwd, dfwd = params.mfwd, params.dfwd
