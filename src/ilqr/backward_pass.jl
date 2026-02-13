@@ -63,17 +63,52 @@ function expand_F!(
     params::TrajoptParameters{Tp,Lk,Lf},
     k::Int,
 )::Nothing where {Tc,Tp,Lk,Lf}
-    # Reference backward model
-    m, d = params.mbwd, params.dbwd
+    # Get state and control input to differentiate at
+    x, u = fwd.Xprev[k], fwd.Uprev[k]
 
+    # Get forward dynamics jacobian
+    mfwd, dfwd = params.mfwd, params.dfwd
+    A, B = bwd.F.dx, bwd.F.u
+    finite_diff_dynamics!(mfwd, dfwd, A, B, x, u, bwd.ϵ)
+
+    # Get backward dynamics jacobian
+    mbwd, dbwd = params.mbwd, params.dbwd
+    Abwd, Bbwd = bwd.F.dx_bwd, bwd.F.u_bwd
+    finite_diff_dynamics!(mbwd, dbwd, Abwd, Bbwd, x, u, bwd.ϵ)
+
+    # Exponentially interpolate dynamics jacobian
+    #γ = 0.1^((bwd.ΔJ - bwd.ΔJmax) / (1e-1 - bwd.ΔJmax))
+
+    # Logarithmically interpolate dynamics jacobian
+    #log_floor, log_ceil = log(1e-1), log(bwd.ΔJmax)
+    #γ = 1.0 - (log(bwd.ΔJ) - log_ceil) / (log_floor - log_ceil)
+    #println("ΔJ: $(bwd.ΔJ), ΔJmax: $(bwd.ΔJmax), γ: $γ")
+
+    # Linearly interpolate dynamics jacobian based on convergence criteria ceiling
+    γ = (bwd.ΔJ - bwd.ΔJmin) / (bwd.ΔJmax - bwd.ΔJmin)
+    γ = clamp(γ, 0.0, 1.0)
+    @. A += γ*(Abwd - A)
+    @. B += γ*(Bbwd - B)
+    return nothing
+end
+
+function finite_diff_dynamics!(
+    m::Model,
+    d::Data,
+    A::Transpose{T,Matrix{T}},
+    B::Transpose{T,Matrix{T}},
+    x::Vector{T},
+    u::Vector{T},
+    ϵ::T,
+)::Nothing where {T}
     # Pre-process MuJoCo data
     reset!(m, d)
-    copy_state_to_data!(d, fwd.Xprev[k])
-    copyto!(d.ctrl, fwd.Uprev[k])
+    copy_state_to_data!(d, x)
+    copyto!(d.ctrl, u)
     forward!(m, d)
 
-    # Evaluate dynamics jacobians at xk, uk
-    mjd_transitionFD(m, d, bwd.ϵ, true, bwd.F.dx, bwd.F.u, nothing, nothing)
+    # Evaluate forward dynamics jacobians at xk, uk
+    mjd_transitionFD(m, d, ϵ, true, A, B, nothing, nothing)
     return nothing
 end
 
@@ -207,5 +242,7 @@ function backward_pass!(
         expand_V!(bwd, tmp, k)          # Value expansion
         update_cost_prediction!(bwd, tmp, k)
     end
+    # Total predicted change in cost
+    bwd.ΔJ = bwd.ΔJ1 + 0.5 * bwd.ΔJ2
     return nothing
 end

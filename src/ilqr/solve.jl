@@ -1,6 +1,6 @@
 function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
     #return abs(cache.fwd.ΔJ) < tol_converge
-    return abs(cache.bwd.ΔJ1 + 0.5*cache.bwd.ΔJ2) < tol_converge
+    return cache.bwd.ΔJ < tol_converge
 end
 
 function log_converged()::Nothing
@@ -34,7 +34,7 @@ function log_iter(cache::ILqrCache, iter::Int)::Nothing
         "%4.04i   %8.2e   %8.2e   %8.2e\n",
         iter,
         cache.fwd.Jprev,
-        cache.bwd.ΔJ1 + 0.5*cache.bwd.ΔJ2,
+        cache.bwd.ΔJ,
         cache.fwd.α,
     )
     return nothing
@@ -101,15 +101,17 @@ function init_ilqr!(
     fwd.β = opts.margin_ls
 
     # Set regularizer matrix, FD epsilon, and gains
-    mul!(bwd.μI, opts.eps_reg, I)
+    bwd.ΔJmin = opts.tol_converge
+    bwd.ΔJmax = opts.tol_interp
     bwd.ϵ = opts.eps_fd
+    mul!(bwd.μI, opts.eps_reg, I)
     fill_nested_array!(bwd.Ks, 0.0)
     fill_nested_array!(bwd.ds, 0.0)
 
     # Set initial conditions and solution terms
-    copyto!(sol.X[1], params.xic)
-    sol.J = Inf
     sol.is_optimal = false
+    sol.J = Inf
+    copyto!(sol.X[1], params.xic)
 
     # Roll out warm-start
     forward_pass!(sol, cache, params, 1, opts.save_bestsol)
@@ -134,6 +136,7 @@ function run_ilqr!(
             forward_pass!(
                 sol, cache, params, opts.maxiter_ls, opts.save_bestsol
             )
+
             opts.is_verbose ? log_iter(cache, iter) : nothing
 
             if is_converged(cache, opts.tol_converge)

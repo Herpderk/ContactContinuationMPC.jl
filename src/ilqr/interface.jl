@@ -163,6 +163,7 @@ end
     margin_ls::T
     eps_reg::T
     eps_fd::T
+    tol_interp::T
     tol_converge::T
     maxiter_ilqr::Int
     maxiter_ls::Int
@@ -175,6 +176,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
     margin_ls::T
     eps_reg::T
     eps_fd::T
+    tol_interp::T
     tol_converge::T
     maxiter_ilqr::Int
     maxiter_ls::Int
@@ -186,6 +188,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         margin_ls::Union{<:AbstractFloat,Nothing}=nothing,
         eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
         eps_fd::Union{<:AbstractFloat,Nothing}=nothing,
+        tol_interp::Union{<:AbstractFloat,Nothing}=nothing,
         tol_converge::Union{<:AbstractFloat,Nothing}=nothing,
         maxiter_ilqr::Union{Int,Nothing}=nothing,
         maxiter_ls::Union{Int,Nothing}=nothing,
@@ -203,6 +206,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
         margin_ls_ = isnothing(margin_ls) ? default.margin_ls : T(margin_ls)
         eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
         eps_fd_ = isnothing(eps_fd) ? default.eps_fd : T(eps_fd)
+        tol_interp_ = isnothing(tol_interp) ? default.tol_interp : T(tol_interp)
         tol_converge_ =
             isnothing(tol_converge) ? default.tol_converge : T(tol_converge)
         maxiter_ilqr_ =
@@ -216,6 +220,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
             margin_ls_,
             eps_reg_,
             eps_fd_,
+            tol_interp_,
             tol_converge_,
             maxiter_ilqr_,
             maxiter_ls_,

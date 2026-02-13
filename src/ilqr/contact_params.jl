@@ -29,7 +29,7 @@ struct ContactParameters{T<:AbstractFloat}
         if !(0 < width)
             throwdom(width, "width must be greater than 0")
         end
-        if !(0 < midpoint < 1)
+        if !(0 <= midpoint <= 1)
             throwdom(midpoint, "midpoint must be between 0 and 1")
         end
         if !(1 <= power)

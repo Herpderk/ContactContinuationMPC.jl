@@ -1,11 +1,15 @@
 struct SimulatorExpansion{T<:AbstractFloat}
     dx::Transpose{T,Matrix{T}}
     u::Transpose{T,Matrix{T}}
+    dx_bwd::Transpose{T,Matrix{T}}
+    u_bwd::Transpose{T,Matrix{T}}
 
     function SimulatorExpansion{T}(ndx::Integer, nu::Integer) where {T}
         Fx = mj_zeros(T, ndx, ndx)
         Fu = mj_zeros(T, ndx, nu)
-        return new{T}(Fx, Fu)
+        Fx_bwd = mj_zeros(T, ndx, ndx)
+        Fu_bwd = mj_zeros(T, ndx, nu)
+        return new{T}(Fx, Fu, Fx_bwd, Fu_bwd)
     end
 end
 
@@ -71,8 +75,11 @@ mutable struct BackwardCache{T<:AbstractFloat}
     ds::Vector{Vector{T}}
     μI::Matrix{T}
     ϵ::T
+    ΔJ::T
     ΔJ1::T
     ΔJ2::T
+    ΔJmin::T
+    ΔJmax::T
 
     function BackwardCache{T}(ndx::Integer, nu::Integer, N::Integer) where {T}
         F = SimulatorExpansion{T}(ndx, nu)
@@ -83,8 +90,11 @@ mutable struct BackwardCache{T<:AbstractFloat}
         ds = [zeros(T, nu) for k in 1:(N - 1)]
         μI = Matrix{T}(I(nu))
         ϵ = zero(T)
+        ΔJ = zero(T)
         ΔJ1 = zero(T)
         ΔJ2 = zero(T)
-        return new{T}(F, L, V, Q, Ks, ds, μI, ϵ, ΔJ1, ΔJ2)
+        ΔJmin = zero(T)
+        ΔJmax = zero(T)
+        return new{T}(F, L, V, Q, Ks, ds, μI, ϵ, ΔJ, ΔJ1, ΔJ2, ΔJmin, ΔJmax)
     end
 end
