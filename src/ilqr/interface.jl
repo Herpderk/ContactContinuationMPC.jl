@@ -1,5 +1,5 @@
 mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
-    cinterps::Dict{String,ContactParameterInterpolations{T}}
+    #cinterps::Dict{String,ContactParameterInterpolations{T}}
     mfwd::Model
     mbwd::Model
     dfwd::Data
@@ -17,8 +17,8 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Xref::AbstractVector{<:AbstractVector{<:Real}},
         Uref::AbstractVector{<:AbstractVector{<:Real}},
         xic::AbstractVector{<:Real};
-        geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
-        num_interps::Integer=0,
+        #geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
+        #num_interps::Integer=0,
     ) where {T,Lk,Lf}
         # Get problem dimensions
         nx = get_nx(mfwd)
@@ -51,6 +51,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
             end
         end
 
+        #=
         # Check geometry names
         all_geomnames = get_geom_names(mfwd)
         if get_geom_names(mbwd) != all_geomnames
@@ -76,6 +77,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
             end
             cinterps[geomname] = cinterp
         end
+        =#
 
         dfwd, dbwd = init_data(mfwd), init_data(mbwd)
         costfunc = TrajectoryCostFunction{T}(
@@ -85,7 +87,7 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         Uref_T = Vector{Vector{T}}(Uref)
         xic_T = Vector{T}(xic)
         return new{T,Lk,Lf}(
-            cinterps, mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
+            mfwd, mbwd, dfwd, dbwd, costfunc, Xref_T, Uref_T, xic_T
         )
     end
 end
@@ -97,8 +99,8 @@ function TrajoptParameters(
     Xref::AbstractVector{<:AbstractVector{<:Real}},
     Uref::AbstractVector{<:AbstractVector{<:Real}},
     xic::AbstractVector{<:Real};
-    geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
-    num_interps::Integer=0,
+    #geomnames_interp::AbstractVector{<:AbstractString}=Vector{String}(),
+    #num_interps::Integer=0,
 ) where {T}
     return TrajoptParameters{T}(
         mfwd,
@@ -108,8 +110,8 @@ function TrajoptParameters(
         Xref,
         Uref,
         xic;
-        geomnames_interp=geomnames_interp,
-        num_interps=num_interps,
+        #geomnames_interp=geomnames_interp,
+        #num_interps=num_interps,
     )
 end
 
