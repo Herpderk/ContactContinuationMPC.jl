@@ -47,37 +47,43 @@ function assert_opts!(opts::ILqrOptions)::Nothing
             "The backtracking contraction rate must be between 0 and 1",
         )
     end
-    if opts.eps_reg < 0.0
+    if opts.eps_reg <= 0.0
         throwdom(
             opts.eps_reg,
             "The regularizer coefficient must be greater than or equal to 0",
         )
     end
-    if opts.eps_fd <= 0.0
+    if opts.eps_fd < 0.0
         throwdom(
             opts.eps_fd,
             "The finite-difference coefficient must be greater than 0",
         )
     end
-    if opts.tol_converge <= 0.0
+    if opts.tol_interp < 0.0
+        throwdom(
+            opts.tol_interp,
+            "The dynamics jacobian interpolation tolerance must be greater than 0",
+        )
+    end
+    if opts.tol_converge < 0.0
         throwdom(
             opts.tol_converge,
             "The stationarity tolerance must be greater than 0",
         )
     end
-    if opts.margin_ls < 0.0
+    if opts.margin_ls <= 0.0
         throwdom(
             opts.margin_ls,
             "The merit function margin factor must be greater than or equal to 0",
         )
     end
-    if opts.maxiter_ilqr <= 0
+    if opts.maxiter_ilqr < 0
         throwdom(
             opts.maxiter_ilqr,
             "The max number of iterations must be greater than 0",
         )
     end
-    if opts.maxiter_ls <= 0
+    if opts.maxiter_ls < 0
         throwdom(
             opts.maxiter_ls,
             "The max number of line-search iterations must be greater than 0",
