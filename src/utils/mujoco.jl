@@ -162,8 +162,8 @@ function copy_state_to_data!(d::Data, x::AbstractVector{T})::Nothing where {T}
 end
 
 function get_joint_names(m::Model)::Vector{String}
-    names = ["" for i in 1:m.nq]
-    for i in 1:m.nq
+    names = ["" for i in 1:m.njnt]
+    for i in 1:m.njnt
         ptr = mj_id2name(m, MuJoCo.mjOBJ_JOINT, i-1)
         if ptr != C_NULL
             name = unsafe_string(ptr)
@@ -176,8 +176,8 @@ function get_joint_names(m::Model)::Vector{String}
 end
 
 function get_geom_names(m::Model)::Vector{String}
-    names = ["" for i in 1:m.nq]
-    for i in 1:m.nq
+    names = ["" for i in 1:m.ngeom]
+    for i in 1:m.ngeom
         ptr = mj_id2name(m, MuJoCo.mjOBJ_GEOM, i-1)
         if ptr != C_NULL
             name = unsafe_string(ptr)
