@@ -8,12 +8,12 @@ using ContactContinuationMPC
 GO2 = joinpath(@__DIR__, "../assets/unitree_go2/scene.xml")
 GO2_CC = joinpath(@__DIR__, "../assets/unitree_go2/scene_cc.xml")
 
-Z_OFFSET = 0.5
+Z_OFFSET = 1.0
 Z_IDX = 3
 
 N = Int(1e2)
 DT = 1e-2
-EPS_FD = 1e-12
+EPS_FD = 1e-8
 
 function simulate_cheetah_falling(;
     m::Model, zidx::Integer, zoffset::Real, N::Integer, dt::Real, eps_fd::Real
@@ -116,7 +116,7 @@ function main()
         title="Jacobian Trajectories",
         xlabel="time (s)",
         ylabel="Jacobian norm",
-        #yscale = :ln,
+        yscale=:log,
         legend=:topleft,
         minorticks=true,
         grid=false,

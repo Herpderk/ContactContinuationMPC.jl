@@ -28,12 +28,15 @@
       </default>
       <default class="collision">
         <geom group="3"/>
+
         <default class="foot">
-          <geom size="0.022" pos="-0.002 0 -0.213" priority="1"
-          margin="0.5" gap="0.0"
-          solimp="0.001 0.8 0.8 0.9 8"
+        <!--solimp: 1)d0, 2)dwidth, 3)width, 4)midpoint, 5)power;
+            solref: 1)timeconst, 2)dampratio-->
+          <geom margin="0.5" gap="0.0"
+          solimp="0.001 1 0.8 0.8 4"
           solref="0.02 1"
           friction="0.8 0.02 0.01"
+          size="0.022" pos="-0.002 0 -0.213" priority="1"
           condim="6"/>
         </default>
       </default>
