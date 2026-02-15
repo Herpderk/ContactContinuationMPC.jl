@@ -71,7 +71,7 @@ function assert_opts!(opts::ILqrOptions)::Nothing
             "The stationarity tolerance must be greater than 0",
         )
     end
-    if opts.margin_ls <= 0.0
+    if opts.margin_ls < 0.0
         throwdom(
             opts.margin_ls,
             "The merit function margin factor must be greater than or equal to 0",
