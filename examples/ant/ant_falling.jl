@@ -5,8 +5,8 @@ using Plots
 using MuJoCo
 using ContactContinuationMPC
 
-WALKER = joinpath(@__DIR__, "../../assets/walker2d/walker2d.xml")
-WALKER_CC = joinpath(@__DIR__, "../../assets/walker2d/walker2d_cc.xml")
+WALKER = joinpath(@__DIR__, "../../assets/ant/ant.xml")
+WALKER_CC = joinpath(@__DIR__, "../../assets/ant/ant_cc.xml")
 
 Z_OFFSET = 0.5
 Z_IDX = 2
@@ -15,7 +15,7 @@ N = Int(1e2)
 DT = 0.02
 EPS_FD = 1e-4
 
-function simulate_walker_falling(;
+function simulate_ant_falling(;
     m::Model, zidx::Integer, zoffset::Real, N::Integer, dt::Real, eps_fd::Real
 )::Tuple{Vector{Vector{<:Real}},Vector{<:Real},Vector{<:Real}}
     # Preallocate dynamics jacobians
@@ -63,7 +63,7 @@ end
 
 function main()
     m = load_model(WALKER)
-    qs, Anorms, Bnorms = simulate_walker_falling(;
+    qs, Anorms, Bnorms = simulate_ant_falling(;
         m=m, zidx=Z_IDX, zoffset=Z_OFFSET, N=N, dt=DT, eps_fd=EPS_FD
     )
     zs = [q[Z_IDX] for q in qs]
@@ -72,7 +72,7 @@ function main()
     filter_for_log!(Bnorms)
 
     m_cc = load_model(WALKER_CC)
-    qs_cc, Anorms_cc, Bnorms_cc = simulate_walker_falling(;
+    qs_cc, Anorms_cc, Bnorms_cc = simulate_ant_falling(;
         m=m_cc, zidx=Z_IDX, zoffset=Z_OFFSET, N=N, dt=DT, eps_fd=EPS_FD
     )
     zs_cc = [q[Z_IDX] for q in qs_cc]
