@@ -66,29 +66,36 @@ function expand_F!(
     # Get state and control input to differentiate at
     x, u = fwd.X0[k], fwd.U0[k]
 
-    # Get forward dynamics jacobian
-    mfwd, dfwd = params.mfwd, params.dfwd
-    A, B = bwd.F.dx, bwd.F.u
-    fd_dynamics!(mfwd, dfwd, bwd.FDs, A, B, x, u; ϵ=bwd.ϵ)
+    if bwd.ΔJ > bwd.ΔJmax
+        # Don't interpolate if too far from local minima
+        m, d = params.mbwd, params.dbwd
+        A, B = bwd.F.dx, bwd.F.u
+        fd_dynamics!(m, d, bwd.FDs, A, B, x, u; ϵ=bwd.ϵ)
+    else
+        # Get forward dynamics jacobian
+        mfwd, dfwd = params.mfwd, params.dfwd
+        A, B = bwd.F.dx, bwd.F.u
+        fd_dynamics!(mfwd, dfwd, bwd.FDs, A, B, x, u; ϵ=bwd.ϵ)
 
-    # Get backward dynamics jacobian
-    mbwd, dbwd = params.mbwd, params.dbwd
-    Abwd, Bbwd = bwd.F.dx_bwd, bwd.F.u_bwd
-    fd_dynamics!(mbwd, dbwd, bwd.FDs, Abwd, Bbwd, x, u; ϵ=bwd.ϵ)
+        # Get backward dynamics jacobian
+        mbwd, dbwd = params.mbwd, params.dbwd
+        Abwd, Bbwd = bwd.F.dx_bwd, bwd.F.u_bwd
+        fd_dynamics!(mbwd, dbwd, bwd.FDs, Abwd, Bbwd, x, u; ϵ=bwd.ϵ)
 
-    # Exponentially interpolate dynamics jacobian
-    #γ = 0.1^((bwd.ΔJ - bwd.ΔJmax) / (1e-1 - bwd.ΔJmax))
+        # Exponentially interpolate dynamics jacobian
+        #γ = 0.1^((bwd.ΔJ - bwd.ΔJmax) / (1e-1 - bwd.ΔJmax))
 
-    # Logarithmically interpolate dynamics jacobian
-    #log_floor, log_ceil = log(1e-1), log(bwd.ΔJmax)
-    #γ = 1.0 - (log(bwd.ΔJ) - log_ceil) / (log_floor - log_ceil)
-    #println("ΔJ: $(bwd.ΔJ), ΔJmax: $(bwd.ΔJmax), γ: $γ")
+        # Logarithmically interpolate dynamics jacobian
+        #log_floor, log_ceil = log(1e-1), log(bwd.ΔJmax)
+        #γ = 1.0 - (log(bwd.ΔJ) - log_ceil) / (log_floor - log_ceil)
+        #println("ΔJ: $(bwd.ΔJ), ΔJmax: $(bwd.ΔJmax), γ: $γ")
 
-    # Linearly interpolate dynamics jacobian based on convergence criteria ceiling
-    γ = (bwd.ΔJ - bwd.ΔJmin) / (bwd.ΔJmax - bwd.ΔJmin)
-    γ = clamp(γ, 0.0, 1.0)
-    @. A += γ*(Abwd - A)
-    @. B += γ*(Bbwd - B)
+        # Linearly interpolate dynamics jacobian based on convergence criteria ceiling
+        γ = (bwd.ΔJ - bwd.ΔJmin) / (bwd.ΔJmax - bwd.ΔJmin)
+        γ = clamp(γ, 0.0, 1.0)
+        @. A += γ*(Abwd - A)
+        @. B += γ*(Bbwd - B)
+    end
     return nothing
 end
 
