@@ -9,6 +9,7 @@ using PreallocationTools
 using Printf
 using Plots
 using Configurations
+using Base.Threads
 
 export QuadraticCostFunction,
     TrajectoryCostFunction,
@@ -33,8 +34,11 @@ export QuadraticCostFunction,
 
 include("utils/exceptions.jl")
 include("utils/array.jl")
-include("utils/mujoco.jl")
 include("utils/interpolate.jl")
+include("utils/mujoco/dims.jl")
+include("utils/mujoco/names.jl")
+include("utils/mujoco/state.jl")
+include("utils/mujoco/finitediff.jl")
 include("plot.jl")
 include("costfunc.jl")
 include("ilqr/config/consts.jl")

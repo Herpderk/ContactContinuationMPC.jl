@@ -69,12 +69,12 @@ function expand_F!(
     # Get forward dynamics jacobian
     mfwd, dfwd = params.mfwd, params.dfwd
     A, B = bwd.F.dx, bwd.F.u
-    finite_diff_dynamics!(mfwd, dfwd, A, B, x, u, bwd.ϵ)
+    fd_dynamics!(mfwd, dfwd, bwd.FDs, A, B, x, u; ϵ=bwd.ϵ)
 
     # Get backward dynamics jacobian
     mbwd, dbwd = params.mbwd, params.dbwd
     Abwd, Bbwd = bwd.F.dx_bwd, bwd.F.u_bwd
-    finite_diff_dynamics!(mbwd, dbwd, Abwd, Bbwd, x, u, bwd.ϵ)
+    fd_dynamics!(mbwd, dbwd, bwd.FDs, Abwd, Bbwd, x, u; ϵ=bwd.ϵ)
 
     # Exponentially interpolate dynamics jacobian
     #γ = 0.1^((bwd.ΔJ - bwd.ΔJmax) / (1e-1 - bwd.ΔJmax))
@@ -92,23 +92,25 @@ function expand_F!(
     return nothing
 end
 
-function finite_diff_dynamics!(
+function fd_dynamics!(
     m::Model,
     d::Data,
-    A::Transpose{T,Matrix{T}},
-    B::Transpose{T,Matrix{T}},
+    c::Vector{FDCache{T}},
+    A::Matrix{T},
+    B::Matrix{T},
     x::Vector{T},
-    u::Vector{T},
+    u::Vector{T};
     ϵ::T,
 )::Nothing where {T}
     # Pre-process MuJoCo data
-    reset!(m, d)
+    #reset!(m, d)
     copy_state_to_data!(d, x)
     copyto!(d.ctrl, u)
-    forward!(m, d)
+    #forward!(m, d)
 
     # Evaluate forward dynamics jacobians at xk, uk
-    mjd_transitionFD(m, d, ϵ, true, A, B, nothing, nothing)
+    #mjd_transitionFD(m, d, ϵ, true, A, B, nothing, nothing)
+    threaded_fd!(m, d, c, A, B; ϵ=ϵ)
     return nothing
 end
 

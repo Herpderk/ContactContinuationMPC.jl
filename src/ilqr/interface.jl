@@ -154,7 +154,7 @@ mutable struct ILqrCache{T<:AbstractFloat}
 
         # Initialize caches from dims
         fwd = ForwardCache{T}(nx, nu, N)
-        bwd = BackwardCache{T}(ndx, nu, N)
+        bwd = BackwardCache{T}(params.mbwd, ndx, nu, N)
         tmp = TemporaryCache{T}(nx, ndx, nu)
         return new{T}(fwd, bwd, tmp)
     end
