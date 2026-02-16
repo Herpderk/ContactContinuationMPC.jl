@@ -1,14 +1,14 @@
 struct SimulatorExpansion{T<:AbstractFloat}
-    dx::Transpose{T,Matrix{T}}
-    u::Transpose{T,Matrix{T}}
-    dx_bwd::Transpose{T,Matrix{T}}
-    u_bwd::Transpose{T,Matrix{T}}
+    dx::Matrix{T} #Transpose{T,Matrix{T}}
+    u::Matrix{T} #Transpose{T,Matrix{T}}
+    dx_bwd::Matrix{T} #Transpose{T,Matrix{T}}
+    u_bwd::Matrix{T} #Transpose{T,Matrix{T}}
 
     function SimulatorExpansion{T}(ndx::Integer, nu::Integer) where {T}
-        Fx = mj_zeros(T, ndx, ndx)
-        Fu = mj_zeros(T, ndx, nu)
-        Fx_bwd = mj_zeros(T, ndx, ndx)
-        Fu_bwd = mj_zeros(T, ndx, nu)
+        Fx = zeros(T, ndx, ndx)
+        Fu = zeros(T, ndx, nu)
+        Fx_bwd = zeros(T, ndx, ndx)
+        Fu_bwd = zeros(T, ndx, nu)
         return new{T}(Fx, Fu, Fx_bwd, Fu_bwd)
     end
 end
@@ -67,6 +67,7 @@ struct ActionValueFunctionExpansion{T<:AbstractFloat}
 end
 
 mutable struct BackwardCache{T<:AbstractFloat}
+    FDs::Vector{FDCache{T}}
     F::SimulatorExpansion{T}
     L::CostFunctionExpansion{T}
     V::ValueFunctionExpansion{T}
@@ -81,7 +82,10 @@ mutable struct BackwardCache{T<:AbstractFloat}
     ΔJmin::T
     ΔJmax::T
 
-    function BackwardCache{T}(ndx::Integer, nu::Integer, N::Integer) where {T}
+    function BackwardCache{T}(
+        m::Model, ndx::Integer, nu::Integer, N::Integer
+    ) where {T}
+        FDs = [FDCache{T}(m) for t in 1:nthreads()]
         F = SimulatorExpansion{T}(ndx, nu)
         L = CostFunctionExpansion{T}(ndx, nu)
         V = ValueFunctionExpansion{T}(ndx)
@@ -95,6 +99,8 @@ mutable struct BackwardCache{T<:AbstractFloat}
         ΔJ2 = zero(T)
         ΔJmin = zero(T)
         ΔJmax = zero(T)
-        return new{T}(F, L, V, Q, Ks, ds, μI, ϵ, ΔJ, ΔJ1, ΔJ2, ΔJmin, ΔJmax)
+        return new{T}(
+            FDs, F, L, V, Q, Ks, ds, μI, ϵ, ΔJ, ΔJ1, ΔJ2, ΔJmin, ΔJmax
+        )
     end
 end

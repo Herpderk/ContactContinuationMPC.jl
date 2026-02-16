@@ -73,11 +73,12 @@ function main(use_cc::Bool)
     params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
     opts = ILqrOptions(;
         maxiter_ilqr=500,
-        maxiter_ls=50,
+        maxiter_ls=40,
         alpha_mul=0.8,
         tol_interp=1.0,
         tol_converge=0.5,
         margin_ls=1e-2,
+        eps_fd=1e-10,
     )
 
     # Solve trajopt
