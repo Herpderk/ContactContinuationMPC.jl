@@ -5,7 +5,7 @@ using MuJoCo
 using ContactContinuationMPC
 
 USE_CC = true
-WALKER = joinpath(@__DIR__, "../assets/walker2d/walker2d_cc.xml")
+WALKER = joinpath(@__DIR__, "../assets/walker2d/walker2d.xml")
 WALKER_CC = joinpath(@__DIR__, "../assets/walker2d/walker2d_cc.xml")
 
 init_visualiser()
@@ -37,7 +37,7 @@ function main(use_cc::Bool)
     end
 
     # Declare references and initial conditions
-    N = 200
+    N = 250
     xidx =
         1 +
         MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootx")
@@ -64,28 +64,30 @@ function main(use_cc::Bool)
     Q = 1e-5 * Matrix(I(ndx))
     Q[xidx, xidx] *= 20.0
     Q[yidx, yidx] *= 20.0
-    Q[zidx, zidx] *= 400.0
+    Q[zidx, zidx] *= 1000.0
+    Q[mfwd.nq + xidx, mfwd.nq + xidx] *= 50.0
     Q[mfwd.nq + yidx, mfwd.nq + yidx] *= 10.0
-    Q[mfwd.nq + zidx, mfwd.nq + zidx] *= 10.0
+    Q[mfwd.nq + zidx, mfwd.nq + zidx] *= 50.0
 
     # Penalize pitch and vertical position on the terminal state
     Qf = 1e+0 * Q
     Qf[yidx, yidx] *= 10.0
     Qf[zidx, zidx] *= 100.0
+    Qf[mfwd.nq + xidx, mfwd.nq + xidx] *= 10.0
 
-    R = 1e-4 * Matrix(I(mfwd.nu))
+    R = 1e-3 * Matrix(I(mfwd.nu))
     costfunc = QuadraticCostFunction(Q, R, Qf)
 
     # Declare parameters and options
     params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
     opts = ILqrOptions(;
         maxiter_ilqr=200,
-        maxiter_ls=20,
-        alpha_mul=0.7,
-        tol_interp=1.0,
-        tol_converge=0.05,
-        margin_ls=1e-2,
-        eps_fd=1e-6,
+        maxiter_ls=50,
+        alpha_mul=0.8,
+        tol_interp=2.0,
+        tol_converge=0.2,
+        margin_ls=5e-2,
+        eps_fd=1e-12,
     )
 
     # Solve trajopt

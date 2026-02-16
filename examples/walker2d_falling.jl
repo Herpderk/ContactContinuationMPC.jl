@@ -11,8 +11,8 @@ WALKER_CC = joinpath(@__DIR__, "../assets/walker2d/walker2d_cc.xml")
 Z_OFFSET = 0.5
 Z_IDX = 2
 
-N = Int(5e2)
-DT = 1e-2
+N = Int(1e2)
+DT = 0.02
 EPS_FD = 1e-4
 
 function simulate_cheetah_falling(;
