@@ -25,10 +25,10 @@ function main(use_cc::Bool)
     ndx = get_ndx(mfwd)
     nu = mfwd.nu
 
-    mfwd.opt.timestep = 0.01
-    mbwd.opt.timestep = 0.01
-    mfwd.opt.iterations = 20
-    mbwd.opt.iterations = 20
+    mfwd.opt.timestep = 0.02
+    mbwd.opt.timestep = 0.02
+    mfwd.opt.iterations = 5
+    mbwd.opt.iterations = 5
 
     println("Joint names:")
     joint_names = get_joint_names(mfwd)
@@ -37,7 +37,7 @@ function main(use_cc::Bool)
     end
 
     # Declare references and initial conditions
-    N = 400
+    N = 200
     xidx =
         1 +
         MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootx")
@@ -47,7 +47,7 @@ function main(use_cc::Bool)
         qref = get_q(d, Xref[k])
         qref[xidx] += 5.0    # Set reference position without changing height
         vref = get_v(d, Xref[k])
-        vref[xidx] = 1.0     # Set reference velocity
+        vref[xidx] = 2.0     # Set reference velocity
     end
 
     Uref = [zeros(nu) for k in 1:(N - 1)]
@@ -61,29 +61,31 @@ function main(use_cc::Bool)
     zidx =
         1 +
         MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootz")
-    Q = 2e-5 * Matrix(I(ndx))
+    Q = 1e-5 * Matrix(I(ndx))
     Q[xidx, xidx] *= 20.0
-    Q[yidx, yidx] *= 5.0
-    Q[zidx, zidx] *= 20.0
+    Q[yidx, yidx] *= 20.0
+    Q[zidx, zidx] *= 400.0
+    Q[mfwd.nq + yidx, mfwd.nq + yidx] *= 10.0
+    Q[mfwd.nq + zidx, mfwd.nq + zidx] *= 10.0
 
     # Penalize pitch and vertical position on the terminal state
     Qf = 1e+0 * Q
-    Qf[yidx, yidx] *= 500.0
-    Qf[zidx, zidx] *= 500.0
+    Qf[yidx, yidx] *= 10.0
+    Qf[zidx, zidx] *= 100.0
 
-    R = 1e-6 * Matrix(I(mfwd.nu))
+    R = 1e-4 * Matrix(I(mfwd.nu))
     costfunc = QuadraticCostFunction(Q, R, Qf)
 
     # Declare parameters and options
     params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
     opts = ILqrOptions(;
-        maxiter_ilqr=500,
-        maxiter_ls=15,
-        alpha_mul=0.5,
+        maxiter_ilqr=200,
+        maxiter_ls=20,
+        alpha_mul=0.7,
         tol_interp=1.0,
-        tol_converge=1e-1,
+        tol_converge=0.05,
         margin_ls=1e-2,
-        eps_fd=1e-2,
+        eps_fd=1e-6,
     )
 
     # Solve trajopt
