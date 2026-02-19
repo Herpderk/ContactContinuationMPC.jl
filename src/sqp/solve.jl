@@ -2,7 +2,7 @@ function is_converged(∇J::Vector{Float64}, h::Vector{Float64})::Bool
     return norm(∇J, 2) < 1e-2 && norm(h, Inf) < 1e-2
 end
 
-function log_sqp_interrupted()::Nothing
+function log_interrupted()::Nothing
     println("-------------------------------------")
     println("          SQP interrupted!")
     println("-------------------------------------")
@@ -132,7 +132,7 @@ function run_sqp!(
             update_primals!(z, r.x, cache.pidx, params)
         end
     catch e
-        e isa InterruptException ? log_sqp_interrupted() : rethrow(e)
+        e isa InterruptException ? log_interrupted() : rethrow(e)
     end
 
     if opts.is_verbose

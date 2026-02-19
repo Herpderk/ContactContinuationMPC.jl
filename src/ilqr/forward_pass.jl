@@ -34,12 +34,12 @@ end
 
 function forward_pass!(
     sol::TrajoptSolution{Ts},
-    cache::ILqrCache{Tc},
+    cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     maxiter_ls::Int,
     save_bestsol::Bool,
 )::Nothing where {Ts,Tc,Tp,Lk,Lf}
-    # Get references to ILqrCache structs
+    # Get references to iLQRCache structs
     fwd = cache.fwd
     bwd = cache.bwd
     tmp = cache.tmp

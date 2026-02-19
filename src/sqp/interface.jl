@@ -110,7 +110,7 @@ mutable struct QPOptions
     ) where {T}
         # Load default options from config
         default = from_toml(
-            DefaultILqrOptions{T},
+            DefaultiLQROptions{T},
             joinpath(@__DIR__, "config/default_opts.toml"),
         )
 
@@ -144,4 +144,4 @@ mutable struct QPOptions
 end
 
 # Default type parameter
-ILqrOptions(; args...) = ILqrOptions{T_DEFAULT}(; args...) =#
+iLQROptions(; args...) = iLQROptions{T_DEFAULT}(; args...) =#

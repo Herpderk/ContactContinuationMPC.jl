@@ -1,4 +1,4 @@
-function is_converged(cache::ILqrCache, tol_converge::AbstractFloat)::Bool
+function is_converged(cache::iLQRCache, tol_converge::AbstractFloat)::Bool
     #return abs(cache.fwd.ΔJ) < tol_converge
     return cache.bwd.ΔJ < tol_converge
 end
@@ -24,7 +24,7 @@ function log_interrupted()::Nothing
     return nothing
 end
 
-function log_iter(cache::ILqrCache, iter::Int)::Nothing
+function log_iter(cache::iLQRCache, iter::Int)::Nothing
     if rem(iter-1, 20) == 0
         println("-------------------------------------")
         println("iter       J         ΔJ          α")
@@ -40,7 +40,7 @@ function log_iter(cache::ILqrCache, iter::Int)::Nothing
     return nothing
 end
 
-function assert_opts!(opts::ILqrOptions)::Nothing
+function assert_opts!(opts::iLQROptions)::Nothing
     if !(0.0 < opts.alpha_mul < 1.0)
         throwdom(
             opts.alpha_mul,
@@ -94,11 +94,11 @@ end
 
 function init_ilqr!(
     sol::TrajoptSolution{Ts},
-    cache::ILqrCache{Tc},
+    cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
-    opts::ILqrOptions{To},
+    opts::iLQROptions{To},
 )::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
-    # Get references to ILqrCache structs
+    # Get references to iLQRCache structs
     fwd = cache.fwd
     bwd = cache.bwd
 
@@ -126,9 +126,9 @@ end
 
 function run_ilqr!(
     sol::TrajoptSolution{Ts},
-    cache::ILqrCache{Tc},
+    cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
-    opts::ILqrOptions{To}=ILqrOptions{Tp}(),
+    opts::iLQROptions{To}=iLQROptions{Tp}(),
 )::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     assert_opts!(opts)
     init_ilqr!(sol, cache, params, opts)
@@ -165,10 +165,10 @@ function run_ilqr!(
 end
 
 function run_ilqr(
-    params::TrajoptParameters{Tp,Lk,Lf}, opts::ILqrOptions{To}=ILqrOptions{Tp}()
+    params::TrajoptParameters{Tp,Lk,Lf}, opts::iLQROptions{To}=iLQROptions{Tp}()
 )::TrajoptSolution where {To,Tp,Lk,Lf}
     sol = TrajoptSolution(params)
-    cache = ILqrCache(params)
+    cache = iLQRCache(params)
     run_ilqr!(sol, cache, params, opts)
     return sol
 end

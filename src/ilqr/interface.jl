@@ -1,9 +1,9 @@
-mutable struct ILqrCache{T<:AbstractFloat}
+mutable struct iLQRCache{T<:AbstractFloat}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
 
-    function ILqrCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
+    function iLQRCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
         # Get problem dims
         nx = get_nx(params.mfwd)
         ndx = get_ndx(params.mfwd)
@@ -18,7 +18,7 @@ mutable struct ILqrCache{T<:AbstractFloat}
     end
 end
 
-@option struct DefaultILqrOptions{T<:AbstractFloat}
+@option struct DefaultiLQROptions{T<:AbstractFloat}
     alpha_mul::T
     margin_ls::T
     eps_reg::T
@@ -31,7 +31,7 @@ end
     save_bestsol::Bool
 end
 
-mutable struct ILqrOptions{T<:AbstractFloat}
+mutable struct iLQROptions{T<:AbstractFloat}
     alpha_mul::T
     margin_ls::T
     eps_reg::T
@@ -43,7 +43,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
     is_verbose::Bool
     save_bestsol::Bool
 
-    function ILqrOptions{T}(;
+    function iLQROptions{T}(;
         alpha_mul::Union{<:AbstractFloat,Nothing}=nothing,
         margin_ls::Union{<:AbstractFloat,Nothing}=nothing,
         eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
@@ -57,7 +57,7 @@ mutable struct ILqrOptions{T<:AbstractFloat}
     ) where {T}
         # Load default options from config
         default = from_toml(
-            DefaultILqrOptions{T},
+            DefaultiLQROptions{T},
             joinpath(@__DIR__, "config/default_opts.toml"),
         )
 
@@ -91,4 +91,4 @@ mutable struct ILqrOptions{T<:AbstractFloat}
 end
 
 # Default type parameter
-ILqrOptions(; args...) = ILqrOptions{T_DEFAULT}(; args...)
+iLQROptions(; args...) = iLQROptions{T_DEFAULT}(; args...)

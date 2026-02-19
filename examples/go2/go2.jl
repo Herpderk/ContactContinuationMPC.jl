@@ -71,7 +71,7 @@ function main(use_cc::Bool)
 
     # Declare parameters and options
     params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
-    opts = ILqrOptions(;
+    opts = iLQROptions(;
         maxiter_ilqr=100,
         maxiter_ls=20,
         alpha_mul=0.5,
@@ -85,7 +85,7 @@ function main(use_cc::Bool)
     # Solve trajopt
     sol = TrajoptSolution(params)
     copyto!(sol.U, Uref)
-    cache = ILqrCache(params)
+    cache = iLQRCache(params)
     run_ilqr!(sol, cache, params, opts)
 
     # Visualize solution

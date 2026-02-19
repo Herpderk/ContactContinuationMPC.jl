@@ -230,9 +230,9 @@ function update_cost_prediction!(
 end
 
 function backward_pass!(
-    cache::ILqrCache{Tc}, params::TrajoptParameters{Tp,Lk,Lf}
+    cache::iLQRCache{Tc}, params::TrajoptParameters{Tp,Lk,Lf}
 )::Nothing where {Tc,Tp,Lk,Lf}
-    # Get references to ILqrCache structs
+    # Get references to iLQRCache structs
     fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
     # Reset predicted change in cost

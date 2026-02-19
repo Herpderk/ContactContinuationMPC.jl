@@ -4,10 +4,10 @@ using MuJoCo
 using ContactContinuationMPC
 
 function fresh_solve(
-    params::TrajoptParameters, opts::ILqrOptions; use_time::Bool=false
+    params::TrajoptParameters, opts::iLQROptions; use_time::Bool=false
 )::TrajoptSolution
     sol = TrajoptSolution(params)
-    cache = ILqrCache(params)
+    cache = iLQRCache(params)
     if use_time
         @time run_ilqr!(sol, cache, params, opts)
     else
@@ -37,7 +37,7 @@ end
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = ILqrOptions(; tol_converge=1e-2)
+    opts = iLQROptions(; tol_converge=1e-2)
     sol = fresh_solve(params, opts; use_time=true)
 
     # Test solution
