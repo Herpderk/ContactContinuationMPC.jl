@@ -1,49 +1,102 @@
-mutable struct ILqrCache{T<:AbstractFloat}
-    fwd::ForwardCache{T}
-    bwd::BackwardCache{T}
-    tmp::TemporaryCache{T}
+mutable struct SQPCache
+    m::OSQP.Model
+    r::OSQP.Results
+    pidx::IndexingParameters
+    ∇²L::SparseMatrixCSC{Float64,Int}
+    ∇²Jxx::DiffResults.DiffResult{
+        2,Float64,Tuple{Vector{Float64},Matrix{Float64}}
+    }
+    ∇²Juu::DiffResults.DiffResult{
+        2,Float64,Tuple{Vector{Float64},Matrix{Float64}}
+    }
+    ∇J::Vector{Float64}
+    ∇h::SparseMatrixCSC{Float64,Int}
+    h::Vector{Float64}
+    λ::Vector{Float64}
+    z::Vector{Float64}
+    dz::Vector{Float64}
+    xtmp::Vector{Float64}
+    dxtmp::Vector{Float64}
+    utmp::Vector{Float64}
+    FDs::Vector{FDCache{Float64}}
 
-    function ILqrCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
+    function SQPCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
         # Get problem dims
+        N = length(params.Xref)
         nx = get_nx(params.mfwd)
         ndx = get_ndx(params.mfwd)
         nu = params.mfwd.nu
-        N = length(params.Xref)
+
+        # Initialize indexing parameters
+        pidx = IndexingParameters(N, nx, ndx, nu)
+        nz, ndz, nh = pidx.dims.nz, pidx.dims.ndz, pidx.dims.nh
 
         # Initialize caches from dims
-        fwd = ForwardCache{T}(nx, nu, N)
-        bwd = BackwardCache{T}(params.mbwd, ndx, nu, N)
-        tmp = TemporaryCache{T}(nx, ndx, nu)
-        return new{T}(fwd, bwd, tmp)
+        ∇²L = sparse(costfunc_hessian_pattern(pidx))
+        ∇²Jxx = DiffResults.HessianResult(zeros(Float64, nx))
+        ∇²Juu = DiffResults.HessianResult(zeros(Float64, nu))
+        ∇J = zeros(Float64, ndz)
+        ∇h = sparse(equality_jacobian_pattern(pidx))
+        h = zeros(Float64, nh)
+        λ = zeros(Float64, nh)
+        z = zeros(Float64, nz)
+        dz = zeros(Float64, ndz)
+        xtmp = zeros(Float64, nx)
+        dxtmp = zeros(Float64, ndx)
+        utmp = zeros(Float64, nu)
+        FDs = [FDCache{64}(m) for t in 1:nthreads()]
+
+        # Initialize OSQP model
+        m = OSQP.Model()
+        r = OSQP.Results()
+        OSQP.setup!(m; P=∇²L, q=∇J, l=zeros(Float64, nh), u=zeros(Float64, nh))
+        return new(
+            m,
+            r,
+            idx,
+            ∇²L,
+            ∇²Jxx,
+            ∇²Juu,
+            ∇J,
+            ∇h,
+            h,
+            λ,
+            z,
+            dz,
+            xtmp,
+            dxtmp,
+            utmp,
+            FDs,
+        )
     end
 end
-
-@option struct DefaultILqrOptions{T<:AbstractFloat}
-    alpha_mul::T
-    margin_ls::T
-    eps_reg::T
-    eps_fd::T
-    tol_interp::T
-    tol_converge::T
+#=
+@option struct DefaultQPOptions
+    alpha_mul::Float64
+    margin_ls::Float64
+    eps_reg::Float64
+    eps_fd::Float64
+    tol_interp::Float64
+    tol_converge::Float64
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
     save_bestsol::Bool
 end
 
-mutable struct ILqrOptions{T<:AbstractFloat}
-    alpha_mul::T
-    margin_ls::T
-    eps_reg::T
-    eps_fd::T
-    tol_interp::T
+mutable struct QPOptions
+    alpha_mul::Float64
+    margin_ls::Float64
+    eps_reg::Float64
+    eps_fd::Float64
+    tol_interp::Float64
     tol_converge::T
     maxiter_ilqr::Int
     maxiter_ls::Int
     is_verbose::Bool
     save_bestsol::Bool
 
-    function ILqrOptions{T}(;
+    function QPOptions(;
         alpha_mul::Union{<:AbstractFloat,Nothing}=nothing,
         margin_ls::Union{<:AbstractFloat,Nothing}=nothing,
         eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
@@ -91,4 +144,4 @@ mutable struct ILqrOptions{T<:AbstractFloat}
 end
 
 # Default type parameter
-ILqrOptions(; args...) = ILqrOptions{T_DEFAULT}(; args...)
+ILqrOptions(; args...) = ILqrOptions{T_DEFAULT}(; args...) =#

@@ -1,6 +1,8 @@
 module ContactContinuationMPC
 
 using MuJoCo
+using OSQP
+using SparseArrays
 using LinearAlgebra
 #using FastLapackInterface
 using ForwardDiff
@@ -40,8 +42,9 @@ include("utils/mujoco/names.jl")
 include("utils/mujoco/state.jl")
 include("utils/mujoco/finitediff.jl")
 include("plot.jl")
+include("consts.jl")
 include("costfunc.jl")
-include("ilqr/config/consts.jl")
+include("trajopt_interface.jl")
 include("ilqr/caches/backward.jl")
 include("ilqr/caches/forward.jl")
 include("ilqr/caches/temporary.jl")
@@ -50,5 +53,10 @@ include("ilqr/interface.jl")
 include("ilqr/backward_pass.jl")
 include("ilqr/forward_pass.jl")
 include("ilqr/solve.jl")
+include("sqp/indexing.jl")
+include("sqp/sparsity.jl")
+include("sqp/interface.jl")
+include("sqp/qp_prep.jl")
+include("sqp/solve.jl")
 
 end # module ContactContinuationMPC
