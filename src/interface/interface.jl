@@ -21,45 +21,45 @@ mutable struct TrajoptParameters{T<:AbstractFloat,Lk,Lf}
         #num_interps::Integer=0,
     ) where {T,Lk,Lf}
         # Get problem dimensions
-        nx = get_nx(mfwd)
+        nx = Utils.get_nx(mfwd)
         nu = mfwd.nu
         N = length(Xref)
 
         # Assert dimensions
-        dims_same, mismatches = same_dims(mfwd, mbwd)
+        dims_same, mismatches = Utils.same_dims(mfwd, mbwd)
         if !dims_same
-            throwdim("Models have mismatched dimensions:\n$mismatches")
+            Utils.throwdim("Models have mismatched dimensions:\n$mismatches")
         end
         if length(Uref) != N-1
-            throwdim(
+            Utils.throwdim(
                 "Number of reference inputs should be 1 less than number of reference states",
             )
         end
         if length(xic) != nx
-            throwdim(
+            Utils.throwdim(
                 "Initial conditions dimensions do not match those of reference states",
             )
         end
         for xref in Xref
             if length(xref) != nx
-                throwdim("Reference state dimensions are not consistent")
+                Utils.throwdim("Reference state dimensions are not consistent")
             end
         end
         for uref in Uref
             if length(uref) != nu
-                throwdim("Reference input dimensions are not consistent")
+                Utils.throwdim("Reference input dimensions are not consistent")
             end
         end
 
         #=
         # Check geometry names
-        all_geomnames = get_geom_names(mfwd)
-        if get_geom_names(mbwd) != all_geomnames
-            throwarg("Geometry names between models are not consistent")
+        all_geomnames = Utils.get_geom_names(mfwd)
+        if Utils.get_geom_names(mbwd) != all_geomnames
+            Utils.throwarg("Geometry names between models are not consistent")
         end
         for geomname_interp in geomnames_interp
             if !(geomname_interp in all_geomnames)
-                throwarg("Geometry $geomname_interp is not in the models")
+                Utils.throwarg("Geometry $geomname_interp is not in the models")
             end
         end
 
@@ -127,7 +127,7 @@ mutable struct TrajoptSolution{T<:AbstractFloat}
 
     function TrajoptSolution(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
         # Get problem dims
-        nx = get_nx(params.mfwd)
+        nx = Utils.get_nx(params.mfwd)
         nu = params.mfwd.nu
         N = length(params.Xref)
 

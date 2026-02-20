@@ -42,49 +42,49 @@ end
 
 function assert_opts!(opts::iLQROptions)::Nothing
     if !(0.0 < opts.alpha_mul < 1.0)
-        throwdom(
+        Utils.throwdom(
             opts.alpha_mul,
             "The backtracking contraction rate must be between 0 and 1",
         )
     end
     if opts.eps_reg <= 0.0
-        throwdom(
+        Utils.throwdom(
             opts.eps_reg,
             "The regularizer coefficient must be greater than or equal to 0",
         )
     end
     if opts.eps_fd < 0.0
-        throwdom(
+        Utils.throwdom(
             opts.eps_fd,
             "The finite-difference coefficient must be greater than 0",
         )
     end
     if opts.tol_interp < 0.0
-        throwdom(
+        Utils.throwdom(
             opts.tol_interp,
             "The dynamics jacobian interpolation tolerance must be greater than 0",
         )
     end
     if opts.tol_converge < 0.0
-        throwdom(
+        Utils.throwdom(
             opts.tol_converge,
             "The stationarity tolerance must be greater than 0",
         )
     end
     if opts.margin_ls < 0.0
-        throwdom(
+        Utils.throwdom(
             opts.margin_ls,
             "The merit function margin factor must be greater than or equal to 0",
         )
     end
     if opts.maxiter_ilqr < 0
-        throwdom(
+        Utils.throwdom(
             opts.maxiter_ilqr,
             "The max number of iterations must be greater than 0",
         )
     end
     if opts.maxiter_ls < 0
-        throwdom(
+        Utils.throwdom(
             opts.maxiter_ls,
             "The max number of line-search iterations must be greater than 0",
         )
@@ -111,8 +111,8 @@ function init_ilqr!(
     bwd.ΔJmax = opts.tol_interp
     bwd.ϵ = opts.eps_fd
     mul!(bwd.μI, opts.eps_reg, I)
-    fill_nested_array!(bwd.Ks, 0.0)
-    fill_nested_array!(bwd.ds, 0.0)
+    Utils.fill_nested_array!(bwd.Ks, 0.0)
+    Utils.fill_nested_array!(bwd.ds, 0.0)
 
     # Set initial conditions and solution terms
     sol.is_optimal = false

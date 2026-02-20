@@ -7,11 +7,11 @@ function roll_out!(
     # Reference forward model
     m, d = params.mfwd, params.dfwd
     reset!(m, d)
-    copy_state_to_data!(d, params.xic)
+    Utils.copy_state_to_data!(d, params.xic)
 
     # Initialize trajectory with previous solution
-    copy_nested_array!(fwd.X1, fwd.X0)
-    copy_nested_array!(fwd.U1, fwd.U0)
+    Utils.copy_nested_array!(fwd.X1, fwd.X0)
+    Utils.copy_nested_array!(fwd.U1, fwd.U0)
 
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
@@ -20,14 +20,14 @@ function roll_out!(
         @. fwd.U1[k] -= tmp.u
 
         # Compute state difference in tangent space
-        get_state_diff!(m, tmp.dx, fwd.X1[k], fwd.X0[k])
+        Utils.get_state_diff!(m, tmp.dx, fwd.X1[k], fwd.X0[k])
         mul!(tmp.u, bwd.Ks[k], tmp.dx)
         @. fwd.U1[k] -= tmp.u
 
         # Step simulator
         copyto!(d.ctrl, fwd.U1[k])
         step!(m, d)
-        copy_data_to_state!(d, fwd.X1[k + 1])
+        Utils.copy_data_to_state!(d, fwd.X1[k + 1])
     end
     return nothing
 end
@@ -65,14 +65,14 @@ function forward_pass!(
 
     # Carry solver state
     fwd.Jprev = J_ls
-    copy_nested_array!(fwd.X0, fwd.X1)
-    copy_nested_array!(fwd.U0, fwd.U1)
+    Utils.copy_nested_array!(fwd.X0, fwd.X1)
+    Utils.copy_nested_array!(fwd.U0, fwd.U1)
 
     # Update solution if new one is better
     if (!save_bestsol) || (save_bestsol && fwd.Jprev < sol.J)
         sol.J = fwd.Jprev
-        copy_nested_array!(sol.X, fwd.X0)
-        copy_nested_array!(sol.U, fwd.U0)
+        Utils.copy_nested_array!(sol.X, fwd.X0)
+        Utils.copy_nested_array!(sol.U, fwd.U0)
     end
     return nothing
 end

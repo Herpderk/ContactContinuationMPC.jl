@@ -67,7 +67,7 @@ struct ActionValueFunctionExpansion{T<:AbstractFloat}
 end
 
 mutable struct BackwardCache{T<:AbstractFloat}
-    FDs::Vector{FDCache{T}}
+    FDs::Vector{Utils.FDCache{T}}
     F::SimulatorExpansion{T}
     L::CostFunctionExpansion{T}
     V::ValueFunctionExpansion{T}
@@ -85,7 +85,7 @@ mutable struct BackwardCache{T<:AbstractFloat}
     function BackwardCache{T}(
         m::Model, ndx::Integer, nu::Integer, N::Integer
     ) where {T}
-        FDs = [FDCache{T}(m) for t in 1:nthreads()]
+        FDs = [Utils.FDCache{T}(m) for t in 1:nthreads()]
         F = SimulatorExpansion{T}(ndx, nu)
         L = CostFunctionExpansion{T}(ndx, nu)
         V = ValueFunctionExpansion{T}(ndx)

@@ -57,7 +57,7 @@ end
     @inbounds for k in 1:(N - 1)
         # Get x and u errors
         x, xref, u, uref = z[zidx.x[k]], Xref[k], z[zidx.u[k]], Uref[k]
-        get_state_diff!(params.mfwd, dxtmp, x, xref)
+        Utils.get_state_diff!(params.mfwd, dxtmp, x, xref)
         @. utmp = u - uref
         # Add stage cost
         J += params.costfunc.stage(dxtmp, utmp)
@@ -73,10 +73,10 @@ end
 )::Nothing
     N, zidx, dzidx = pidx.dims.N, pidx.z, pidx.dz
     for k in 1:(N - 1)
-        add_diff_to_state!(params.mfwd, z[zidx.x[k]], Δz[dzidx.x[k]])
+        Utils.add_diff_to_state!(params.mfwd, z[zidx.x[k]], Δz[dzidx.x[k]])
         z[zidx.u[k]] .+= Δz[dzidx.u[k]]
     end
-    add_diff_to_state!(params.mfwd, z[zidx.x[end]], ΔZ[dzidx.x[end]])
+    Utils.add_diff_to_state!(params.mfwd, z[zidx.x[end]], ΔZ[dzidx.x[end]])
     return nothing
 end
 

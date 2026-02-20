@@ -21,25 +21,25 @@ struct ContactParameters{T<:AbstractFloat}
         dampratio::Real,
     ) where {T}
         if !(0 <= dmin <= 1)
-            throwdom(dmin, "dmin must be between 0 and 1")
+            Utils.throwdom(dmin, "dmin must be between 0 and 1")
         end
         if !(0 <= dmax <= 1)
-            throwdom(dmax, "dmax must be between 0 and 1")
+            Utils.throwdom(dmax, "dmax must be between 0 and 1")
         end
         if !(0 < width)
-            throwdom(width, "width must be greater than 0")
+            Utils.throwdom(width, "width must be greater than 0")
         end
         if !(0 <= midpoint <= 1)
-            throwdom(midpoint, "midpoint must be between 0 and 1")
+            Utils.throwdom(midpoint, "midpoint must be between 0 and 1")
         end
         if !(1 <= power)
-            throwdom(power, "power must be greater than or equal to 1")
+            Utils.throwdom(power, "power must be greater than or equal to 1")
         end
         if !(0 < timeconst)
-            throwdom(timeconst, "timeconst must be greater than 0")
+            Utils.throwdom(timeconst, "timeconst must be greater than 0")
         end
         if !(0 < dampratio)
-            throwdom(dampratio, "dampratio must be greater than 0")
+            Utils.throwdom(dampratio, "dampratio must be greater than 0")
         end
         return new{T}(
             margin,
@@ -58,7 +58,7 @@ end
 function ContactParameters{T}(geomname::AbstractString, m::Model) where {T}
     id = 1 + mj_name2id(m, MuJoCo.mjOBJ_GEOM, geomname)
     if id == 0
-        throwarg("Geometry name $geomname is invalid")
+        Utils.throwarg("Geometry name $geomname is invalid")
     end
 
     # Grab contact parameters from specified id
@@ -107,15 +107,15 @@ struct ContactParameterInterpolations{T<:AbstractFloat}
         num_interps::Integer,
     ) where {T,T1,T2}
         return new{T}(
-            interpolate(T(c1.margin), T(c2.margin), num_interps),
-            interpolate(T(c1.gap), T(c2.gap), num_interps),
-            interpolate(T(c1.dmin), T(c2.dmin), num_interps),
-            interpolate(T(c1.dmax), T(c2.dmax), num_interps),
-            interpolate(T(c1.width), T(c2.width), num_interps),
-            interpolate(T(c1.midpoint), T(c2.midpoint), num_interps),
-            interpolate(T(c1.power), T(c2.power), num_interps),
-            interpolate(T(c1.timeconst), T(c2.timeconst), num_interps),
-            interpolate(T(c1.dampratio), T(c2.dampratio), num_interps),
+            Utils.interpolate(T(c1.margin), T(c2.margin), num_interps),
+            Utils.interpolate(T(c1.gap), T(c2.gap), num_interps),
+            Utils.interpolate(T(c1.dmin), T(c2.dmin), num_interps),
+            Utils.interpolate(T(c1.dmax), T(c2.dmax), num_interps),
+            Utils.interpolate(T(c1.width), T(c2.width), num_interps),
+            Utils.interpolate(T(c1.midpoint), T(c2.midpoint), num_interps),
+            Utils.interpolate(T(c1.power), T(c2.power), num_interps),
+            Utils.interpolate(T(c1.timeconst), T(c2.timeconst), num_interps),
+            Utils.interpolate(T(c1.dampratio), T(c2.dampratio), num_interps),
         )
     end
 end

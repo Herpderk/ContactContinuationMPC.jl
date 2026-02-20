@@ -17,7 +17,7 @@ struct QuadraticCostFunction{T<:AbstractFloat}
         Qf::AbstractMatrix{<:Real},
     ) where {T}
         if size(Q) != size(Qf)
-            throwdim("Q and Qf matrices must have the same size")
+            Utils.throwdim("Q and Qf matrices must have the same size")
         end
         xtmp = DiffCache(zeros(T, size(Q)[1]))
         utmp = DiffCache(zeros(T, size(R)[1]))
@@ -82,12 +82,14 @@ mutable struct TrajectoryCostFunction{T<:AbstractFloat,Lk,Lf}
         m::Model, costfunc_stage::Lk, costfunc_term::Lf
     ) where {T,Lk,Lf}
         if isempty(methods(costfunc_stage))
-            throwarg("The provided stage cost function is not callable")
+            Utils.throwarg("The provided stage cost function is not callable")
         end
         if isempty(methods(costfunc_term))
-            throwarg("The provided terminal cost function is not callable")
+            Utils.throwarg(
+                "The provided terminal cost function is not callable"
+            )
         end
-        xerr = DiffCache(zeros(T, get_ndx(m)))
+        xerr = DiffCache(zeros(T, Utils.get_ndx(m)))
         uerr = DiffCache(zeros(T, m.nu))
         return new{T,Lk,Lf}(m, costfunc_stage, costfunc_term, xerr, uerr)
     end
@@ -127,13 +129,13 @@ function (cache::TrajectoryCostFunction{T,Lk,Lf})(
     J = zero(el_super)
 
     @inbounds @simd for k in 1:(length(Uref))
-        get_state_diff!(m, xerr, X[k], Xref[k])     # Compute state error
+        Utils.get_state_diff!(m, xerr, X[k], Xref[k])     # Compute state error
         @. uerr = U[k] - Uref[k]                    # Compute control error
         J += cache.stage(xerr, uerr)                # Add stage cost
     end
 
     # Add terminal cost
-    get_state_diff!(m, xerr, X[end], Xref[end])
+    Utils.get_state_diff!(m, xerr, X[end], Xref[end])
     J += cache.term(xerr)
     return J
 end

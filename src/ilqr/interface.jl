@@ -5,8 +5,8 @@ mutable struct iLQRCache{T<:AbstractFloat}
 
     function iLQRCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
         # Get problem dims
-        nx = get_nx(params.mfwd)
-        ndx = get_ndx(params.mfwd)
+        nx = Utils.get_nx(params.mfwd)
+        ndx = Utils.get_ndx(params.mfwd)
         nu = params.mfwd.nu
         N = length(params.Xref)
 

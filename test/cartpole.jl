@@ -27,7 +27,7 @@ end
     N = 400
     Xref = [[0.0, pi, 0.0, 0.0] for k in 1:N]
     Uref = [zeros(1) for k in 1:(N - 1)]
-    xic = 1e-2 * ones(get_nx(m))
+    xic = 1e-2 * ones(Utils.get_nx(m))
 
     # Declare cost function
     Q = 1e-3 * diagm([0.0, 1.0, 1.0, 1.0])

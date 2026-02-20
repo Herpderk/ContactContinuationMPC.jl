@@ -9,21 +9,21 @@
 
     # Initial condition residuals
     hic, xic = h[hidx.ic], z[zidx.x[1]]
-    get_state_diff!(m, hic, xic, params.xic)
+    Utils.get_state_diff!(m, hic, xic, params.xic)
 
     # Dynamics residuals
     reset!(m, d)
     for k in 1:(N - 1)
         # Step simulator
         x0, u0 = z[zidx.x[k]], z[zidx.u[k]]
-        copy_state_to_data!(d, x0)
+        Utils.copy_state_to_data!(d, x0)
         copyto!(d.ctrl, u0)
         step!(m, d)
-        copy_data_to_state!(d, cache.xtmp)
+        Utils.copy_data_to_state!(d, cache.xtmp)
 
         # Evaluate constraint
         x1, h0 = h[hidx.dyn[k]], z[zidx.x[k + 1]]
-        get_state_diff!(m, h0, cache.xtmp, x1)
+        Utils.get_state_diff!(m, h0, cache.xtmp, x1)
     end
     return nothing
 end
@@ -52,9 +52,9 @@ end
 
         # Compute dynamics Jacobians via FD
         x0, u0 = z[zidx.x[k]], z[zidx.u[k]]
-        copy_state_to_data!(d, x0)
+        Utils.copy_state_to_data!(d, x0)
         copyto!(d.ctrl, u0)
-        threaded_fd!(m, d, FDs, ∇h0_x0, ∇h0_u0; ϵ=ϵ)
+        Utils.threaded_fd!(m, d, FDs, ∇h0_x0, ∇h0_u0; ϵ=ϵ)
 
         # Constraint Jacobian wrt xk+1 (negative identity matrix)
         ∇h0_x1 = ∇h[rows_dyn, dzidx.x[k + 1]]
@@ -78,7 +78,7 @@ end
     for k in 1:(N - 1)
         # Get x and u errors
         x, xref, u, uref = z[zidx.x[k]], Xref[k], z[zidx.u[k]], Uref[k]
-        get_state_diff!(params.mfwd, dxtmp, x, xref)
+        Utils.get_state_diff!(params.mfwd, dxtmp, x, xref)
         @. utmp = u - uref
 
         # Get gradients and hessians of stage cost wrt x and u
@@ -112,7 +112,7 @@ end
 
     # Terminal state error
     x, xref = z[zidx.x[k]], Xref[k]
-    get_state_diff!(params.mfwd, dxtmp, x, xref)
+    Utils.get_state_diff!(params.mfwd, dxtmp, x, xref)
 
     # Terminal costfunc gradient and hessian
     ∇Jx = ∇J[dzidx.x[end]]

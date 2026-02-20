@@ -18,13 +18,13 @@ mutable struct SQPCache
     xtmp::Vector{Float64}
     dxtmp::Vector{Float64}
     utmp::Vector{Float64}
-    FDs::Vector{FDCache{Float64}}
+    FDs::Vector{Utils.FDCache{Float64}}
 
     function SQPCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
         # Get problem dims
         N = length(params.Xref)
-        nx = get_nx(params.mfwd)
-        ndx = get_ndx(params.mfwd)
+        nx = Utils.get_nx(params.mfwd)
+        ndx = Utils.get_ndx(params.mfwd)
         nu = params.mfwd.nu
 
         # Initialize indexing parameters
@@ -44,7 +44,7 @@ mutable struct SQPCache
         xtmp = zeros(Float64, nx)
         dxtmp = zeros(Float64, ndx)
         utmp = zeros(Float64, nu)
-        FDs = [FDCache{64}(m) for t in 1:nthreads()]
+        FDs = [Utils.FDCache{64}(m) for t in 1:nthreads()]
 
         # Initialize OSQP model
         m = OSQP.Model()
