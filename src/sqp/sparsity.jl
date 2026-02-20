@@ -36,6 +36,8 @@ end
         idx_uk = dzidx.u[k]
         ∇²J[idx_xk, idx_xk] .= 1.0
         ∇²J[idx_uk, idx_uk] .= 1.0
+        ∇²J[idx_xk, idx_uk] .= 1.0
+        ∇²J[idx_uk, idx_xk] .= 1.0
     end
 
     # Terminal costfunc hessian
@@ -48,7 +50,7 @@ end
     pidx::IndexingParameters
 )::Matrix{Float64}
     dims = pidx.dims
-    ∇²L = zeros(Float64, dims.ndz, dims.ndz)
-    ∇²L += costfunc_hessian_pattern(pidx)
-    return ∇²L
+    ∇²ₓₓL = zeros(Float64, dims.ndz, dims.ndz)
+    ∇²ₓₓL += costfunc_hessian_pattern(pidx)
+    return ∇²ₓₓL
 end

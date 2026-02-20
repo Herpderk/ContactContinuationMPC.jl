@@ -1,7 +1,7 @@
 module SQP
 
 using MuJoCo
-using OSQP
+using OSQP  # TODO consider SCS (ADMM SOCP solver) for trust region
 using SparseArrays
 using LinearAlgebra
 using ForwardDiff

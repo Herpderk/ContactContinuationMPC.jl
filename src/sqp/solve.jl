@@ -1,5 +1,17 @@
-function is_converged(∇J::Vector{Float64}, h::Vector{Float64})::Bool
-    return norm(∇J, 2) < 1e-2 && norm(h, Inf) < 1e-2
+function is_converged(
+    ∇ₓL::Vector{Float64}, h::Vector{Float64}; tol_stat::Float64, tol_eq::Float64
+)::Bool
+    return norm(∇ₓL, Inf) < tol_stat && norm(h, Inf) < tol_eq
+end
+
+function stationarity!(
+    ∇ₓL::Vector{Float64},
+    ∇J::Vector{Float64},
+    ∇h::SparseMatrixCSC{Float64,Int},
+    λ::Vector{Float64},
+)::Nothing
+    copyto!(∇ₓL, ∇J)
+    @. ∇ₓL += ∇h' * λ
 end
 
 function log_interrupted()::Nothing
@@ -10,18 +22,18 @@ function log_interrupted()::Nothing
 end
 
 function log_iter(
-    iter::Int, J::Float64, ∇J::Vector{Float64}, h::Vector{Float64}
+    iter::Int, J::Float64, ∇ₓL::Vector{Float64}, h::Vector{Float64}
 )::Nothing
     if rem(iter-1, 20) == 0
         println("-------------------------------------------------")
-        println("iter       J         ‖∇J‖         ‖h‖          α")
+        println("iter       J         ‖∇ₓL‖         ‖h‖          α")
         println("-------------------------------------------------")
     end
     @printf(
         "%4.04i   %8.2e   %8.2e   %8.2e   %8.2e\n",
         iter,
         J,
-        norm(∇J, 2),
+        norm(∇ₓL, Inf),
         norm(h, Inf),
         1.0,
     )
@@ -46,7 +58,7 @@ end
     return nothing
 end
 
-@views function get_trajectory_cost(
+@views function trajectory_cost(
     z::Vector, cache::SQPCache, params::TrajoptParameters
 )::Float64
     N, zidx = cache.pidx.dims.N, cache.pidx.z, pidx.dz
@@ -83,46 +95,44 @@ end
 function run_sqp!(
     sol::TrajoptSolution{Float64},
     cache::SQPCache,
-    params::TrajoptParameters{Float64,Lk,Lf};
-    ϵ::Float64,
-    tol_cost::Float64,
-    tol_eq::Float64,
-    maxiter_sqp::Int,
-    is_verbose::Bool,
+    params::TrajoptParameters{Float64,Lk,Lf},
+    opts::SQPOptions,
 )::Nothing where {Lk,Lf}
     init_sqp!(sol, cache)
 
     # References to OSQP structs
     m, r = cache.m, cache.r
 
-    # References to QP arrays
-    ∇²L, ∇J, ∇h, h, λ, z = cache.∇²L,
-    cache.∇J, cache.∇h, cache.h, cache.λ,
-    cache.z
+    # References to optimization arrays
+    ∇²ₓₓL, ∇ₓL, ∇J, ∇h, h, λ, z = (
+        cache.∇²ₓₓL, cache.∇J, cache.∇h, cache.h, cache.λ, cache.z
+    )
 
     # Start SQP loop
     iter = 0
     try
-        while iter < maxiter_sqp
+        while iter < opts.maxiter
             # Update QP arrays
             # Gauss-Newton (only put the costfunc hessian into the Lagrangian)
-            costfunc_expansion!(∇²L, ∇J, z, cache, params)
-            equality_jacobian!(∇h, z, cache, params; ϵ=ϵ)
+            costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)
+            equality_jacobian!(∇h, z, cache, params; ϵ=opts.eps_fd)
             equality_residuals!(h, z, cache, params)
 
             # Update solution and log
-            sol.J = get_trajectory_cost(z, cache, params)
-            # copy z to sol.X and sol,U
-            is_verbose ? log_iter(iter, J, ∇J, h) : nothing
+            sol.J = trajectory_cost(z, cache, params)
+            stationarity!(∇ₓL, ∇J, ∇h, λ)
+            opts.is_verbose ? log_iter(iter, J, ∇ₓL, h) : nothing
 
             # Check for convergence
-            sol.is_optimal = is_converged(∇J, h)
+            sol.is_optimal = is_converged(
+                ∇ₓL, h; tol_stat=opts.tol_stationarity, tol_eq=opts.tol_eqconstr
+            )
             sol.is_optimal ? break : nothing
             iter += 1
 
             # Solve QP
             h .*= -1.0
-            OSQP.update!(m; Px=∇²L.nzval, q=∇J, Ax=∇h.nzval, l=h, u=h)
+            OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇h.nzval, l=h, u=h)
             iter == 1 ? OSQP.warm_start!(m; x=z, y=λ) : nothing
             OSQP.solve!(m, r)
 
@@ -138,7 +148,7 @@ function run_sqp!(
     if opts.is_verbose
         if sol.is_optimal
             log_converged()
-        elseif iter == maxiter_sqp
+        elseif iter == opts.maxiter
             log_maxiter()
         end
     end

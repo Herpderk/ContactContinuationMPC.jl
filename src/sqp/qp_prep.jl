@@ -73,6 +73,14 @@ end
     N, zidx, dzidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz
     dxtmp, utmp = cache.dxtmp, cache.utmp
     Xref, Uref = params.Xref, params.Uref
+    ∇ₓJ!, ∇ᵤJ!, ∇ₓJ!_cfg, ∇ᵤJ!_cfg, ∇²ₓᵤJ!_cfg, ∇²ᵤₓJ!_cfg = (
+        cache.∇ₓJ!,
+        cache.∇ᵤJ!,
+        cache.∇ₓJ!_cfg,
+        cache.∇ᵤJ!_cfg,
+        cache.∇²ₓᵤJ!_cfg,
+        cache.∇²ᵤₓJ!_cfg,
+    )
 
     # Stage costfunc gradients and hessians
     for k in 1:(N - 1)
@@ -82,31 +90,43 @@ end
         @. utmp = u - uref
 
         # Get gradients and hessians of stage cost wrt x and u
-        # Assume x and u costs are separable
-        ∇Jx = ∇J[dzidx.x[k]]
-        ∇Ju = ∇J[dzidx.u[k]]
-        ∇²Jxx = ∇²J[dzidx.x[k], dzidx.x[k]]
-        ∇²Juu = ∇²J[dzidx.u[k], dzidx.u[k]]
+        ∇ₓJ = ∇J[dzidx.x[k]]
+        ∇ᵤJ = ∇J[dzidx.u[k]]
+        ∇²ₓₓJ = ∇²J[dzidx.x[k], dzidx.x[k]]
+        ∇²ᵤᵤJ = ∇²J[dzidx.u[k], dzidx.u[k]]
+        ∇²ₓᵤJ = ∇²J[dzidx.x[k], dzidx.u[k]]
+        ∇²ᵤₓJ = ∇²J[dzidx.u[k], dzidx.x[k]]
 
         if Lk <: QuadraticCostFunction
             # Compute stage costfunc gradient and hessian via analytic expression
+            # Ignore mixed hessians for quadratic costfunc
             Q, R = params.costfunc.stage.Q, params.costfunc.stage.R
-            mul!(∇Jx, Q, dxtmp)
-            mul!(∇Ju, R, utmp)
-            copyto!(∇²Jxx, Q)
-            copyto!(∇²Juu, R)
+            mul!(∇ₓJ, Q, dxtmp)
+            mul!(∇ᵤJ, R, utmp)
+            copyto!(∇²ₓₓJ, Q)
+            copyto!(∇²ᵤᵤJ, R)
+            fill!(∇²ₓᵤJ, 0.0)
+            fill!(∇²ᵤₓJ, 0.0)
         else
             # Compute stage costfunc gradient and hessian via autodiff
             ForwardDiff.hessian!(
-                cache.∇J²xx, δx -> params.costfunc.stage(δx, utmp), dxtmp
+                cache.∇²ₓₓJ, δx -> params.costfunc.stage(δx, utmp), dxtmp
             )
             ForwardDiff.hessian!(
-                cache.∇J²uu, δu -> params.costfunc.stage(dxtmp, δu), utmp
+                cache.∇²ᵤᵤJ, δu -> params.costfunc.stage(dxtmp, δu), utmp
             )
-            copyto!(∇Jx, DiffResults.gradient(cache.∇J²xx))
-            copyto!(∇Ju, DiffResults.gradient(cache.∇J²uu))
-            copyto!(∇Jxx, DiffResults.hessian(cache.∇J²xx))
-            copyto!(∇Juu, DiffResults.hessian(cache.∇J²uu))
+            copyto!(∇ₓJ, DiffResults.gradient(cache.∇²ₓₓJ))
+            copyto!(∇ᵤJ, DiffResults.gradient(cache.∇²ᵤᵤJ))
+            copyto!(∇²ₓₓJ, DiffResults.hessian(cache.∇²ₓₓJ))
+            copyto!(∇²ᵤᵤJ, DiffResults.hessian(cache.∇²ᵤᵤJ))
+
+            # Compute mixed costfunc hessians
+            ForwardDiff.jacobian!(
+                ∇²ₓᵤJ, (y, δu) -> ∇ₓJ!(y, dxtmp, δu, ∇ₓJ!_cfg), utmp, ∇²ₓᵤJ!_cfg
+            )
+            ForwardDiff.jacobian!(
+                ∇²ᵤₓJ, (y, δx) -> ∇ᵤJ!(y, δx, utmp, ∇ᵤJ!_cfg), dxtmp, ∇²ᵤₓJ!_cfg
+            )
         end
     end
 
@@ -115,21 +135,21 @@ end
     Utils.get_state_diff!(params.mfwd, dxtmp, x, xref)
 
     # Terminal costfunc gradient and hessian
-    ∇Jx = ∇J[dzidx.x[end]]
-    ∇²Jxx = ∇²J[dzidx.x[end], dzidx.x[end]]
+    ∇ₓJ = ∇J[dzidx.x[end]]
+    ∇²ₓₓJ = ∇²J[dzidx.x[end], dzidx.x[end]]
 
     if Lk <: QuadraticCostFunction
         # Compute terminal costfunc gradient and hessian via analytic expression
         Qf = params.costfunc.term.Qf
-        mul!(∇Jx, Qf, dxtmp)
-        copyto!(∇²Jxx, Qf)
+        mul!(∇ₓJ, Qf, dxtmp)
+        copyto!(∇²ₓₓJ, Qf)
     else
         # Compute terminal costfunc gradient and hessian via autodiff
         ForwardDiff.hessian!(
-            cache.∇J²xx, δx -> params.costfunc.stage(δx, utmp), dxtmp
+            cache.∇²ₓₓJ, δx -> params.costfunc.stage(δx, utmp), dxtmp
         )
-        copyto!(∇Jx, DiffResults.gradient(cache.∇J²xx))
-        copyto!(∇Jxx, DiffResults.hessian(cache.∇J²xx))
+        copyto!(∇ₓJ, DiffResults.gradient(cache.∇²ₓₓJ))
+        copyto!(∇²ₓₓJ, DiffResults.hessian(cache.∇²ₓₓJ))
     end
     return nothing
 end
