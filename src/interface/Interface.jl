@@ -11,6 +11,6 @@ export QuadraticCostFunction,
 
 include("consts.jl")
 include("costfunc.jl")
-include("interface.jl")
+include("trajopt.jl")
 
 end # module Interface
