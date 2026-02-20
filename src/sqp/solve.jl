@@ -144,12 +144,10 @@ function run_sqp!(
         e isa InterruptException ? log_interrupted() : rethrow(e)
     end
 
-    if opts.is_verbose
-        if sol.is_optimal
-            log_converged()
-        elseif iter == opts.maxiter
-            log_maxiter()
-        end
+    if sol.is_optimal && opts.is_verbose
+        log_converged()
+    elseif iter == opts.maxiter && opts.is_verbose
+        log_maxiter()
     end
     return nothing
 end
