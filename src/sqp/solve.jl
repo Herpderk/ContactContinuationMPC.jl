@@ -41,10 +41,8 @@ function log_iter(
     return nothing
 end
 
-@views function init_sqp!(
-    sol::TrajoptSolution{Float64},
-    cache::SQPCache,
-    params::TrajoptParameters{Float64,Lk,Lf},
+function init_sqp!(
+    sol::TrajoptSolution{Float64}, cache::SQPCache
 )::Nothing where {Lk,Lf}
     # Primal warm-start
     copy_solution_to_primals!(cache.z, sol, cache.pidx)
@@ -97,7 +95,7 @@ function run_sqp!(
     params::TrajoptParameters{Float64,Lk,Lf},
     opts::SQPOptions,
 )::Nothing where {Lk,Lf}
-    init_sqp!(sol, cache, params)
+    init_sqp!(sol, cache)
 
     # References to OSQP structs
     m, r = cache.m, cache.r
@@ -131,12 +129,10 @@ function run_sqp!(
             iter += 1
 
             # Solve QP
-            h .*= -1.0
+            h .*= -1.0      # The target of the linearized eq constr is -h
             OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇h.nzval, l=h, u=h)
             iter == 1 ? OSQP.warm_start!(m; x=z) : nothing
             OSQP.solve!(m, r)
-
-            # Update decision variables
             # The QP primals are in tangent space. We need to update the "manifold states" correctly
             step_primals!(z, r.x, cache.pidx, params)
         end
