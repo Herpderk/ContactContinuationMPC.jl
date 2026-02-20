@@ -1,6 +1,3 @@
-using MuJoCo
-using Plots
-
 """
     plot_force_vs_distance(m::Model, d::Data; horizon=1000)
 
