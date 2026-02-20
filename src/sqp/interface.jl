@@ -17,8 +17,8 @@ mutable struct SQPCache
     ∇J::Vector{Float64}
     ∇h::SparseMatrixCSC{Float64,Int}
     h::Vector{Float64}
-    λ::Vector{Float64}
     z::Vector{Float64}
+    ztmp::Vector{Float64}
     xtmp::Vector{Float64}
     dxtmp::Vector{Float64}
     dxtmp_ad::Vector{Float64}
@@ -47,8 +47,8 @@ mutable struct SQPCache
         ∇J = zeros(Float64, ndz)
         ∇h = sparse(equality_jacobian_pattern(pidx))
         h = zeros(Float64, nh)
-        λ = zeros(Float64, nh)
         z = zeros(Float64, nz)
+        ztmp = zeros(Float64, nz)
         xtmp = zeros(Float64, nx)
         dxtmp = zeros(Float64, ndx)
         dxtmp_ad = zeros(Float64, ndx)
@@ -101,8 +101,8 @@ mutable struct SQPCache
             ∇J,
             ∇h,
             h,
-            λ,
             z,
+            ztmp,
             xtmp,
             dxtmp,
             dxtmp_ad,

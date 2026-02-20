@@ -6,12 +6,13 @@ end
 
 function stationarity!(
     ∇ₓL::Vector{Float64},
+    ztmp::Vector{Float64},
     ∇J::Vector{Float64},
     ∇h::SparseMatrixCSC{Float64,Int},
     λ::Vector{Float64},
 )::Nothing
-    copyto!(∇ₓL, ∇J)
-    @. ∇ₓL += ∇h' * λ
+    mul!(ztmp, ∇h', λ)
+    @. ∇ₓL += ztmp + ∇J
 end
 
 function log_interrupted()::Nothing
@@ -41,48 +42,46 @@ function log_iter(
 end
 
 @views function init_sqp!(
-    sol::TrajoptSolution{Float64}, cache::SQPCache
-)::Nothing
-    N, zidx, z = cache.pidx.dims.N, cache.pidx.z, cache.z
+    sol::TrajoptSolution{Float64},
+    cache::SQPCache,
+    params::TrajoptParameters{Float64,Lk,Lf},
+)::Nothing where {Lk,Lf}
+    # Primal warm-start
+    copy_solution_to_primals!(cache.z, sol, cache.pidx)
+    sol.is_optimal = false
+    return nothing
+end
 
-    # Copy trajectory to decision variables
-    for k in 1:(N - 1)
+@views function copy_solution_to_primals!(
+    z::Vector{Float64}, sol::TrajoptSolution{Float64}, pidx::IndexingParameters
+)::Nothing
+    N, zidx = pidx.dims.N, pidx.z
+    @inbounds for k in 1:(N - 1)
         copyto!(z[zidx.x[k]], sol.X[k])
         copyto!(z[zidx.u[k]], sol.U[k])
     end
     copyto!(z[zidx.x[end]], sol.X[end])
-
-    # Initialize solution terms
-    sol.is_optimal = false
-    sol.J = Inf
     return nothing
 end
 
-@views function trajectory_cost(
-    z::Vector, cache::SQPCache, params::TrajoptParameters
-)::Float64
-    N, zidx = cache.pidx.dims.N, cache.pidx.z, pidx.dz
-    dxtmp, utmp = cache.dxtmp, cache.utmp
-    Xref, Uref = params.Xref, params.Uref
-
-    J = 0.0
+@views function copy_primals_to_solution!(
+    sol::TrajoptSolution{Float64}, z::Vector{Float64}, pidx::IndexingParameters
+)::Nothing
+    N, zidx = pidx.dims.N, pidx.z
     @inbounds for k in 1:(N - 1)
-        # Get x and u errors
-        x, xref, u, uref = z[zidx.x[k]], Xref[k], z[zidx.u[k]], Uref[k]
-        Utils.get_state_diff!(params.mfwd, dxtmp, x, xref)
-        @. utmp = u - uref
-        # Add stage cost
-        J += params.costfunc.stage(dxtmp, utmp)
+        copyto!(sol.X[k], z[zidx.x[k]])
+        copyto!(sol.U[k], z[zidx.u[k]])
     end
-
-    # Add terminal cost
-    J += params.costfunc.term(z[zidx.x[end]])
-    return J
+    copyto!(sol.X[end], z[zidx.x[end]])
+    return nothing
 end
 
-@views function update_primals!(
-    z::Vector, Δz::Vector, pidx::IndexingParameters, params::TrajoptParameters
-)::Nothing
+@views function step_primals!(
+    z::Vector{Float64},
+    Δz::Vector{Float64},
+    pidx::IndexingParameters,
+    params::TrajoptParameters{Float64,Lk,Lf},
+)::Nothing where {Lk,Lf}
     N, zidx, dzidx = pidx.dims.N, pidx.z, pidx.dz
     for k in 1:(N - 1)
         Utils.add_diff_to_state!(params.mfwd, z[zidx.x[k]], Δz[dzidx.x[k]])
@@ -98,32 +97,33 @@ function run_sqp!(
     params::TrajoptParameters{Float64,Lk,Lf},
     opts::SQPOptions,
 )::Nothing where {Lk,Lf}
-    init_sqp!(sol, cache)
+    init_sqp!(sol, cache, params)
 
     # References to OSQP structs
     m, r = cache.m, cache.r
 
     # References to optimization arrays
-    ∇²ₓₓL, ∇ₓL, ∇J, ∇h, h, λ, z = (
-        cache.∇²ₓₓL, cache.∇J, cache.∇h, cache.h, cache.λ, cache.z
+    ∇²ₓₓL, ∇ₓL, ∇J, ∇h, h, z = (
+        cache.∇²ₓₓL, cache.∇J, cache.∇h, cache.h, cache.z
     )
 
     # Start SQP loop
     iter = 0
     try
         while iter < opts.maxiter
+            # Update solution
+            iter > 0 ? copy_primals_to_solution!(sol, z, cache.pidx) : nothing
+            sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
+
             # Update QP arrays
             # Gauss-Newton (only put the costfunc hessian into the Lagrangian)
             costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)
             equality_jacobian!(∇h, z, cache, params; ϵ=opts.eps_fd)
             equality_residuals!(h, z, cache, params)
 
-            # Update solution and log
-            sol.J = trajectory_cost(z, cache, params)
-            stationarity!(∇ₓL, ∇J, ∇h, λ)
-            opts.is_verbose ? log_iter(iter, J, ∇ₓL, h) : nothing
-
-            # Check for convergence
+            # Log and check for convergence
+            stationarity!(∇ₓL, cache.ztmp, ∇J, ∇h, r.y)
+            opts.is_verbose ? log_iter(iter, sol.J, ∇ₓL, h) : nothing
             sol.is_optimal = is_converged(
                 ∇ₓL, h; tol_stat=opts.tol_stationarity, tol_eq=opts.tol_eqconstr
             )
@@ -133,13 +133,12 @@ function run_sqp!(
             # Solve QP
             h .*= -1.0
             OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇h.nzval, l=h, u=h)
-            iter == 1 ? OSQP.warm_start!(m; x=z, y=λ) : nothing
+            iter == 1 ? OSQP.warm_start!(m; x=z) : nothing
             OSQP.solve!(m, r)
 
             # Update decision variables
-            copyto!(λ, r.y)
             # The QP primals are in tangent space. We need to update the "manifold states" correctly
-            update_primals!(z, r.x, cache.pidx, params)
+            step_primals!(z, r.x, cache.pidx, params)
         end
     catch e
         e isa InterruptException ? log_interrupted() : rethrow(e)
