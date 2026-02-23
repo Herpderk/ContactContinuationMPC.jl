@@ -1,20 +1,27 @@
-function is_converged(
-    ∇ₓL::Vector{Float64}, h::Vector{Float64}; tol_stat::Float64, tol_eq::Float64
+@views function is_converged(
+    statnorm::Float64, viol::Float64; tol_stat::Float64, tol_eq::Float64
 )::Bool
-    return norm(∇ₓL, Inf) < tol_stat && norm(h, Inf) < tol_eq
+    return statnorm < tol_stat && viol < tol_eq
+end
+
+function constraint_violation(
+    g::Vector{Float64}, pidx::IndexingParameters
+)::Float64
+    geq = g[pidx.g.ic[1][1]:pidx.g.dyn[end][end]]
+    return norm(geq, Inf)
 end
 
 function stationarity!(
     ∇ₓL::Vector{Float64},
     ztmp::Vector{Float64},
     ∇J::Vector{Float64},
-    ∇h::SparseMatrixCSC{Float64,Int},
+    ∇g::SparseMatrixCSC{Float64,Int},
     λ::Vector{Float64},
 )::Nothing
     #println("ztmp length:", length(ztmp))
-    #println("∇h shape:", size(∇h))
+    #println("∇g shape:", size(∇g))
     #println("λ length:", length(λ))
-    mul!(ztmp, ∇h', λ)
+    mul!(ztmp, ∇g', λ)
     @. ∇ₓL = ztmp + ∇J
     return nothing
 end
@@ -27,20 +34,14 @@ function log_interrupted()::Nothing
 end
 
 function log_iter(
-    iter::Int, J::Float64, ∇ₓL::Vector{Float64}, h::Vector{Float64}
+    iter::Int, J::Float64, statnorm::Float64, viol::Float64
 )::Nothing
     if rem(iter, 20) == 0
         println("-------------------------------------")
         println("iter       J        ‖∇ₓL‖       ‖h‖")
         println("-------------------------------------")
     end
-    @printf(
-        "%4.04i   %8.2e   %8.2e   %8.2e\n",
-        iter,
-        J,
-        norm(∇ₓL, Inf),
-        norm(h, Inf),
-    )
+    @printf("%4.04i   %8.2e   %8.2e   %8.2e\n", iter, J, statnorm, viol,)
     return nothing
 end
 
@@ -93,6 +94,10 @@ end
 end
 
 function run_sqp!(
+    Δxl::Vector{Float64},
+    Δxu::Vector{Float64},
+    Δul::Vector{Float64},
+    Δuu::Vector{Float64},
     sol::TrajoptSolution{Float64},
     cache::SQPCache,
     params::TrajoptParameters{Float64,Lk,Lf},
@@ -104,12 +109,9 @@ function run_sqp!(
     m, r = cache.m, cache.r
 
     # References to optimization arrays
-    ∇²ₓₓL, ∇ₓL, ∇J, ∇h, h, z = (
-        cache.∇²ₓₓL, cache.∇ₓL, cache.∇J, cache.∇h, cache.h, cache.z
+    ∇²ₓₓL, ∇ₓL, ∇J, ∇g, gl, gu, z = (
+        cache.∇²ₓₓL, cache.∇ₓL, cache.∇J, cache.∇g, cache.gl, cache.gu, cache.z
     )
-
-    # Init regularizer
-    μI = opts.eps_reg * I(size(∇²ₓₓL)[1])
 
     # Start SQP loop
     iter = 0
@@ -119,29 +121,40 @@ function run_sqp!(
             iter > 0 ? copy_primals_to_solution!(sol, z, cache.pidx) : nothing
             sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
 
-            # Update QP arrays
-            equality_residuals!(h, z, cache, params)
-            equality_jacobian!(∇h, z, cache, params; ϵ=opts.eps_fd)
+            # Update QP constraints
+            initcond_residuals!(gl, z, cache.pidx, params)
+            dynamics_residuals!(gl, z, cache, params)
+            copyto!(gu, gl)
+            trustregion_bounds!(gl, Δxl, Δul, cache.pidx)
+            trustregion_bounds!(gu, Δxu, Δuu, cache.pidx)
+
+            # Update QP constraint Jacobians
+            initcond_jacobian!(∇g, cache.pidx)
+            dynamics_jacobian!(∇g, z, cache, params; ϵ=opts.eps_fd)
+            trustregion_jacobian!(∇g, cache.pidx)
+
+            # Update QP cost function
             costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)    # Gauss-Newton
-            #∇²ₓₓL .+= μI
-            println("Ratio of nz vals:", nnz(∇²ₓₓL) / length(∇²ₓₓL))
 
             # Log and check for convergence
-            stationarity!(∇ₓL, cache.ztmp, ∇J, ∇h, r.y)
-            opts.is_verbose ? log_iter(iter, sol.J, ∇ₓL, h) : nothing
+            stationarity!(∇ₓL, cache.ztmp, ∇J, ∇g, r.y)
+            statnorm = norm(∇ₓL, Inf)
+            viol = constraint_violation(gl, cache.pidx)
+            opts.is_verbose ? log_iter(iter, sol.J, statnorm, viol) : nothing
             sol.is_optimal = is_converged(
-                ∇ₓL, h; tol_stat=opts.tol_stat, tol_eq=opts.tol_eqconstr
+                statnorm, viol; tol_stat=opts.tol_stat, tol_eq=opts.tol_eqconstr
             )
             sol.is_optimal ? break : nothing
-            iter += 1
 
             # Solve QP
-            h .*= -1.0      # The target of the linearized eq constr is -h
-            OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇h.nzval, l=h, u=h)
-            iter == 1 ? OSQP.warm_start!(m; x=z) : nothing
+            OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
+            #iter == 1 ? OSQP.warm_start!(m; x=z) : nothing
             OSQP.solve!(m, r)
-            # The QP primals are in tangent space. We need to update the "manifold states" correctly
+
+            # The QP primals are in tangent space.
+            # We need to update the "manifold states" correctly
             step_primals!(z, r.x, cache.pidx, params)
+            iter += 1
         end
     catch e
         e isa InterruptException ? log_interrupted() : rethrow(e)

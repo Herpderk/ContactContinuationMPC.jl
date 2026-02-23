@@ -18,19 +18,6 @@ const SILENT_CB = @cfunction(silent_warning_handler, Cvoid, (Ptr{Cchar},))
 warning_ptr_addr = cglobal((:mju_user_warning, LibMuJoCo.libmujoco), Ptr{Cvoid})
 unsafe_store!(warning_ptr_addr, SILENT_CB)
 
-function fresh_solve(
-    params::TrajoptParameters, opts::SQPOptions; use_time::Bool=false
-)::TrajoptSolution
-    sol = TrajoptSolution(params)
-    cache = SQPCache(params)
-    if use_time
-        @time run_sqp!(sol, cache, params, opts)
-    else
-        run_sqp!(sol, cache, params, opts)
-    end
-    return sol
-end
-
 @testset "SQP Cartpole Test" begin
     # Mujoco dynamics model
     m = load_model(joinpath(@__DIR__, "../../assets/cartpole.xml"))
@@ -45,15 +32,24 @@ end
     xic = 1e-2 * ones(Utils.get_nx(m))
 
     # Declare cost function
-    Q = 1e-3 * diagm([0.0, 1.0, 1.0, 1.0])
+    Q = 1e-3 * diagm([0.1, 1.0, 1.0, 1.0])
     R = 1e-6 * Matrix(I(m.nu))
     Qf = 1e+2 * Q
     costfunc = QuadraticCostFunction(Q, R, Qf)
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter=3)
-    sol = fresh_solve(params, opts; use_time=true)
+    opts = SQPOptions(; maxiter=10)
+    sol = TrajoptSolution(params)
+    cache = SQPCache(params)
+
+    # Trust region bounds
+    nx = get_nx(m)
+    Δxl = -10.0 * ones(nx)
+    Δxu = 10.0 * ones(nx)
+    Δul = -10.0 * ones(m.nu)
+    Δuu = 10.0 * ones(m.nu)
+    run_sqp!(Δxl, Δxu, Δul, Δuu, sol, cache, params, opts)
 
     # Test solution
     println("\nFinal state: $(sol.X[end])\n")

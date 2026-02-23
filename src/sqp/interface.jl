@@ -15,8 +15,9 @@ mutable struct SQPCache
     ∇ᵤJ!::Function
     ∇ₓL::Vector{Float64}
     ∇J::Vector{Float64}
-    ∇h::SparseMatrixCSC{Float64,Int}
-    h::Vector{Float64}
+    ∇g::SparseMatrixCSC{Float64,Int}
+    gl::Vector{Float64}
+    gu::Vector{Float64}
     z::Vector{Float64}
     ztmp::Vector{Float64}
     xtmp::Vector{Float64}
@@ -35,7 +36,7 @@ mutable struct SQPCache
 
         # Initialize indexing parameters
         pidx = IndexingParameters(N, nx, ndx, nu)
-        nz, ndz, nh = pidx.dims.nz, pidx.dims.ndz, pidx.dims.nh
+        nz, ndz, ng = pidx.dims.nz, pidx.dims.ndz, pidx.dims.ng
 
         # Initialize caches from dims
         ∇²ₓₓL = sparse(costfunc_hessian_pattern(pidx))
@@ -45,8 +46,9 @@ mutable struct SQPCache
         ∇²ᵤₓJ = zeros(Float64, nu, nx)
         ∇ₓL = zeros(Float64, ndz)
         ∇J = zeros(Float64, ndz)
-        ∇h = sparse(equality_jacobian_pattern(pidx))
-        h = zeros(Float64, nh)
+        ∇g = sparse(constraint_jacobian_pattern(pidx))
+        gl = zeros(Float64, ng)
+        gu = zeros(Float64, ng)
         z = zeros(Float64, nz)
         ztmp = zeros(Float64, nz)
         xtmp = zeros(Float64, nx)
@@ -79,11 +81,11 @@ mutable struct SQPCache
         # Initialize OSQP results and model
         r = OSQP.Results()
         r.x = zeros(ndx)
-        r.y = zeros(nh)
+        r.y = zeros(ng)
 
-        l = zeros(Float64, nh)
+        l = zeros(Float64, ng)
         m = OSQP.Model()
-        OSQP.setup!(m; P=∇²ₓₓL, q=∇J, A=∇h, l=l, u=l, verbose=true)
+        OSQP.setup!(m; P=∇²ₓₓL, q=∇J, A=∇g, l=l, u=l, verbose=false)
         return new(
             m,
             r,
@@ -101,8 +103,9 @@ mutable struct SQPCache
             ∇ᵤJ!,
             ∇ₓL,
             ∇J,
-            ∇h,
-            h,
+            ∇g,
+            gl,
+            gu,
             z,
             ztmp,
             xtmp,

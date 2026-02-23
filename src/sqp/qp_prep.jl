@@ -1,15 +1,23 @@
-@views function equality_residuals!(
-    h::Vector{Float64},
+@views function initcond_residuals!(
+    g::Vector{Float64},
+    z::Vector{Float64},
+    pidx::IndexingParameters,
+    params::TrajoptParameters{Float64,Lk,Lf},
+)::Nothing where {Lk,Lf}
+    m = params.mfwd
+    zidx, gidx = pidx.z, pidx.g
+    Utils.get_state_diff!(m, g[gidx.ic], z[zidx.x[1]], params.xic)
+    return nothing
+end
+
+@views function dynamics_residuals!(
+    g::Vector{Float64},
     z::Vector{Float64},
     cache::SQPCache,
     params::TrajoptParameters{Float64,Lk,Lf},
 )::Nothing where {Lk,Lf}
     m, d = params.mfwd, params.dfwd
-    N, zidx, hidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.h
-
-    # Initial condition residuals
-    hic, xic = h[hidx.ic], z[zidx.x[1]]
-    Utils.get_state_diff!(m, hic, xic, params.xic)
+    N, zidx, gidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.g
 
     # Dynamics residuals
     reset!(m, d)
@@ -22,46 +30,74 @@
         Utils.copy_data_to_state!(d, cache.xtmp)
 
         # Evaluate constraint
-        x1, h0 = h[hidx.dyn[k]], z[zidx.x[k + 1]]
-        Utils.get_state_diff!(m, h0, cache.xtmp, x1)
+        g0, x1 = g[gidx.dyn[k]], z[zidx.x[k + 1]]
+        Utils.get_state_diff!(m, g0, cache.xtmp, x1)
+        g0 .*= -1.0     # Flip the sign for OSQP's constraint formulation
     end
     return nothing
 end
 
-@views function equality_jacobian!(
-    ∇h::SparseMatrixCSC{Float64,Int},
+@views function trustregion_bounds!(
+    g::Vector{Float64},
+    Δxb::Vector{Float64},
+    Δub::Vector{Float64},
+    pidx::IndexingParameters,
+)::Nothing
+    N, gidx = pidx.dims.N, pidx.g
+    for k in 1:(N - 1)
+        copyto!(g[gidx.xtr[k]], Δxb)
+        copyto!(g[gidx.utr[k]], Δub)
+    end
+    copyto!(g[gidx.xtr[end]], Δxb)
+    return nothing
+end
+
+@views function initcond_jacobian!(
+    ∇g::SparseMatrixCSC{Float64,Int}, pidx::IndexingParameters
+)::Nothing
+    gidx, dzidx = pidx.g, pidx.dz
+    rows_ic = gidx.ic
+    cols_ic = dzidx.x[1]
+    copyto!(∇g[rows_ic, cols_ic], I)
+    return nothing
+end
+
+@views function dynamics_jacobian!(
+    ∇g::SparseMatrixCSC{Float64,Int},
     z::Vector{Float64},
     cache::SQPCache,
     params::TrajoptParameters{Float64,Lk,Lf};
     ϵ::Float64,
 )::Nothing where {Lk,Lf}
     m, d, FDs = params.mbwd, params.dbwd, cache.FDs
-    N, zidx, dzidx, hidx = (
-        cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz, cache.pidx.h
+    N, zidx, dzidx, gidx = (
+        cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz, cache.pidx.g
     )
 
-    # Initial conditions Jacobian
-    rows_ic = hidx.ic
-    cols_ic = dzidx.x[1]
-    copyto!(∇h[rows_ic, cols_ic], I)
-
     for k in 1:(N - 1)
-        # Dynamics residual rows
-        rows_dyn = hidx.dyn[k]
-
         # Pointers to constraint Jacobians wrt xk and uk
-        ∇h0_x0, ∇h0_u0 = ∇h[rows_dyn, dzidx.x[k]], ∇h[rows_dyn, dzidx.u[k]]
+        ∇g0_x0, ∇g0_u0 = ∇g[gidx.dyn[k], dzidx.x[k]],
+        ∇g[gidx.dyn[k], dzidx.u[k]]
 
         # Compute dynamics Jacobians via FD
         x0, u0 = z[zidx.x[k]], z[zidx.u[k]]
         Utils.copy_state_to_data!(d, x0)
         copyto!(d.ctrl, u0)
-        Utils.threaded_fd!(m, d, FDs, ∇h0_x0, ∇h0_u0; ϵ=ϵ)
+        Utils.threaded_fd!(m, d, FDs, ∇g0_x0, ∇g0_u0; ϵ=ϵ)
 
         # Constraint Jacobian wrt xk+1 (negative identity matrix)
-        ∇h0_x1 = ∇h[rows_dyn, dzidx.x[k + 1]]
-        copyto!(∇h0_x1, -I)
+        ∇g0_x1 = ∇g[gidx.dyn[k], dzidx.x[k + 1]]
+        copyto!(∇g0_x1, -I)
     end
+    return nothing
+end
+
+@views function trustregion_jacobian!(
+    ∇g::SparseMatrixCSC{Float64,Int}, pidx::IndexingParameters
+)::Nothing
+    gidx, ndz = pidx.g, pidx.dims.ndz
+    startrow, endrow = gidx.xtr[1][1], gidx.xtr[end][end]
+    copyto!(∇g[startrow:endrow, 1:ndz], I)
     return nothing
 end
 

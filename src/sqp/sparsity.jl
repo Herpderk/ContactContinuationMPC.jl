@@ -1,24 +1,25 @@
-@views function equality_jacobian_pattern(
+@views function constraint_jacobian_pattern(
     pidx::IndexingParameters
 )::Matrix{Float64}
-    dims, dzidx, hidx = pidx.dims, pidx.dz, pidx.h
-    ∇h = zeros(Float64, dims.nh, dims.ndz)
+    dims, dzidx, gidx = pidx.dims, pidx.dz, pidx.g
+    ∇g = zeros(Float64, dims.ng, dims.ndz)
 
-    # Constraint Jacobian wrt xic (identity matrix)
-    rows_ic = hidx.ic
+    # Initial conditions constraint Jacobian wrt xic (identity)
+    rows_ic = gidx.ic
     cols_ic = dzidx.x[1]
-    copyto!(∇h[rows_ic, cols_ic], I)
+    copyto!(∇g[rows_ic, cols_ic], I)
 
     for k in 1:(dims.N - 1)
-        rows_dyn = hidx.dyn[k]
-        # Constraint Jacobian wrt xk (dynamics Jacobian A)
-        ∇h[rows_dyn, dzidx.x[k]] .= 1.0
-        # Constraint Jacobian wrt uk (dynamics Jacobian B)
-        ∇h[rows_dyn, dzidx.u[k]] .= 1.0
-        # Constraint Jacobian wrt xk+1 (negative identity matrix)
-        copyto!(∇h[rows_dyn, dzidx.x[k + 1]], I)
+        # Dynamics constraint Jacobians
+        ∇g[gidx.dyn[k], dzidx.x[k]] .= 1.0          # wrt xk (dynamics Jacobian A)
+        ∇g[gidx.dyn[k], dzidx.u[k]] .= 1.0          # wrt uk (dynamics Jacobian B)
+        copyto!(∇g[gidx.dyn[k], dzidx.x[k + 1]], I)    # wrt xk+1 (negative identity)
     end
-    return ∇h
+
+    # Trust region constraint Jacobian (identity)
+    startrow, endrow = gidx.xtr[1][1], gidx.xtr[end][end]
+    copyto!(∇g[startrow:endrow, 1:dims.ndz], I)
+    return ∇g
 end
 
 @views function costfunc_hessian_pattern(
