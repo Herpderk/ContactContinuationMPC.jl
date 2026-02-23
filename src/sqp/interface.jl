@@ -54,7 +54,7 @@ mutable struct SQPCache
         dxtmp_ad = zeros(Float64, ndx)
         utmp = zeros(Float64, nu)
         utmp_ad = zeros(Float64, nu)
-        FDs = [Utils.FDCache{64}(m) for t in 1:nthreads()]
+        FDs = [Utils.FDCache{Float64}(params.mbwd) for t in 1:nthreads()]
 
         # Initialize gradient functions and configs for mixed hessians
         ∇ₓJ!(∇ₓJ::Matrix{<:Real}, x::Vector{<:Real}, u::Vector{<:Real}, cfg::ForwardDiff.GradientConfig) = ForwardDiff.gradient!(
@@ -76,12 +76,14 @@ mutable struct SQPCache
             (y, δx) -> ∇ₓJ!(y, δx, utmp_ad, ∇ᵤJ!_cfg), utmp_ad, dxtmp_ad
         )
 
-        # Initialize OSQP model
-        m = OSQP.Model()
+        # Initialize OSQP results and model
         r = OSQP.Results()
-        OSQP.setup!(
-            m; P=∇²ₓₓL, q=∇J, l=zeros(Float64, nh), u=zeros(Float64, nh)
-        )
+        r.x = zeros(ndx)
+        r.y = zeros(nh)
+
+        l = zeros(Float64, nh)
+        m = OSQP.Model()
+        OSQP.setup!(m; P=∇²ₓₓL, q=∇J, A=∇h, l=l, u=l, verbose=true)
         return new(
             m,
             r,
@@ -114,7 +116,7 @@ mutable struct SQPCache
 end
 
 @option struct DefaultSQPOptions
-    tol_stationarity::Float64
+    tol_stat::Float64
     tol_eqconstr::Float64
     tol_interp::Float64
     eps_reg::Float64
@@ -125,36 +127,32 @@ end
 end
 
 mutable struct SQPOptions
-    tol_stationarity::Float64
+    tol_stat::Float64
     tol_eqconstr::Float64
     tol_interp::Float64
     eps_reg::Float64
     eps_fd::Float64
-    maxiter::Int
+    maxiter::Integer
     is_verbose::Bool
     save_bestsol::Bool
 
     function SQPOptions(;
-        tol_stationarity::AbstractFloat,
-        tol_eqconstr::AbstractFloat,
-        tol_interp::AbstractFloat,
-        eps_reg::AbstractFloat,
-        eps_fd::AbstractFloat,
-        maxiter::Int,
-        is_verbose::Bool,
-        save_bestsol::Bool,
-    ) where {T}
+        tol_stat::Union{AbstractFloat,Nothing}=nothing,
+        tol_eqconstr::Union{AbstractFloat,Nothing}=nothing,
+        tol_interp::Union{AbstractFloat,Nothing}=nothing,
+        eps_reg::Union{AbstractFloat,Nothing}=nothing,
+        eps_fd::Union{AbstractFloat,Nothing}=nothing,
+        maxiter::Union{Int,Nothing}=nothing,
+        is_verbose::Union{Bool,Nothing}=nothing,
+        save_bestsol::Union{Bool,Nothing}=nothing,
+    )
         # Load default options from config
         default = from_toml(
             DefaultSQPOptions, joinpath(@__DIR__, "config/default_opts.toml")
         )
 
         # Use default options if the corresponding option is nothing
-        tol_cost_ = if isnothing(tol_stationarity)
-            default.tol_stationarity
-        else
-            T(tol_stationarity)
-        end
+        tol_stat_ = isnothing(tol_stat) ? default.tol_stat : T(tol_stat)
         tol_eqconstr_ =
             isnothing(tol_eqconstr) ? default.tol_eqconstr : T(tol_eqconstr)
         tol_interp_ = isnothing(tol_interp) ? default.tol_interp : T(tol_interp)
@@ -165,7 +163,7 @@ mutable struct SQPOptions
         save_bestsol_ =
             isnothing(save_bestsol) ? default.save_bestsol : save_bestsol
         return new(
-            tol_cost_,
+            tol_stat_,
             tol_eqconstr_,
             tol_interp_,
             eps_reg_,

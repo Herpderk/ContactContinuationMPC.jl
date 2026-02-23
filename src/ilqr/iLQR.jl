@@ -10,6 +10,8 @@ using Base.Threads
 using ..Utils
 using ..Interface
 
+export iLQRCache, iLQROptions, run_ilqr!, run_ilqr
+
 include("caches/backward.jl")
 include("caches/forward.jl")
 include("caches/temporary.jl")
@@ -18,7 +20,5 @@ include("interface.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
 include("solve.jl")
-
-export iLQRCache, iLQROptions, run_ilqr!, run_ilqr
 
 end # module iLQR

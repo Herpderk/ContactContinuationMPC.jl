@@ -13,6 +13,8 @@ using ..Utils
 using ..Interface
 using ..iLQR: log_converged, log_maxiter
 
+export SQPCache, SQPOptions, run_sqp!
+
 include("indexing.jl")
 include("sparsity.jl")
 include("interface.jl")

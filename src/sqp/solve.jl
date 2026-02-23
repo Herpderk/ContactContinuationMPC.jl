@@ -11,8 +11,12 @@ function stationarity!(
     ∇h::SparseMatrixCSC{Float64,Int},
     λ::Vector{Float64},
 )::Nothing
+    #println("ztmp length:", length(ztmp))
+    #println("∇h shape:", size(∇h))
+    #println("λ length:", length(λ))
     mul!(ztmp, ∇h', λ)
-    @. ∇ₓL += ztmp + ∇J
+    @. ∇ₓL = ztmp + ∇J
+    return nothing
 end
 
 function log_interrupted()::Nothing
@@ -25,18 +29,17 @@ end
 function log_iter(
     iter::Int, J::Float64, ∇ₓL::Vector{Float64}, h::Vector{Float64}
 )::Nothing
-    if rem(iter-1, 20) == 0
-        println("-------------------------------------------------")
-        println("iter       J         ‖∇ₓL‖         ‖h‖          α")
-        println("-------------------------------------------------")
+    if rem(iter, 20) == 0
+        println("-------------------------------------")
+        println("iter       J        ‖∇ₓL‖       ‖h‖")
+        println("-------------------------------------")
     end
     @printf(
-        "%4.04i   %8.2e   %8.2e   %8.2e   %8.2e\n",
+        "%4.04i   %8.2e   %8.2e   %8.2e\n",
         iter,
         J,
         norm(∇ₓL, Inf),
         norm(h, Inf),
-        1.0,
     )
     return nothing
 end
@@ -85,7 +88,7 @@ end
         Utils.add_diff_to_state!(params.mfwd, z[zidx.x[k]], Δz[dzidx.x[k]])
         z[zidx.u[k]] .+= Δz[dzidx.u[k]]
     end
-    Utils.add_diff_to_state!(params.mfwd, z[zidx.x[end]], ΔZ[dzidx.x[end]])
+    Utils.add_diff_to_state!(params.mfwd, z[zidx.x[end]], Δz[dzidx.x[end]])
     return nothing
 end
 
@@ -102,8 +105,11 @@ function run_sqp!(
 
     # References to optimization arrays
     ∇²ₓₓL, ∇ₓL, ∇J, ∇h, h, z = (
-        cache.∇²ₓₓL, cache.∇J, cache.∇h, cache.h, cache.z
+        cache.∇²ₓₓL, cache.∇ₓL, cache.∇J, cache.∇h, cache.h, cache.z
     )
+
+    # Init regularizer
+    μI = opts.eps_reg * I(size(∇²ₓₓL)[1])
 
     # Start SQP loop
     iter = 0
@@ -114,16 +120,17 @@ function run_sqp!(
             sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
 
             # Update QP arrays
-            # Gauss-Newton (only put the costfunc hessian into the Lagrangian)
-            costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)
-            equality_jacobian!(∇h, z, cache, params; ϵ=opts.eps_fd)
             equality_residuals!(h, z, cache, params)
+            equality_jacobian!(∇h, z, cache, params; ϵ=opts.eps_fd)
+            costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)    # Gauss-Newton
+            #∇²ₓₓL .+= μI
+            println("Ratio of nz vals:", nnz(∇²ₓₓL) / length(∇²ₓₓL))
 
             # Log and check for convergence
             stationarity!(∇ₓL, cache.ztmp, ∇J, ∇h, r.y)
             opts.is_verbose ? log_iter(iter, sol.J, ∇ₓL, h) : nothing
             sol.is_optimal = is_converged(
-                ∇ₓL, h; tol_stat=opts.tol_stationarity, tol_eq=opts.tol_eqconstr
+                ∇ₓL, h; tol_stat=opts.tol_stat, tol_eq=opts.tol_eqconstr
             )
             sol.is_optimal ? break : nothing
             iter += 1

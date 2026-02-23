@@ -1,4 +1,4 @@
-tol_stationarity = 1e-3
+tol_stat = 1e-3
 tol_eqconstr = 1e-3
 tol_interp = 1.0
 eps_reg = 1e-6

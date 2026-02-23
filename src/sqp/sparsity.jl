@@ -12,14 +12,11 @@
     for k in 1:(dims.N - 1)
         rows_dyn = hidx.dyn[k]
         # Constraint Jacobian wrt xk (dynamics Jacobian A)
-        cols_dyn = dzidx.x[k]
-        ∇h[rows_dyn, cols_dyn] .= 1.0
+        ∇h[rows_dyn, dzidx.x[k]] .= 1.0
         # Constraint Jacobian wrt uk (dynamics Jacobian B)
-        cols_dyn = dzidx.u[k]
-        ∇h[rows_dyn, cols_dyn] .= 1.0
+        ∇h[rows_dyn, dzidx.u[k]] .= 1.0
         # Constraint Jacobian wrt xk+1 (negative identity matrix)
-        cols_dyn = dzidx.x[k + 1]
-        copyto!(∇h[rows_dyn, cols_dyn], I)
+        copyto!(∇h[rows_dyn, dzidx.x[k + 1]], I)
     end
     return ∇h
 end

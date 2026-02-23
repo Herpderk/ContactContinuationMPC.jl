@@ -36,7 +36,9 @@ end
     ϵ::Float64,
 )::Nothing where {Lk,Lf}
     m, d, FDs = params.mbwd, params.dbwd, cache.FDs
-    N, zidx, dzidx, hidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.h
+    N, zidx, dzidx, hidx = (
+        cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz, cache.pidx.h
+    )
 
     # Initial conditions Jacobian
     rows_ic = hidx.ic
@@ -131,7 +133,7 @@ end
     end
 
     # Terminal state error
-    x, xref = z[zidx.x[k]], Xref[k]
+    x, xref = z[zidx.x[end]], Xref[end]
     Utils.get_state_diff!(params.mfwd, dxtmp, x, xref)
 
     # Terminal costfunc gradient and hessian

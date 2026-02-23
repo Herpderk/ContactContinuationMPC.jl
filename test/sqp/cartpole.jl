@@ -2,23 +2,38 @@ using LinearAlgebra
 using Test
 using MuJoCo
 using ContactContinuationMPC
+using MuJoCo.LibMuJoCo
+
+# 1. Define the silent handler
+function silent_warning_handler(msg_ptr::Ptr{Cchar})::Cvoid
+    return nothing
+end
+
+# 2. Create the C-compatible function pointer
+# Note: We keep this in a constant so it isn't garbage collected
+const SILENT_CB = @cfunction(silent_warning_handler, Cvoid, (Ptr{Cchar},))
+
+# 3. Get the memory address of the global 'mju_user_warning' pointer
+# and overwrite it with our new function pointer
+warning_ptr_addr = cglobal((:mju_user_warning, LibMuJoCo.libmujoco), Ptr{Cvoid})
+unsafe_store!(warning_ptr_addr, SILENT_CB)
 
 function fresh_solve(
-    params::TrajoptParameters, opts::iLQROptions; use_time::Bool=false
+    params::TrajoptParameters, opts::SQPOptions; use_time::Bool=false
 )::TrajoptSolution
     sol = TrajoptSolution(params)
-    cache = iLQRCache(params)
+    cache = SQPCache(params)
     if use_time
-        @time run_ilqr!(sol, cache, params, opts)
+        @time run_sqp!(sol, cache, params, opts)
     else
-        run_ilqr!(sol, cache, params, opts)
+        run_sqp!(sol, cache, params, opts)
     end
     return sol
 end
 
-@testset "iLQR Cartpole Test" begin
+@testset "SQP Cartpole Test" begin
     # Mujoco dynamics model
-    m = load_model(joinpath(@__DIR__, "..", "assets", "cartpole.xml"))
+    m = load_model(joinpath(@__DIR__, "../../assets/cartpole.xml"))
 
     # Set model options
     m.opt.timestep = 0.01
@@ -37,7 +52,7 @@ end
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = iLQROptions(; tol_converge=1e-2)
+    opts = SQPOptions(; maxiter=3)
     sol = fresh_solve(params, opts; use_time=true)
 
     # Test solution

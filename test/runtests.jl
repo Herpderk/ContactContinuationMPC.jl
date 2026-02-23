@@ -1,5 +1,6 @@
 using SafeTestsets
 
 @safetestset "ContactContinuationMPC.jl" begin
-    include("cartpole.jl")
+    include("ilqr/cartpole.jl")
+    include("sqp/cartpole.jl")
 end
