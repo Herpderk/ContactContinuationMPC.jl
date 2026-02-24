@@ -38,7 +38,7 @@ function log_iter(
 )::Nothing
     if rem(iter, 20) == 0
         println("-------------------------------------")
-        println("iter       J        ‖∇ₓL‖       ‖h‖")
+        println("iter       J        ‖∇ₓL‖       ‖g‖")
         println("-------------------------------------")
     end
     @printf("%4.04i   %8.2e   %8.2e   %8.2e\n", iter, J, statnorm, viol,)
@@ -94,10 +94,6 @@ end
 end
 
 function run_sqp!(
-    Δxl::Vector{Float64},
-    Δxu::Vector{Float64},
-    Δul::Vector{Float64},
-    Δuu::Vector{Float64},
     sol::TrajoptSolution{Float64},
     cache::SQPCache,
     params::TrajoptParameters{Float64,Lk,Lf},
@@ -109,15 +105,25 @@ function run_sqp!(
     m, r = cache.m, cache.r
 
     # References to optimization arrays
-    ∇²ₓₓL, ∇ₓL, ∇J, ∇g, gl, gu, z = (
-        cache.∇²ₓₓL, cache.∇ₓL, cache.∇J, cache.∇g, cache.gl, cache.gu, cache.z
+    ∇²ₓₓL, ∇ₓL, ∇J, ∇g, gl, gu, Δxl, Δxu, Δul, Δuu, z = (
+        cache.∇²ₓₓL,
+        cache.∇ₓL,
+        cache.∇J,
+        cache.∇g,
+        cache.gl,
+        cache.gu,
+        cache.Δxl,
+        cache.Δxu,
+        cache.Δul,
+        cache.Δuu,
+        cache.z,
     )
 
     # Start SQP loop
     iter = 0
     try
         while iter < opts.maxiter
-            # Update solution
+            # Update solution TODO line-search here
             iter > 0 ? copy_primals_to_solution!(sol, z, cache.pidx) : nothing
             sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
 
@@ -148,8 +154,39 @@ function run_sqp!(
 
             # Solve QP
             OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
-            #iter == 1 ? OSQP.warm_start!(m; x=z) : nothing
             OSQP.solve!(m, r)
+
+            #=
+            if r.info.status_val == 1 || r.info.status_val == 2
+                # Expand trust region if QP does not error
+                @. cache.dxtmp = 0.5 * (Δxu - Δxl)
+                Δxl .-= cache.dxtmp
+                Δxu .+= cache.dxtmp
+                @. cache.utmp = 0.5 * (Δuu - Δul)
+                Δul .-= cache.utmp
+                Δuu .+= cache.utmp
+            else
+                # Contract trust region and re-solve if QP does error
+                iter = 0
+                while iter < 10 && (r.info.status_val != 1 || r.info.status_val != 2)
+                    iter += 1
+
+                    @. cache.dxtmp = 0.5 * (Δxu - Δxl)
+                    Δxl .+= cache.dxtmp
+                    Δxu .-= cache.dxtmp
+
+                    @. cache.utmp = 0.5 * (Δuu - Δul)
+                    Δul .+= cache.utmp
+                    Δuu .-= cache.utmp
+
+                    trustregion_bounds!(gl, Δxl, Δul, cache.pidx)
+                    trustregion_bounds!(gu, Δxu, Δuu, cache.pidx)
+
+                    OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
+                    OSQP.solve!(m, r)
+                end
+            end
+            =#
 
             # The QP primals are in tangent space.
             # We need to update the "manifold states" correctly

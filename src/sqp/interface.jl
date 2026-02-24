@@ -18,6 +18,10 @@ mutable struct SQPCache
     ∇g::SparseMatrixCSC{Float64,Int}
     gl::Vector{Float64}
     gu::Vector{Float64}
+    Δxl::Vector{Float64}
+    Δxu::Vector{Float64}
+    Δul::Vector{Float64}
+    Δuu::Vector{Float64}
     z::Vector{Float64}
     ztmp::Vector{Float64}
     xtmp::Vector{Float64}
@@ -27,7 +31,13 @@ mutable struct SQPCache
     utmp_ad::Vector{Float64}
     FDs::Vector{Utils.FDCache{Float64}}
 
-    function SQPCache(params::TrajoptParameters{T,Lk,Lf}) where {T,Lk,Lf}
+    function SQPCache(
+        params::TrajoptParameters{T,Lk,Lf};
+        Δxl::Union{Float64,Vector{Float64}}=(-Inf),
+        Δxu::Union{Float64,Vector{Float64}}=Inf,
+        Δul::Union{Float64,Vector{Float64}}=(-Inf),
+        Δuu::Union{Float64,Vector{Float64}}=Inf,
+    ) where {T,Lk,Lf}
         # Get problem dims
         N = length(params.Xref)
         nx = Utils.get_nx(params.mfwd)
@@ -37,6 +47,16 @@ mutable struct SQPCache
         # Initialize indexing parameters
         pidx = IndexingParameters(N, nx, ndx, nu)
         nz, ndz, ng = pidx.dims.nz, pidx.dims.ndz, pidx.dims.ng
+
+        # Initialize trust region bounds
+        Δxl_ = zeros(Float64, ndx)
+        Δxl_ .= Δxl
+        Δxu_ = zeros(Float64, ndx)
+        Δxu_ .= Δxu
+        Δul_ = zeros(Float64, nu)
+        Δul_ .= Δul
+        Δuu_ = zeros(Float64, nu)
+        Δuu_ .= Δuu
 
         # Initialize caches from dims
         ∇²ₓₓL = sparse(costfunc_hessian_pattern(pidx))
@@ -106,6 +126,10 @@ mutable struct SQPCache
             ∇g,
             gl,
             gu,
+            Δxl_,
+            Δxu_,
+            Δul_,
+            Δuu_,
             z,
             ztmp,
             xtmp,

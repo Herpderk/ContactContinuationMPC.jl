@@ -39,17 +39,15 @@ unsafe_store!(warning_ptr_addr, SILENT_CB)
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter=10)
+    opts = SQPOptions(; maxiter=50)
     sol = TrajoptSolution(params)
-    cache = SQPCache(params)
 
     # Trust region bounds
     nx = get_nx(m)
-    Δxl = -10.0 * ones(nx)
-    Δxu = 10.0 * ones(nx)
-    Δul = -10.0 * ones(m.nu)
-    Δuu = 10.0 * ones(m.nu)
-    run_sqp!(Δxl, Δxu, Δul, Δuu, sol, cache, params, opts)
+    Δxl = -ones(nx)
+    Δul = -ones(m.nu)
+    cache = SQPCache(params; Δxl=Δxl, Δxu=(-Δxl), Δul=Δul, Δuu=(-Δul))
+    run_sqp!(sol, cache, params, opts)
 
     # Test solution
     println("\nFinal state: $(sol.X[end])\n")
