@@ -39,13 +39,13 @@ unsafe_store!(warning_ptr_addr, SILENT_CB)
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter=50)
+    opts = SQPOptions(; maxiter=100)
     sol = TrajoptSolution(params)
 
     # Trust region bounds
     nx = get_nx(m)
-    Δxl = -ones(nx)
-    Δul = -ones(m.nu)
+    Δxl = -5 * ones(nx)
+    Δul = -5 * ones(m.nu)
     cache = SQPCache(params; Δxl=Δxl, Δxu=(-Δxl), Δul=Δul, Δuu=(-Δul))
     run_sqp!(sol, cache, params, opts)
 

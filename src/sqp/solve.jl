@@ -4,52 +4,75 @@
     return statnorm < tol_stat && viol < tol_eq
 end
 
-function constraint_violation(
+@views function constraint_violation(
     g::Vector{Float64}, pidx::IndexingParameters
 )::Float64
     geq = g[pidx.g.ic[1][1]:pidx.g.dyn[end][end]]
     return norm(geq, Inf)
 end
 
-function stationarity!(
+@views function stationarity!(
     ∇ₓL::Vector{Float64},
     ztmp::Vector{Float64},
     ∇J::Vector{Float64},
     ∇g::SparseMatrixCSC{Float64,Int},
     λ::Vector{Float64},
-)::Nothing
+    pidx::IndexingParameters,
+)::Float64
     #println("ztmp length:", length(ztmp))
     #println("∇g shape:", size(∇g))
     #println("λ length:", length(λ))
-    mul!(ztmp, ∇g', λ)
+    endidx_eq = pidx.g.dyn[end][end]
+    ∇geq = ∇g[1:endidx_eq, :]
+    λeq = λ[1:endidx_eq]
+    mul!(ztmp, ∇geq', λeq)
     @. ∇ₓL = ztmp + ∇J
+    return norm(∇ₓL, Inf)
+end
+
+function log_converged()::Nothing
+    println("------------------------------------------------")
+    println("            Optimal solution found!")
+    println("------------------------------------------------")
+    return nothing
+end
+
+function log_maxiter()::Nothing
+    println("------------------------------------------------")
+    println("     Maximum number of iterations reached!")
+    println("------------------------------------------------")
     return nothing
 end
 
 function log_interrupted()::Nothing
-    println("-------------------------------------")
-    println("          SQP interrupted!")
-    println("-------------------------------------")
+    println("------------------------------------------------")
+    println("                SQP interrupted!")
+    println("------------------------------------------------")
     return nothing
 end
 
 function log_iter(
-    iter::Int, J::Float64, statnorm::Float64, viol::Float64
+    iter::Int, J::Float64, statnorm::Float64, viol::Float64, α::Float64
 )::Nothing
     if rem(iter, 20) == 0
-        println("-------------------------------------")
-        println("iter       J        ‖∇ₓL‖       ‖g‖")
-        println("-------------------------------------")
+        println("------------------------------------------------")
+        println("iter       J        ‖∇ₓL‖       ‖g‖         α")
+        println("------------------------------------------------")
     end
-    @printf("%4.04i   %8.2e   %8.2e   %8.2e\n", iter, J, statnorm, viol,)
+    @printf(
+        "%4.04i   %8.2e   %8.2e   %8.2e   %8.2e\n", iter, J, statnorm, viol, α
+    )
     return nothing
 end
 
 function init_sqp!(
-    sol::TrajoptSolution{Float64}, cache::SQPCache
+    sol::TrajoptSolution{Float64},
+    cache::SQPCache,
+    params::TrajoptParameters{Float64,Lk,Lf},
 )::Nothing where {Lk,Lf}
     # Primal warm-start
     copy_solution_to_primals!(cache.z, sol, cache.pidx)
+    sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
     sol.is_optimal = false
     return nothing
 end
@@ -81,15 +104,20 @@ end
 @views function step_primals!(
     z::Vector{Float64},
     Δz::Vector{Float64},
-    pidx::IndexingParameters,
-    params::TrajoptParameters{Float64,Lk,Lf},
+    cache::SQPCache,
+    params::TrajoptParameters{Float64,Lk,Lf};
+    α::Float64=1.0,
 )::Nothing where {Lk,Lf}
-    N, zidx, dzidx = pidx.dims.N, pidx.z, pidx.dz
+    N, zidx, dzidx, dztmp = (
+        cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz, cache.dztmp
+    )
+    @. dztmp = α * Δz
+
     for k in 1:(N - 1)
-        Utils.add_diff_to_state!(params.mfwd, z[zidx.x[k]], Δz[dzidx.x[k]])
-        z[zidx.u[k]] .+= Δz[dzidx.u[k]]
+        Utils.add_diff_to_state!(params.mfwd, z[zidx.x[k]], dztmp[dzidx.x[k]])
+        z[zidx.u[k]] .+= dztmp[dzidx.u[k]]
     end
-    Utils.add_diff_to_state!(params.mfwd, z[zidx.x[end]], Δz[dzidx.x[end]])
+    Utils.add_diff_to_state!(params.mfwd, z[zidx.x[end]], dztmp[dzidx.x[end]])
     return nothing
 end
 
@@ -99,13 +127,11 @@ function run_sqp!(
     params::TrajoptParameters{Float64,Lk,Lf},
     opts::SQPOptions,
 )::Nothing where {Lk,Lf}
-    init_sqp!(sol, cache)
-
     # References to OSQP structs
     m, r = cache.m, cache.r
 
-    # References to optimization arrays
-    ∇²ₓₓL, ∇ₓL, ∇J, ∇g, gl, gu, Δxl, Δxu, Δul, Δuu, z = (
+    # References to useful objects
+    ∇²ₓₓL, ∇ₓL, ∇J, ∇g, gl, gu, Δxl, Δxu, Δul, Δuu, z, ztmp, pidx = (
         cache.∇²ₓₓL,
         cache.∇ₓL,
         cache.∇J,
@@ -117,40 +143,39 @@ function run_sqp!(
         cache.Δul,
         cache.Δuu,
         cache.z,
+        cache.ztmp,
+        cache.pidx,
     )
+
+    # Initialize solver state
+    init_sqp!(sol, cache, params)
+    initcond_residuals!(gl, z, pidx, params)
+    dynamics_residuals!(gl, z, cache, params)
+    viol = constraint_violation(gl, pidx)
 
     # Start SQP loop
     iter = 0
     try
         while iter < opts.maxiter
-            # Update solution TODO line-search here
-            iter > 0 ? copy_primals_to_solution!(sol, z, cache.pidx) : nothing
-            sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
+            iter += 1
 
-            # Update QP constraints
-            initcond_residuals!(gl, z, cache.pidx, params)
-            dynamics_residuals!(gl, z, cache, params)
+            # Update inequality constraints
             copyto!(gu, gl)
-            trustregion_bounds!(gl, Δxl, Δul, cache.pidx)
-            trustregion_bounds!(gu, Δxu, Δuu, cache.pidx)
+            trustregion_bounds!(gl, Δxl, Δul, pidx)
+            trustregion_bounds!(gu, Δxu, Δuu, pidx)
 
-            # Update QP constraint Jacobians
-            initcond_jacobian!(∇g, cache.pidx)
+            # Update constraint Jacobians
+            initcond_jacobian!(∇g, pidx)
             dynamics_jacobian!(∇g, z, cache, params; ϵ=opts.eps_fd)
-            trustregion_jacobian!(∇g, cache.pidx)
+            trustregion_jacobian!(∇g, pidx)
 
-            # Update QP cost function
+            # Update quadratic cost function
             costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)    # Gauss-Newton
 
-            # Log and check for convergence
-            stationarity!(∇ₓL, cache.ztmp, ∇J, ∇g, r.y)
-            statnorm = norm(∇ₓL, Inf)
-            viol = constraint_violation(gl, cache.pidx)
-            opts.is_verbose ? log_iter(iter, sol.J, statnorm, viol) : nothing
-            sol.is_optimal = is_converged(
-                statnorm, viol; tol_stat=opts.tol_stat, tol_eq=opts.tol_eqconstr
-            )
-            sol.is_optimal ? break : nothing
+            # Visualize the sparsity pattern
+            #display(spy(∇g, title="constraint jacobian"))
+            #display(spy(∇²ₓₓL, title="cost function hessian"))
+            #readline()
 
             # Solve QP
             OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
@@ -179,8 +204,8 @@ function run_sqp!(
                     Δul .+= cache.utmp
                     Δuu .-= cache.utmp
 
-                    trustregion_bounds!(gl, Δxl, Δul, cache.pidx)
-                    trustregion_bounds!(gu, Δxu, Δuu, cache.pidx)
+                    trustregion_bounds!(gl, Δxl, Δul, pidx)
+                    trustregion_bounds!(gu, Δxu, Δuu, pidx)
 
                     OSQP.update!(m; Px=∇²ₓₓL.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
                     OSQP.solve!(m, r)
@@ -188,10 +213,44 @@ function run_sqp!(
             end
             =#
 
-            # The QP primals are in tangent space.
-            # We need to update the "manifold states" correctly
-            step_primals!(z, r.x, cache.pidx, params)
-            iter += 1
+            # Backtracking line-search
+            J_ls = 0.0
+            viol_ls = 0.0
+            maxiter_ls = 1
+            αmul = 0.5
+            α = 0.01
+            for i in 1:maxiter_ls
+                # Copy current solution
+                copyto!(ztmp, z)
+                step_primals!(ztmp, r.x, cache, params; α=α)
+
+                # Evaluate new cost
+                copy_primals_to_solution!(sol, ztmp, pidx)
+                J_ls = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
+
+                # Evaluate new constraint residuals
+                initcond_residuals!(gl, ztmp, pidx, params)
+                dynamics_residuals!(gl, ztmp, cache, params)
+                viol_ls = constraint_violation(gl, pidx)
+
+                # Evalute merit function
+                J_ls - sol.J + viol_ls < viol ? break : nothing
+
+                α *= αmul
+            end
+
+            # Update solution
+            sol.J = J_ls
+            viol = viol_ls
+            copyto!(z, ztmp)
+
+            # Log and check for convergence
+            statnorm = stationarity!(∇ₓL, ztmp, ∇J, ∇g, r.y, pidx)
+            opts.is_verbose ? log_iter(iter, sol.J, statnorm, viol, α) : nothing
+            sol.is_optimal = is_converged(
+                statnorm, viol; tol_stat=opts.tol_stat, tol_eq=opts.tol_eqconstr
+            )
+            sol.is_optimal ? break : nothing
         end
     catch e
         e isa InterruptException ? log_interrupted() : rethrow(e)

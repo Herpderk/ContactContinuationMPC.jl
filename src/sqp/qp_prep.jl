@@ -7,6 +7,7 @@
     m = params.mfwd
     zidx, gidx = pidx.z, pidx.g
     Utils.get_state_diff!(m, g[gidx.ic], z[zidx.x[1]], params.xic)
+    g[gidx.ic] .*= -1.0 # Flip the sign for OSQP's constraint formulation
     return nothing
 end
 
@@ -76,8 +77,9 @@ end
 
     for k in 1:(N - 1)
         # Pointers to constraint Jacobians wrt xk and uk
-        ∇g0_x0, ∇g0_u0 = ∇g[gidx.dyn[k], dzidx.x[k]],
-        ∇g[gidx.dyn[k], dzidx.u[k]]
+        ∇g0_x0, ∇g0_u0 = (
+            ∇g[gidx.dyn[k], dzidx.x[k]], ∇g[gidx.dyn[k], dzidx.u[k]]
+        )
 
         # Compute dynamics Jacobians via FD
         x0, u0 = z[zidx.x[k]], z[zidx.u[k]]

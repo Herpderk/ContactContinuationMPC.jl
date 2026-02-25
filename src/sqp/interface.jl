@@ -24,6 +24,7 @@ mutable struct SQPCache
     Δuu::Vector{Float64}
     z::Vector{Float64}
     ztmp::Vector{Float64}
+    dztmp::Vector{Float64}
     xtmp::Vector{Float64}
     dxtmp::Vector{Float64}
     dxtmp_ad::Vector{Float64}
@@ -71,6 +72,7 @@ mutable struct SQPCache
         gu = zeros(Float64, ng)
         z = zeros(Float64, nz)
         ztmp = zeros(Float64, nz)
+        dztmp = zeros(Float64, ndz)
         xtmp = zeros(Float64, nx)
         dxtmp = zeros(Float64, ndx)
         dxtmp_ad = zeros(Float64, ndx)
@@ -132,6 +134,7 @@ mutable struct SQPCache
             Δuu_,
             z,
             ztmp,
+            dztmp,
             xtmp,
             dxtmp,
             dxtmp_ad,
