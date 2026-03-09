@@ -1,3 +1,53 @@
+function update_qparrays!(
+    z::Vector{Float64},
+    cache::SQPCache,
+    params::TrajoptParameters{Float64,Lk,Lf};
+    ϵfd::Float64,
+    ϵreg::Float64,
+)::Nothing where {Lk,Lf}
+    ∇²ₓₓL, ∇²ₓₓLtriu, ∇²ₓₓLtriu_map, ∇J, ∇g, gl, gu, Δxl, Δxu, Δul, Δuu, pidx = (
+        cache.∇²ₓₓL,
+        cache.∇²ₓₓLtriu,
+        cache.∇²ₓₓLtriu_map,
+        cache.∇J,
+        cache.∇g,
+        cache.gl,
+        cache.gu,
+        cache.Δxl,
+        cache.Δxu,
+        cache.Δul,
+        cache.Δuu,
+        cache.pidx,
+    )
+
+    # Reset arrays
+    fill!(∇²ₓₓL.nzval, 0.0)
+    fill!(∇²ₓₓLtriu.nzval, 0.0)
+    fill!(∇g.nzval, 0.0)
+    fill!(∇J, 0.0)
+    fill!(gl, 0.0)
+    fill!(gu, 0.0)
+
+    # Update equality constraint residuals and Jacobians
+    initcond_residuals!(gl, z, pidx, params)
+    dynamics_residuals!(gl, z, cache, params)
+    initcond_jacobian!(∇g, pidx)
+    dynamics_jacobian!(∇g, z, cache, params; ϵ=ϵfd)
+
+    # Update inequality constraints and Jacobians
+    copyto!(gu, gl)
+    #trustregion_bounds!(gl, Δxl, Δul, pidx)
+    #trustregion_bounds!(gu, Δxu, Δuu, pidx)
+    #trustregion_jacobian!(∇g, pidx)
+
+    # Update cost function quadraticization
+    costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)    # Gauss-Newton
+    for (idx_triu, idx) in enumerate(∇²ₓₓLtriu_map)
+        ∇²ₓₓLtriu.nzval[idx_triu] = ∇²ₓₓL.nzval[idx]
+    end
+    return nothing
+end
+
 @views function initcond_residuals!(
     g::Vector{Float64},
     z::Vector{Float64},
@@ -7,7 +57,7 @@
     m = params.mfwd
     zidx, gidx = pidx.z, pidx.g
     Utils.get_state_diff!(m, g[gidx.ic], z[zidx.x[1]], params.xic)
-    g[gidx.ic] .*= -1.0 # Flip the sign for OSQP's constraint formulation
+    #g[gidx.ic] .*= -1.0 # Flip the sign for OSQP's constraint formulation
     return nothing
 end
 
@@ -33,7 +83,7 @@ end
         # Evaluate constraint
         g0, x1 = g[gidx.dyn[k]], z[zidx.x[k + 1]]
         Utils.get_state_diff!(m, g0, cache.xtmp, x1)
-        g0 .*= -1.0     # Flip the sign for OSQP's constraint formulation
+        #g0 .*= -1.0     # Flip the sign for OSQP's constraint formulation
     end
     return nothing
 end
@@ -86,6 +136,7 @@ end
         Utils.copy_state_to_data!(d, x0)
         copyto!(d.ctrl, u0)
         Utils.threaded_fd!(m, d, FDs, ∇g0_x0, ∇g0_u0; ϵ=ϵ)
+        #mjd_transitionFD(m, d, ϵ, true, ∇g0_x0, ∇g0_u0, nothing, nothing)
 
         # Constraint Jacobian wrt xk+1 (negative identity matrix)
         ∇g0_x1 = ∇g[gidx.dyn[k], dzidx.x[k + 1]]
@@ -178,16 +229,16 @@ end
     ∇ₓJ = ∇J[dzidx.x[end]]
     ∇²ₓₓJ = ∇²J[dzidx.x[end], dzidx.x[end]]
 
-    if Lk <: QuadraticCostFunction
+    if Lf <: QuadraticCostFunction
         # Compute terminal costfunc gradient and hessian via analytic expression
         Qf = params.costfunc.term.Qf
         mul!(∇ₓJ, Qf, dxtmp)
         copyto!(∇²ₓₓJ, Qf)
     else
-        # Compute terminal costfunc gradient and hessian via autodiff
-        ForwardDiff.hessian!(
-            cache.∇²ₓₓJ, δx -> params.costfunc.stage(δx, utmp), dxtmp
-        )
+        # Compute terminal costfunc gradient and hessian via autodiff.
+        # Use the terminal cost function (not the stage version) and the
+        # terminal state `dxtmp` as the point of evaluation.
+        ForwardDiff.hessian!(cache.∇²ₓₓJ, δx -> params.costfunc.term(δx), dxtmp)
         copyto!(∇ₓJ, DiffResults.gradient(cache.∇²ₓₓJ))
         copyto!(∇²ₓₓJ, DiffResults.hessian(cache.∇²ₓₓJ))
     end

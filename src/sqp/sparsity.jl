@@ -17,8 +17,8 @@
     end
 
     # Trust region constraint Jacobian (identity)
-    startrow, endrow = gidx.xtr[1][1], gidx.xtr[end][end]
-    copyto!(∇g[startrow:endrow, 1:dims.ndz], I)
+    #startrow, endrow = gidx.xtr[1][1], gidx.xtr[end][end]
+    #copyto!(∇g[startrow:endrow, 1:dims.ndz], I)
     return ∇g
 end
 
@@ -28,7 +28,6 @@ end
     dims, dzidx = pidx.dims, pidx.dz
     ∇²J = zeros(Float64, dims.ndz, dims.ndz)
 
-    # Stage costfunc hessians; Assume x and u costs are separable
     for k in 1:(dims.N - 1)
         idx_xk = dzidx.x[k]
         idx_uk = dzidx.u[k]
@@ -41,6 +40,9 @@ end
     # Terminal costfunc hessian
     idx_xterm = dzidx.x[end]
     ∇²J[idx_xterm, idx_xterm] .= 1.0
+
+    # Non-zero diagonal for regularization
+    #∇²J += 1.0*I
     return ∇²J
 end
 
@@ -49,6 +51,6 @@ end
 )::Matrix{Float64}
     dims = pidx.dims
     ∇²ₓₓL = zeros(Float64, dims.ndz, dims.ndz)
-    ∇²ₓₓL += costfunc_hessian_pattern(pidx)
+    ∇²ₓₓL .+= costfunc_hessian_pattern(pidx)
     return ∇²ₓₓL
 end

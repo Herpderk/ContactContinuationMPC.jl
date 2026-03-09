@@ -16,7 +16,7 @@ struct ProblemDimensions
         ndy = ndx + nu
         nz = (N-1)*ny + nx
         ndz = (N-1)*ndy + ndx
-        ng = N*ndx + ndz    # eq + tr constr
+        ng = N*ndx #+ ndz    # eq + tr constr
         return new(N, nx, ndx, nu, ny, ndy, nz, ndz, ng)
     end
 end
@@ -43,15 +43,16 @@ struct ConstraintIndices
 
     function ConstraintIndices(N::Integer, nx::Integer, nu::Integer)
         # ic and dynamics eq constrs
+        nic = nx
         icidx = 1:nx
-        ndyn = N*nx
-        dynidx = [start:(start + nx - 1) for start in (1 + nx):nx:ndyn]
+        ndyn = (N-1)*nx
+        dynidx = [start:(start + nx - 1) for start in (nic + 1):nx:(nic + ndyn)]
 
         # trust region box constraints
         ny = nx + nu
         nz = (N-1)*ny + nx
-        start_tr = ndyn + 1
-        end_tr = ndyn + nz
+        start_tr = nic + ndyn + 1
+        end_tr = nic + ndyn + nz
         xidx = [start:(start + nx - 1) for start in start_tr:ny:end_tr]
         uidx = [
             (start + nx):(start + ny - 1) for start in start_tr:ny:(end_tr - nx)

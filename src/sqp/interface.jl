@@ -1,8 +1,29 @@
+function triu_map(A::SparseMatrixCSC)
+    Atriu = triu(A)
+    mapping = zeros(Int, nnz(Atriu))
+    triu_idx = 1
+    # Loop over columns
+    for j in 1:size(A, 2)
+        # Loop over rows in the current column
+        for k in A.colptr[j]:(A.colptr[j + 1] - 1)
+            i = A.rowval[k]
+            # If we are in the upper triangle (row <= col)
+            if i <= j
+                mapping[triu_idx] = k
+                triu_idx += 1
+            end
+        end
+    end
+    return Atriu, mapping
+end
+
 mutable struct SQPCache
     m::OSQP.Model
     r::OSQP.Results
     pidx::IndexingParameters
     ∇²ₓₓL::SparseMatrixCSC{Float64,Int}
+    ∇²ₓₓLtriu::SparseMatrixCSC{Float64,Int}
+    ∇²ₓₓLtriu_map::Vector{Int}
     ∇²ₓₓJ::DiffResults.DiffResult
     ∇²ᵤᵤJ::DiffResults.DiffResult
     ∇²ₓᵤJ!_cfg::ForwardDiff.JacobianConfig
@@ -18,13 +39,19 @@ mutable struct SQPCache
     ∇g::SparseMatrixCSC{Float64,Int}
     gl::Vector{Float64}
     gu::Vector{Float64}
+    vl::Vector{Float64}
+    vu::Vector{Float64}
     Δxl::Vector{Float64}
     Δxu::Vector{Float64}
     Δul::Vector{Float64}
     Δuu::Vector{Float64}
     z::Vector{Float64}
+    zcand::Vector{Float64}
     ztmp::Vector{Float64}
     dztmp::Vector{Float64}
+    gtmp::Vector{Float64}
+    λ::Vector{Float64}
+    λcand::Vector{Float64}
     xtmp::Vector{Float64}
     dxtmp::Vector{Float64}
     dxtmp_ad::Vector{Float64}
@@ -61,6 +88,7 @@ mutable struct SQPCache
 
         # Initialize caches from dims
         ∇²ₓₓL = sparse(costfunc_hessian_pattern(pidx))
+        ∇²ₓₓLtriu, ∇²ₓₓLtriu_map = triu_map(∇²ₓₓL)
         ∇²ₓₓJ = DiffResults.HessianResult(zeros(Float64, nx))
         ∇²ᵤᵤJ = DiffResults.HessianResult(zeros(Float64, nu))
         ∇²ₓᵤJ = zeros(Float64, nx, nu)
@@ -70,9 +98,15 @@ mutable struct SQPCache
         ∇g = sparse(constraint_jacobian_pattern(pidx))
         gl = zeros(Float64, ng)
         gu = zeros(Float64, ng)
+        vl = zeros(Float64, ng)
+        vu = zeros(Float64, ng)
         z = zeros(Float64, nz)
+        zcand = zeros(Float64, nz)
         ztmp = zeros(Float64, nz)
         dztmp = zeros(Float64, ndz)
+        gtmp = zeros(Float64, ng)
+        λ = zeros(Float64, ng)
+        λcand = zeros(Float64, ng)
         xtmp = zeros(Float64, nx)
         dxtmp = zeros(Float64, ndx)
         dxtmp_ad = zeros(Float64, ndx)
@@ -102,17 +136,20 @@ mutable struct SQPCache
 
         # Initialize OSQP results and model
         r = OSQP.Results()
-        r.x = zeros(ndx)
-        r.y = zeros(ng)
+        r.x = zeros(Float64, ndz)
+        r.y = zeros(Float64, ng)
 
         l = zeros(Float64, ng)
         m = OSQP.Model()
-        OSQP.setup!(m; P=∇²ₓₓL, q=∇J, A=∇g, l=l, u=l, verbose=false)
+        OSQP.setup!(m; P=∇²ₓₓLtriu, q=∇J, A=∇g, l=l, u=l, verbose=false)
+        triu!
         return new(
             m,
             r,
             pidx,
             ∇²ₓₓL,
+            ∇²ₓₓLtriu,
+            ∇²ₓₓLtriu_map,
             ∇²ₓₓJ,
             ∇²ᵤᵤJ,
             ∇²ₓᵤJ!_cfg,
@@ -128,13 +165,19 @@ mutable struct SQPCache
             ∇g,
             gl,
             gu,
+            vl,
+            vu,
             Δxl_,
             Δxu_,
             Δul_,
             Δuu_,
             z,
+            zcand,
             ztmp,
             dztmp,
+            gtmp,
+            λ,
+            λcand,
             xtmp,
             dxtmp,
             dxtmp_ad,
@@ -182,12 +225,16 @@ mutable struct SQPOptions
         )
 
         # Use default options if the corresponding option is nothing
-        tol_stat_ = isnothing(tol_stat) ? default.tol_stat : T(tol_stat)
-        tol_eqconstr_ =
-            isnothing(tol_eqconstr) ? default.tol_eqconstr : T(tol_eqconstr)
-        tol_interp_ = isnothing(tol_interp) ? default.tol_interp : T(tol_interp)
-        eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
-        eps_fd_ = isnothing(eps_fd) ? default.eps_fd : T(eps_fd)
+        tol_stat_ = isnothing(tol_stat) ? default.tol_stat : Float64(tol_stat)
+        tol_eqconstr_ = if isnothing(tol_eqconstr)
+            default.tol_eqconstr
+        else
+            Float64(tol_eqconstr)
+        end
+        tol_interp_ =
+            isnothing(tol_interp) ? default.tol_interp : Float64(tol_interp)
+        eps_reg_ = isnothing(eps_reg) ? default.eps_reg : Float64(eps_reg)
+        eps_fd_ = isnothing(eps_fd) ? default.eps_fd : Float64(eps_fd)
         maxiter_ = isnothing(maxiter) ? default.maxiter : maxiter
         is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
         save_bestsol_ =

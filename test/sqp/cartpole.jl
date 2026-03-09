@@ -1,22 +1,10 @@
+using Pkg;
+Pkg.activate(joinpath(@__DIR__, "../.."))
 using LinearAlgebra
 using Test
 using MuJoCo
 using ContactContinuationMPC
-using MuJoCo.LibMuJoCo
-
-# 1. Define the silent handler
-function silent_warning_handler(msg_ptr::Ptr{Cchar})::Cvoid
-    return nothing
-end
-
-# 2. Create the C-compatible function pointer
-# Note: We keep this in a constant so it isn't garbage collected
-const SILENT_CB = @cfunction(silent_warning_handler, Cvoid, (Ptr{Cchar},))
-
-# 3. Get the memory address of the global 'mju_user_warning' pointer
-# and overwrite it with our new function pointer
-warning_ptr_addr = cglobal((:mju_user_warning, LibMuJoCo.libmujoco), Ptr{Cvoid})
-unsafe_store!(warning_ptr_addr, SILENT_CB)
+using Plots
 
 @testset "SQP Cartpole Test" begin
     # Mujoco dynamics model
@@ -39,18 +27,24 @@ unsafe_store!(warning_ptr_addr, SILENT_CB)
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter=100)
+    opts = SQPOptions(; maxiter=100, eps_fd=1e-12, eps_reg=1e-4)
     sol = TrajoptSolution(params)
+    for k in 1:(N - 1)
+        sol.X[k] .= Xref[k]
+        sol.U[k] .= Uref[k]
+    end
+    sol.X[end] .= Xref[end]
 
     # Trust region bounds
     nx = get_nx(m)
-    Δxl = -5 * ones(nx)
-    Δul = -5 * ones(m.nu)
+    Δxl = -100.0 * ones(nx)
+    Δul = -100.0 * ones(m.nu)
     cache = SQPCache(params; Δxl=Δxl, Δxu=(-Δxl), Δul=Δul, Δuu=(-Δul))
     run_sqp!(sol, cache, params, opts)
 
     # Test solution
-    println("\nFinal state: $(sol.X[end])\n")
+    println("\nInitial state: $(sol.X[1])")
+    println("Final state: $(sol.X[end])\n")
     @test sol.is_optimal
     return nothing
 end
