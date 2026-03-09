@@ -188,7 +188,7 @@ end
 
 @option struct DefaultSQPOptions
     tol_stat::Float64
-    tol_eqconstr::Float64
+    tol_eq::Float64
     tol_interp::Float64
     eps_reg::Float64
     eps_fd::Float64
@@ -199,7 +199,7 @@ end
 
 mutable struct SQPOptions
     tol_stat::Float64
-    tol_eqconstr::Float64
+    tol_eq::Float64
     tol_interp::Float64
     eps_reg::Float64
     eps_fd::Float64
@@ -209,7 +209,7 @@ mutable struct SQPOptions
 
     function SQPOptions(;
         tol_stat::Union{AbstractFloat,Nothing}=nothing,
-        tol_eqconstr::Union{AbstractFloat,Nothing}=nothing,
+        tol_eq::Union{AbstractFloat,Nothing}=nothing,
         tol_interp::Union{AbstractFloat,Nothing}=nothing,
         eps_reg::Union{AbstractFloat,Nothing}=nothing,
         eps_fd::Union{AbstractFloat,Nothing}=nothing,
@@ -224,10 +224,10 @@ mutable struct SQPOptions
 
         # Use default options if the corresponding option is nothing
         tol_stat_ = isnothing(tol_stat) ? default.tol_stat : Float64(tol_stat)
-        tol_eqconstr_ = if isnothing(tol_eqconstr)
-            default.tol_eqconstr
+        tol_eq_ = if isnothing(tol_eq)
+            default.tol_eq
         else
-            Float64(tol_eqconstr)
+            Float64(tol_eq)
         end
         tol_interp_ =
             isnothing(tol_interp) ? default.tol_interp : Float64(tol_interp)
@@ -239,7 +239,7 @@ mutable struct SQPOptions
             isnothing(save_bestsol) ? default.save_bestsol : save_bestsol
         return new(
             tol_stat_,
-            tol_eqconstr_,
+            tol_eq_,
             tol_interp_,
             eps_reg_,
             eps_fd_,

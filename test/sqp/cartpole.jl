@@ -1,10 +1,10 @@
-using Pkg;
-Pkg.activate(joinpath(@__DIR__, "../.."))
 using LinearAlgebra
 using Test
 using MuJoCo
 using ContactContinuationMPC
 using Plots
+
+init_visualiser()
 
 @testset "SQP Cartpole Test" begin
     # Mujoco dynamics model
@@ -27,14 +27,13 @@ using Plots
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter=50, eps_fd=1e-12, eps_reg=1e-4)
+    opts = SQPOptions(; maxiter=100, eps_fd=1e-8, tol_stat=1e-2)
     sol = TrajoptSolution(params)
     for k in 1:(N - 1)
         sol.X[k] .= Xref[k]
         sol.U[k] .= Uref[k]
     end
     sol.X[end] .= Xref[end]
-    sol.X[1] .= xic
 
     # Trust region bounds
     nx = get_nx(m)

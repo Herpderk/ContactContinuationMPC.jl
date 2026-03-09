@@ -206,7 +206,7 @@ function run_sqp!(
 
             endidx_eq = pidx.g.dyn[end][end]
             @views λeq = r.y[1:endidx_eq]
-            γ = max(γ, norm(λeq, Inf) * 1.1)
+            γ = max(γ, norm(λeq, Inf) * 1.01)
 
             for i in 1:maxiter_ls
                 # Step along new search direction
@@ -246,7 +246,7 @@ function run_sqp!(
             # Log and check for convergence
             opts.is_verbose ? log_iter(iter, sol.J, statnorm, viol, α) : nothing
             sol.is_optimal = is_converged(
-                statnorm, viol; tol_stat=opts.tol_stat, tol_eq=opts.tol_eqconstr
+                statnorm, viol; tol_stat=opts.tol_stat, tol_eq=opts.tol_eq
             )
             sol.is_optimal ? break : nothing
         end

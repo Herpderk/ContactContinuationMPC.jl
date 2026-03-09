@@ -71,7 +71,6 @@ end
     N, zidx, gidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.g
 
     # Dynamics residuals
-    reset!(m, d)
     for k in 1:(N - 1)
         # Step simulator
         x0, u0 = z[zidx.x[k]], z[zidx.u[k]]

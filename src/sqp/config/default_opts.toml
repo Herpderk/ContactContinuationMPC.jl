@@ -1,8 +1,8 @@
-tol_stat = 1e-3
-tol_eqconstr = 1e-6
+tol_stat = 1e-2
+tol_eq = 1e-6
 tol_interp = 1.0
 eps_reg = 1e-6
-eps_fd = 1e-12
+eps_fd = 1e-8
 maxiter = 1000
 is_verbose = true
 save_bestsol = true

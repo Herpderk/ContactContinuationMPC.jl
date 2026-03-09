@@ -37,7 +37,7 @@ end
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = iLQROptions(; tol_converge=1e-2)
+    opts = iLQROptions(; tol_converge=1e-6)
     sol = fresh_solve(params, opts; use_time=true)
 
     # Test solution
