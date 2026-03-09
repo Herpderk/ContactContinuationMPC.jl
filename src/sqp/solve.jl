@@ -21,7 +21,7 @@ end
     pidx::IndexingParameters,
 )::Float64
     mul!(gtmp, ∇g, z)
-    gtmp .+= g
+    gtmp .-= g
     start_eq = first(pidx.g.ic)
     endidx_eq = pidx.g.dyn[end][end]
     return norm(gtmp[start_eq:endidx_eq], Inf)
@@ -149,7 +149,7 @@ function run_sqp!(
     m, r = cache.m, cache.r
 
     # References to useful objects
-    ∇²ₓₓL, ∇²ₓₓLtriu, ∇ₓL, ∇J, ∇g, gl, gu, vl, vu, z, zcand, dztmp, gtmp, λ, λcand, pidx = (
+    ∇²ₓₓL, ∇²ₓₓLtriu, ∇ₓL, ∇J, ∇g, gl, gu, z, zcand, dztmp, gtmp, λ, pidx = (
         cache.∇²ₓₓL,
         cache.∇²ₓₓLtriu,
         cache.∇ₓL,
@@ -157,14 +157,11 @@ function run_sqp!(
         cache.∇g,
         cache.gl,
         cache.gu,
-        cache.vl,
-        cache.vu,
         cache.z,
         cache.zcand,
         cache.dztmp,
         cache.gtmp,
         cache.λ,
-        cache.λcand,
         cache.pidx,
     )
 
@@ -181,74 +178,23 @@ function run_sqp!(
 
             # Solve QP
             OSQP.update_settings!(m; eps_abs=1e-6, eps_rel=1e-6, max_iter=1000)
-
-            l = 1*gl
-            @views l[1:pidx.g.dyn[end][end]] .*= -1.0
-            u = 1*gu
-            @views u[1:pidx.g.dyn[end][end]] .*= -1.0
-            OSQP.update!(m; Px=∇²ₓₓLtriu.nzval, q=∇J, Ax=∇g.nzval, l=l, u=u)
+            OSQP.update!(m; Px=∇²ₓₓLtriu.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
             OSQP.solve!(m, r)
 
             if r.info.status_val != 1
-                println("OSQP status: ", r.info.status)
-                println("P condition number: ", cond(Array(∇²ₓₓL), 2))
-                println(
-                    "Pmax: ",
-                    maximum(abs, ∇²ₓₓL),
-                    ", Pmin: ",
-                    minimum(abs, ∇²ₓₓL),
-                )
-                println("max step: ", maximum(r.x))
-                # 1. Check for literal NaNs or Infs
-                println("--- Pre-Solve Sanity Check ---")
-                println(
-                    "P (Hessian) contains NaN/Inf? : ",
-                    any(isnan, ∇²ₓₓL.nzval) || any(isinf, ∇²ₓₓL.nzval),
-                )
-                println(
-                    "q (Gradient) contains NaN/Inf?: ",
-                    any(isnan, ∇J) || any(isinf, ∇J),
-                )
-                println(
-                    "A (Jacobian) contains NaN/Inf?: ",
-                    any(isnan, ∇g.nzval) || any(isinf, ∇g.nzval),
-                )
-                println("l (Lower Bnd) contains NaN?   : ", any(isnan, gl)) # Inf is okay for bounds, NaN is not
-                println("u (Upper Bnd) contains NaN?   : ", any(isnan, gu))
-
-                # 2. Check for astronomical numbers (The FD Explosion check)
-                println("Max value in P: ", maximum(abs, ∇²ₓₓL.nzval))
-                println("Max value in A: ", maximum(abs, ∇g.nzval))
-                println("Max value in q: ", maximum(abs, ∇J))
-                println("------------------------------")
-
-                is_sym = issymmetric(∇²ₓₓL)
-                println("Is P perfectly symmetric?: ", is_sym)
-
-                if !is_sym
-                    # Find the maximum asymmetry error
-                    P_dense = Matrix(∇²ₓₓL)
-                    asym_error = maximum(abs.(P_dense - P_dense'))
-                    println("Maximum asymmetry error: ", asym_error)
-                end
-
-                # Try to Cholesky factorize a dense, perfectly symmetric version of P
-                P_sym = Symmetric(Matrix(∇²ₓₓL))
-                is_psd = isposdef(P_sym)
-                println("Is P strictly positive definite?: ", is_psd)
-
-                if !is_psd
-                    # If it fails, let's look at the worst eigenvalue
-                    eigenvalues = eigvals(P_sym)
-                    println("Minimum eigenvalue of P: ", minimum(eigenvalues))
-                end
+                @warn "QP solver did not converge! Status: $(r.info.status)"
             end
 
             # Precompute QP predicted-decrease terms for Δz = r.x
             # predicted(α) = α * q'Δz + 0.5 * α^2 * Δz' * P * Δz
-            pP = ∇²ₓₓL * r.x
-            base_q = dot(∇J, r.x)
-            base_quad = dot(r.x, pP)
+            ΔJ1 = dot(∇J, r.x)
+            mul!(dztmp, ∇²ₓₓL, r.x)
+            ΔJ2 = dot(r.x, dztmp)
+
+            # The linearized constraint is: ∇g * Δz + g(z)
+            # Since you pass -g(z) to OSQP as `gl`, then g(z) = -gl
+            Δviol =
+                -viol + predicted_constraint_violation(∇g, gl, gtmp, z, pidx)
 
             # Backtracking line-search
             J_ls = 0.0
@@ -261,17 +207,6 @@ function run_sqp!(
             endidx_eq = pidx.g.dyn[end][end]
             @views λeq = r.y[1:endidx_eq]
             γ = max(γ, norm(λeq, Inf) * 1.1)
-
-            # The linearized constraint is: ∇g * Δz + g(z)
-            # Since you pass -g(z) to OSQP as `gl`, then g(z) = -gl
-            predicted_viol = predicted_constraint_violation(
-                ∇g, gl, gtmp, z, pidx
-            )
-            predicted_viol_change = predicted_viol - viol
-
-            # 3. The TRUE predicted merit change at a full step (α = 1.0)
-            # Notice we add `γ * predicted_viol_change` instead of `- γ * viol`
-            predicted_merit_change_full = base_q + γ * predicted_viol_change
 
             for i in 1:maxiter_ls
                 # Step along new search direction
@@ -287,16 +222,10 @@ function run_sqp!(
                 copy_primals_to_solution!(sol, zcand, pidx)
                 J_ls = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
 
-                predicted_merit_change = α * predicted_merit_change_full
-
-                # The sufficient decrease condition
-                merit_cand = J_ls + γ * viol_ls
-                merit_base = sol.J + γ * viol
-                if merit_cand < merit_base + β * predicted_merit_change
-                    break
-                else
-                    nothing
-                end
+                # Evaluate merit function
+                merit_pred = α * (ΔJ1 + 0.5*α*ΔJ2 + γ * Δviol)
+                merit_ls = J_ls - sol.J + γ * (viol_ls - viol)
+                merit_ls < β*merit_pred ? break : nothing
 
                 # Update step length
                 α *= αmul

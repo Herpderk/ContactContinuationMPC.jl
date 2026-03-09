@@ -57,7 +57,7 @@ end
     m = params.mfwd
     zidx, gidx = pidx.z, pidx.g
     Utils.get_state_diff!(m, g[gidx.ic], z[zidx.x[1]], params.xic)
-    #g[gidx.ic] .*= -1.0 # Flip the sign for OSQP's constraint formulation
+    g[gidx.ic] .*= -1.0 # Flip the sign for OSQP's constraint formulation
     return nothing
 end
 
@@ -83,7 +83,7 @@ end
         # Evaluate constraint
         g0, x1 = g[gidx.dyn[k]], z[zidx.x[k + 1]]
         Utils.get_state_diff!(m, g0, cache.xtmp, x1)
-        #g0 .*= -1.0     # Flip the sign for OSQP's constraint formulation
+        g0 .*= -1.0     # Flip the sign for OSQP's constraint formulation
     end
     return nothing
 end

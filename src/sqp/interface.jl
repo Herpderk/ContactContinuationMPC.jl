@@ -138,11 +138,9 @@ mutable struct SQPCache
         r = OSQP.Results()
         r.x = zeros(Float64, ndz)
         r.y = zeros(Float64, ng)
-
         l = zeros(Float64, ng)
         m = OSQP.Model()
         OSQP.setup!(m; P=∇²ₓₓLtriu, q=∇J, A=∇g, l=l, u=l, verbose=false)
-        triu!
         return new(
             m,
             r,
