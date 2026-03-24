@@ -81,7 +81,7 @@ function main(use_cc::Bool)
     # Declare parameters and options
     params = TrajoptParameters(mfwd, mbwd, costfunc, Xref, Uref, xic)
     opts = iLQROptions(;
-        maxiter_ilqr=200,
+        maxiter_ilqr=100,
         maxiter_ls=50,
         alpha_mul=0.8,
         tol_interp=2.0,

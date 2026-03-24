@@ -1,0 +1,137 @@
+<!--
+Walker2D model for `Walker2d-v5`, based on openai/gym/Walker2d
+modified by @kallinteris-Andreas
+  - To not require `coordinate="global"`
+  - keep feet friction to 0.9/1.9
+-->
+<mujoco model="walker2d">
+  <compiler angle="degree" inertiafromgeom="true"/>
+  <default>
+    <joint armature="0.01" damping=".1" limited="true"/>
+    <geom conaffinity="0" condim="3" contype="1" density="1000" friction=".7 .1 .1" rgba="0.8 0.6 .4 1"/>
+  </default>
+  <option integrator="RK4" timestep="0.01"/>
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.5 .5 .5" rgb2="0.9 0.9 0.9" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.9 0.9 0.9" rgb2="0.5 0.5 0.5"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="1.5 1.5" reflectance="0.2"/>
+  </asset>
+  <worldbody>
+    <light cutoff="100" diffuse="1 1 1" dir="-0 0 -1.3" directional="true" exponent="1" pos="0 0 1.3" specular=".1 .1 .1"/>
+    <geom conaffinity="1" condim="3" name="groundplane" pos="0 0 0" rgba="0.8 0.9 0.8 1" size="40 40 40" type="plane" material="groundplane"/>
+    <body name="torso" pos="0 0 1.25">
+      <camera name="track" mode="trackcom" pos="0 -3 -0.25" xyaxes="1 0 0 0 0 1"/>
+      <joint armature="0" axis="1 0 0" damping="0" limited="false" name="rootx" pos="0 0 -1.25" stiffness="0" type="slide"/>
+      <joint armature="0" axis="0 0 1" damping="0" limited="false" name="rootz" pos="0 0 -1.25" ref="1.25" stiffness="0" type="slide"/>
+      <joint armature="0" axis="0 1 0" damping="0" limited="false" name="rooty" pos="0 0 0" stiffness="0" type="hinge"/>
+      <geom friction="0.9" name="torso_geom" size="0.050000000000000003 0.19999999999999996" type="capsule"/>
+      <body name="thigh" pos="0 0 -0.19999999999999996">
+        <joint axis="0 -1 0" name="thigh_joint" pos="0 0 0" range="-150 0" type="hinge"/>
+        <geom friction="0.9" pos="0 0 -0.22500000000000009" name="thigh_geom" size="0.050000000000000003 0.22500000000000003" type="capsule"/>
+        <body name="leg" pos="0 0 -0.70000000000000007">
+          <joint axis="0 -1 0" name="leg_joint" pos="0 0 0.25" range="-150 0" type="hinge"/>
+          <geom friction="0.9" name="leg_geom" size="0.040000000000000001 0.25" type="capsule"/>
+          <body name="foot" pos="0.20000000000000001 0 -0.34999999999999998">
+            <joint axis="0 -1 0" name="foot_joint" pos="-0.20000000000000001 0 0.10000000000000001" range="-45 45" type="hinge"/>
+            <geom friction="0.9" pos="-0.10000000000000001 0 0.10000000000000001" quat="0.70710678118654757 0 -0.70710678118654746 0" name="foot_geom" size="0.059999999999999998 0.10000000000000001" type="capsule"/>
+          </body>
+        </body>
+      </body>
+      <!-- copied and then replace thigh->thigh_left, leg->leg_left, foot->foot_right -->
+      <body name="thigh_left" pos="0 0 -0.19999999999999996">
+        <joint axis="0 -1 0" name="thigh_left_joint" pos="0 0 0" range="-150 0" type="hinge"/>
+        <geom friction="0.9" name="thigh_left_geom" size="0.050000000000000003 0.22500000000000003" pos="0 0 -0.22500000000000009" type="capsule"/>
+        <body name="leg_left" pos="0 0 -0.70000000000000007">
+          <joint axis="0 -1 0" name="leg_left_joint" pos="0 0 0.25" range="-150 0" type="hinge"/>
+          <geom friction="0.9" name="leg_left_geom" size="0.040000000000000001 0.25" type="capsule"/>
+          <body name="foot_left" pos="0.20000000000000001 0 -0.34999999999999998">
+            <joint axis="0 -1 0" name="foot_left_joint" pos="-0.20000000000000001 0 0.10000000000000001" range="-45 45" type="hinge"/>
+            <geom friction="1.9" name="foot_left_geom" size="0.059999999999999998 0.10000000000000001" pos="-0.10000000000000001 0 0.10000000000000001" type="capsule" quat="0.70710678118654757 0 -0.70710678118654746 0"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="0.0 0.0 0.0" quat="1.0 0.0 0.0 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="0.0 0.0 -0.42500000000000004" quat="1.0 0.0 0.0 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="0.0 0.0 -0.9" quat="1.0 0.0 0.0 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="0.1 0.0 -1.15" quat="0.7071067811865476 0.0 -0.7071067811865475 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="0.0 0.0 -0.42500000000000004" quat="1.0 0.0 0.0 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="0.0 0.0 -0.9" quat="1.0 0.0 0.0 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="0.1 0.0 -1.15" quat="0.7071067811865476 0.0 -0.7071067811865475 0.0" rgba="1.0 0.6 0.0 0.2" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="0.2992917966573948 0.0 1.1560660813069012" quat="0.9985705338637998 0.0 0.053449872768473 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="0.2034008187199905 0.0 0.7449152871541502" quat="0.9857806266128353 0.0 0.1680373654721051 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="0.04685427412982528 0.0 0.29645402681106947" quat="0.9860706979022787 0.0 0.16632672286350458 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="0.05543710631829535 0.0 0.10264021825804096" quat="0.5368710176675819 0.0 -0.8436643351408041 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="0.20542575430881221 0.0 0.744215093471963" quat="0.9865695260677831 0.0 0.16334188144621617 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="0.0684505920377348 0.0 0.2896740444408532" quat="0.9915112764225983 0.0 0.1300207242205243 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="0.09276723280721588 0.0 0.09415904395833458" quat="0.5194597907727487 0.0 -0.8544948951107505 0.0" rgba="0.889 0.644 0.067 0.2888888888888889" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="1.279740550656498 0.0 1.0203553984786533" quat="0.9931987294847635 0.0 0.11643145515646311 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="1.1012374274817927 0.0 0.6437459003112849" quat="0.9510602407223787 0.0 0.30900553153154237 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="0.7218663975384986 0.0 0.42390041148301694" quat="0.7587008332155156 0.0 0.6514392110382076 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="0.41108288224981276 0.0 0.3089673355556032" quat="0.94106216257603 0.0 0.3382336561723653 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="1.1739748721995884 0.0 0.6087904057546288" quat="0.9910572426835282 0.0 0.13343740751574137 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="0.9247678630942543 0.0 0.22896866635214616" quat="0.9086630103382856 0.0 0.417530278713969 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="0.834169010629118 0.0 0.05273572251435418" quat="0.7529897431548266 0.0 -0.6580322535435692 0.0" rgba="0.778 0.689 0.133 0.37777777777777777" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="2.24992826190423 0.0 0.6755869821845965" quat="0.977746787071236 0.0 -0.2097885134412157 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="2.2309145238934476 0.0 0.29216529921748197" quat="0.9729978544179433 0.0 0.23081415749056425 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="1.9929951848616025 0.0 0.3003519431192883" quat="0.28561227208342804 0.0 0.9583452561761558 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="1.8336589076875798 0.0 0.4121239642695619" quat="0.9935813853615545 0.0 0.11311954147278902 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="2.368228026820492 0.0 0.2711310937575475" quat="0.9967284000678297 0.0 -0.08082386094603794 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="2.1982221261302333 0.0 0.19034273422967027" quat="0.46632174075862765 0.0 0.884615189840104 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="2.0134896613176583 0.0 0.23395889377088433" quat="0.9941223705025141 0.0 -0.10826223933792532 0.0" rgba="0.667 0.733 0.2 0.4666666666666667" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="2.9675358642878953 0.0 1.031136767597409" quat="0.9989403791058733 0.0 -0.04602302675633186 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="3.0260503382471744 0.0 0.6105906936391411" quat="0.9959845174555157 0.0 -0.08952564430878572 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="2.8352902860211233 0.0 0.29332141656510946" quat="0.8317162443033539 0.0 0.5552009446695164 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="2.695833725052129 0.0 0.1569377699738208" quat="0.8381756709433009 0.0 -0.5454003526206661 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="2.84208281843053 0.0 0.6589688039062366" quat="0.9404670367995043 0.0 0.3398849109530458 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="2.4726038178902954 0.0 0.3783047080868394" quat="0.8457527824742868 0.0 0.5335749534385977 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="2.2422337103546357 0.0 0.17076793339806706" quat="0.9997196861052433 0.0 0.023675920544595164 0.0" rgba="0.556 0.778 0.267 0.5555555555555556" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="3.8319113265330773 0.0 0.662882287580803" quat="0.9942758148673988 0.0 -0.10684382981609188 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="3.9320985043228216 0.0 0.24997124377545815" quat="0.9916062002778375 0.0 -0.1292947932847616 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="3.754596369370526 0.0 0.11724444386996646" quat="0.5748904495853778 0.0 0.8182303899119869 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.434538942886896 0.0 0.14909304564533596" quat="0.8743622925092082 0.0 0.48527371805821296 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="3.8982384408086155 0.0 0.24371446836873714" quat="0.9985924102343857 0.0 -0.05303959108326762 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="3.7073845709334963 0.0 0.1480781207072274" quat="0.49376570731782465 0.0 0.869594978295602 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.4210518225898516 0.0 0.20641163889058772" quat="0.9213148076393427 0.0 0.3888174703179901 0.0" rgba="0.444 0.822 0.333 0.6444444444444445" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="3.984815786672968 0.0 0.697660744654514" quat="0.9999996390490326 0.0 0.0008496480475505809 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="3.9896126352214276 0.0 0.2727196760916618" quat="0.9999348393476826 0.0 -0.011415649728532444 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="3.7633141413028306 0.0 0.14231797963751555" quat="0.5576026167990468 0.0 0.8301080181150258 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.4462160133040687 0.0 0.18526439449033255" quat="0.8706125602603338 0.0 0.49196927741165564 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="3.982474238210203 0.0 0.27266993750324114" quat="0.9999901065199425 0.0 0.004448242600638116 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="3.7508274386962563 0.0 0.14648736038051552" quat="0.5498935919079819 0.0 0.8352347200509193 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.535622317816266 0.0 0.14634393775399734" quat="0.9973764119322935 0.0 -0.07238986753036719 0.0" rgba="0.333 0.867 0.4 0.7333333333333334" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="4.253809027840637 0.0 0.6685105439632263" quat="0.9650035629149434 0.0 -0.2622367700408638 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="4.341655316653319 0.0 0.27141582750541193" quat="0.9995576420290464 0.0 0.029740885348840007 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="4.081308694509783 0.0 0.0856241942302319" quat="0.6499071739760687 0.0 0.7600135954142138 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.7489281717537892 0.0 0.07242590853999793" quat="0.8718045030207576 0.0 0.4898539665172981 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="4.175139386182487 0.0 0.36087578832153433" quat="0.8946035808188735 0.0 0.44686064179568247 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="3.7519192734834523 0.0 0.2831107392950557" quat="0.6206819539187534 0.0 0.7840624414417505 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.467017273987467 0.0 0.24953993664564794" quat="0.9771073602455538 0.0 0.2127468132639484 0.0" rgba="0.222 0.911 0.467 0.8222222222222222" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="4.488342063137413 0.0 0.6718448918239538" quat="0.9964242290480184 0.0 -0.08449115791644685 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="4.449733591700568 0.0 0.26162761106467247" quat="0.9866585394549356 0.0 0.1628033369456945 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="4.134088083370626 0.0 0.10578435023245294" quat="0.6209194436744812 0.0 0.7838743805400027 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.806528140987977 0.0 0.10906381047732046" quat="0.8773541530893295 0.0 0.4798434015977562 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="4.4567348380771925 0.0 0.2593793528324596" quat="0.9891871424984578 0.0 0.14665877783390896 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="4.173420569889218 0.0 0.16637877687812377" quat="0.5053306534466654 0.0 0.8629257967445212 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="3.989038237105292 0.0 0.19453057245264527" quat="0.9853138326671903 0.0 -0.1707531878317131 0.0" rgba="0.111 0.956 0.533 0.9111111111111112" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.19999999999999996 0.0" pos="4.934013071149342 0.0 0.8585149119074583" quat="0.9971461892281285 0.0 0.07549488265982901 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="4.883823294228276 0.0 0.43669232936818636" quat="0.9990021393174742 0.0 0.04466235147313832 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="4.626083252676125 0.0 0.29015770357957693" quat="0.5872516535970063 0.0 0.8094044077885802 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="4.298488671147264 0.0 0.323997454551049" quat="0.8477263612225316 0.0 0.5304338002884111 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.05 0.22500000000000003 0.0" pos="4.697621835009464 0.0 0.5709404685113284" quat="0.8364664226763792 0.0 0.5480181782888055 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.04 0.25 0.0" pos="4.266393206277846 0.0 0.3720088647216876" quat="0.8474401093533188 0.0 0.5308910067605546 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+        <geom type="capsule" size="0.06 0.1 0.0" pos="4.0790904507177865 0.0 0.170288374891657" quat="0.981435480201445 0.0 -0.1917925916237619 0.0" rgba="0.0 1.0 0.6 1.0" contype="0" conaffinity="0"/>
+    </worldbody>
+  <actuator>
+    <!-- <motor joint="torso_joint" ctrlrange="-100.0 100.0" isctrllimited="true"/>-->
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="thigh_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="leg_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="foot_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="thigh_left_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="leg_left_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="foot_left_joint"/>
+    <!-- <motor joint="finger2_rot" ctrlrange="-20.0 20.0" isctrllimited="true"/>-->
+  </actuator>
+</mujoco>
