@@ -62,7 +62,7 @@ Model from dm_control: https://github.com/google-deepmind/dm_control/blob/main/d
   </worldbody>
 
   <actuator>
-    <motor name='slide' joint='slider' gear='50' ctrllimited='false' ctrlrange='-1 1' />
+    <motor name='slide' joint='slider' gear='50' ctrllimited='true' ctrlrange='-1 1' />
   </actuator>
 
   <sensor>

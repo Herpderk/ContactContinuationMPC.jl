@@ -39,19 +39,22 @@ mutable struct SQPCache
     ∇g::SparseMatrixCSC{Float64,Int}
     gl::Vector{Float64}
     gu::Vector{Float64}
-    vl::Vector{Float64}
-    vu::Vector{Float64}
+    gl_pred::Vector{Float64}
+    gu_pred::Vector{Float64}
+    p::Vector{Float64}
+    d::Vector{Float64}
+    c::Vector{Float64}
+    ul::Vector{Float64}
+    uu::Vector{Float64}
     Δxl::Vector{Float64}
     Δxu::Vector{Float64}
     Δul::Vector{Float64}
     Δuu::Vector{Float64}
+    λ::Vector{Float64}
     z::Vector{Float64}
     zcand::Vector{Float64}
     ztmp::Vector{Float64}
     dztmp::Vector{Float64}
-    gtmp::Vector{Float64}
-    λ::Vector{Float64}
-    λcand::Vector{Float64}
     xtmp::Vector{Float64}
     dxtmp::Vector{Float64}
     dxtmp_ad::Vector{Float64}
@@ -61,6 +64,8 @@ mutable struct SQPCache
 
     function SQPCache(
         params::TrajoptParameters{T,Lk,Lf};
+        ul::Union{Float64,Vector{Float64}}=(-Inf),
+        uu::Union{Float64,Vector{Float64}}=Inf,
         Δxl::Union{Float64,Vector{Float64}}=(-Inf),
         Δxu::Union{Float64,Vector{Float64}}=Inf,
         Δul::Union{Float64,Vector{Float64}}=(-Inf),
@@ -75,6 +80,12 @@ mutable struct SQPCache
         # Initialize indexing parameters
         pidx = IndexingParameters(N, nx, ndx, nu)
         nz, ndz, ng = pidx.dims.nz, pidx.dims.ndz, pidx.dims.ng
+
+        # Initialize control input limits
+        ul_ = zeros(Float64, nu)
+        ul_ .= ul
+        uu_ = zeros(Float64, nu)
+        uu_ .= uu
 
         # Initialize trust region bounds
         Δxl_ = zeros(Float64, ndx)
@@ -98,15 +109,16 @@ mutable struct SQPCache
         ∇g = sparse(constraint_jacobian_pattern(pidx))
         gl = zeros(Float64, ng)
         gu = zeros(Float64, ng)
-        vl = zeros(Float64, ng)
-        vu = zeros(Float64, ng)
+        gl_pred = zeros(Float64, ng)
+        gu_pred = zeros(Float64, ng)
+        p = zeros(Float64, ng)
+        d = zeros(Float64, ng)
+        c = zeros(Float64, ng)
+        λ = zeros(Float64, ng)
         z = zeros(Float64, nz)
         zcand = zeros(Float64, nz)
         ztmp = zeros(Float64, nz)
         dztmp = zeros(Float64, ndz)
-        gtmp = zeros(Float64, ng)
-        λ = zeros(Float64, ng)
-        λcand = zeros(Float64, ng)
         xtmp = zeros(Float64, nx)
         dxtmp = zeros(Float64, ndx)
         dxtmp_ad = zeros(Float64, ndx)
@@ -163,19 +175,22 @@ mutable struct SQPCache
             ∇g,
             gl,
             gu,
-            vl,
-            vu,
+            gl_pred,
+            gu_pred,
+            p,
+            d,
+            c,
+            ul_,
+            uu_,
             Δxl_,
             Δxu_,
             Δul_,
             Δuu_,
+            λ,
             z,
             zcand,
             ztmp,
             dztmp,
-            gtmp,
-            λ,
-            λcand,
             xtmp,
             dxtmp,
             dxtmp_ad,
@@ -187,33 +202,51 @@ mutable struct SQPCache
 end
 
 @option struct DefaultSQPOptions
+    alpha_mul::Float64
+    margin_ls::Float64
     tol_stat::Float64
-    tol_eq::Float64
+    tol_primal::Float64
+    tol_dual::Float64
+    tol_comp::Float64
     tol_interp::Float64
     eps_reg::Float64
     eps_fd::Float64
-    maxiter::Int
+    maxiter_sqp::Int
+    maxiter_qp::Int
+    maxiter_ls::Int
     is_verbose::Bool
     save_bestsol::Bool
 end
 
 mutable struct SQPOptions
+    alpha_mul::Float64
+    margin_ls::Float64
     tol_stat::Float64
-    tol_eq::Float64
+    tol_primal::Float64
+    tol_dual::Float64
+    tol_comp::Float64
     tol_interp::Float64
     eps_reg::Float64
     eps_fd::Float64
-    maxiter::Integer
+    maxiter_sqp::Int
+    maxiter_qp::Int
+    maxiter_ls::Int
     is_verbose::Bool
     save_bestsol::Bool
 
     function SQPOptions(;
+        alpha_mul::Union{AbstractFloat,Nothing}=nothing,
+        margin_ls::Union{AbstractFloat,Nothing}=nothing,
         tol_stat::Union{AbstractFloat,Nothing}=nothing,
-        tol_eq::Union{AbstractFloat,Nothing}=nothing,
+        tol_primal::Union{AbstractFloat,Nothing}=nothing,
+        tol_dual::Union{AbstractFloat,Nothing}=nothing,
+        tol_comp::Union{AbstractFloat,Nothing}=nothing,
         tol_interp::Union{AbstractFloat,Nothing}=nothing,
         eps_reg::Union{AbstractFloat,Nothing}=nothing,
         eps_fd::Union{AbstractFloat,Nothing}=nothing,
-        maxiter::Union{Int,Nothing}=nothing,
+        maxiter_sqp::Union{Int,Nothing}=nothing,
+        maxiter_qp::Union{Int,Nothing}=nothing,
+        maxiter_ls::Union{Int,Nothing}=nothing,
         is_verbose::Union{Bool,Nothing}=nothing,
         save_bestsol::Union{Bool,Nothing}=nothing,
     )
@@ -223,27 +256,39 @@ mutable struct SQPOptions
         )
 
         # Use default options if the corresponding option is nothing
+        alpha_mul_ =
+            isnothing(alpha_mul) ? default.alpha_mul : Float64(alpha_mul)
+        margin_ls_ =
+            isnothing(margin_ls) ? default.margin_ls : Float64(margin_ls)
         tol_stat_ = isnothing(tol_stat) ? default.tol_stat : Float64(tol_stat)
-        tol_eq_ = if isnothing(tol_eq)
-            default.tol_eq
-        else
-            Float64(tol_eq)
-        end
+        tol_primal_ =
+            isnothing(tol_primal) ? default.tol_primal : Float64(tol_primal)
+        tol_dual_ = isnothing(tol_dual) ? default.tol_dual : Float64(tol_dual)
+        tol_comp_ = isnothing(tol_comp) ? default.tol_comp : Float64(tol_comp)
         tol_interp_ =
             isnothing(tol_interp) ? default.tol_interp : Float64(tol_interp)
         eps_reg_ = isnothing(eps_reg) ? default.eps_reg : Float64(eps_reg)
         eps_fd_ = isnothing(eps_fd) ? default.eps_fd : Float64(eps_fd)
-        maxiter_ = isnothing(maxiter) ? default.maxiter : maxiter
+        maxiter_sqp_ =
+            isnothing(maxiter_sqp) ? default.maxiter_sqp : maxiter_sqp
+        maxiter_qp_ = isnothing(maxiter_qp) ? default.maxiter_qp : maxiter_qp
+        maxiter_ls_ = isnothing(maxiter_ls) ? default.maxiter_ls : maxiter_ls
         is_verbose_ = isnothing(is_verbose) ? default.is_verbose : is_verbose
         save_bestsol_ =
             isnothing(save_bestsol) ? default.save_bestsol : save_bestsol
         return new(
+            alpha_mul_,
+            margin_ls_,
             tol_stat_,
-            tol_eq_,
+            tol_primal_,
+            tol_dual_,
+            tol_comp_,
             tol_interp_,
             eps_reg_,
             eps_fd_,
-            maxiter_,
+            maxiter_sqp_,
+            maxiter_qp_,
+            maxiter_ls_,
             is_verbose_,
             save_bestsol_,
         )

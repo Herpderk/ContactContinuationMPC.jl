@@ -3,9 +3,8 @@ function update_qparrays!(
     cache::SQPCache,
     params::TrajoptParameters{Float64,Lk,Lf};
     ϵfd::Float64,
-    ϵreg::Float64,
 )::Nothing where {Lk,Lf}
-    ∇²ₓₓL, ∇²ₓₓLtriu, ∇²ₓₓLtriu_map, ∇J, ∇g, gl, gu, Δxl, Δxu, Δul, Δuu, pidx = (
+    ∇²ₓₓL, ∇²ₓₓLtriu, ∇²ₓₓLtriu_map, ∇J, ∇g, gl, gu, = (
         cache.∇²ₓₓL,
         cache.∇²ₓₓLtriu,
         cache.∇²ₓₓLtriu_map,
@@ -13,38 +12,70 @@ function update_qparrays!(
         cache.∇g,
         cache.gl,
         cache.gu,
-        cache.Δxl,
-        cache.Δxu,
-        cache.Δul,
-        cache.Δuu,
-        cache.pidx,
     )
 
-    # Reset arrays
-    fill!(∇²ₓₓL.nzval, 0.0)
-    fill!(∇²ₓₓLtriu.nzval, 0.0)
-    fill!(∇g.nzval, 0.0)
-    fill!(∇J, 0.0)
-    fill!(gl, 0.0)
-    fill!(gu, 0.0)
-
-    # Update equality constraint residuals and Jacobians
-    initcond_residuals!(gl, z, pidx, params)
-    dynamics_residuals!(gl, z, cache, params)
-    initcond_jacobian!(∇g, pidx)
-    dynamics_jacobian!(∇g, z, cache, params; ϵ=ϵfd)
-
-    # Update inequality constraints and Jacobians
-    copyto!(gu, gl)
-    #trustregion_bounds!(gl, Δxl, Δul, pidx)
-    #trustregion_bounds!(gu, Δxu, Δuu, pidx)
-    #trustregion_jacobian!(∇g, pidx)
+    constraint_residuals!(gl, gu, z, cache, params)
+    constraint_jacobian!(∇g, z, cache, params; ϵfd)
 
     # Update cost function quadraticization
+    fill!(∇²ₓₓL.nzval, 0.0)
+    fill!(∇²ₓₓLtriu.nzval, 0.0)
+    fill!(∇J, 0.0)
     costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)    # Gauss-Newton
     for (idx_triu, idx) in enumerate(∇²ₓₓLtriu_map)
         ∇²ₓₓLtriu.nzval[idx_triu] = ∇²ₓₓL.nzval[idx]
     end
+    return nothing
+end
+
+function constraint_residuals!(
+    gl::Vector{Float64},
+    gu::Vector{Float64},
+    z::Vector{Float64},
+    cache::SQPCache,
+    params::TrajoptParameters{Float64,Lk,Lf},
+)::Nothing where {Lk,Lf}
+    fill!(gl, 0.0)
+    fill!(gu, 0.0)
+
+    # Update equality constraint residuals
+    initcond_residuals!(gl, z, cache.pidx, params)
+    dynamics_residuals!(gl, z, cache, params)
+    copyto!(gu, gl)
+
+    # Update inequality constraint residuals
+    inequality_constraint_residuals!(gl, gu, z, cache)
+    #trustregion_bounds!(gl, Δxl, Δul, pidx)
+    #trustregion_bounds!(gu, Δxu, Δuu, pidx)
+    #trustregion_jacobian!(∇g, pidx)
+    return nothing
+end
+
+function inequality_constraint_residuals!(
+    gl::Vector{Float64},
+    gu::Vector{Float64},
+    z::Vector{Float64},
+    cache::SQPCache,
+)::Nothing
+    ctrlinput_bounds!(gl, cache.ul, z, cache.pidx)
+    ctrlinput_bounds!(gu, cache.uu, z, cache.pidx)
+    #trustregion_bounds!(gl, Δxl, Δul, pidx)
+    #trustregion_bounds!(gu, Δxu, Δuu, pidx)
+    #trustregion_jacobian!(∇g, pidx)
+    return nothing
+end
+
+function constraint_jacobian!(
+    ∇g::SparseMatrixCSC{Float64,Int},
+    z::Vector{Float64},
+    cache::SQPCache,
+    params::TrajoptParameters{Float64,Lk,Lf};
+    ϵfd::Float64,
+)::Nothing where {Lk,Lf}
+    fill!(∇g.nzval, 0.0)
+    initcond_jacobian!(∇g, cache.pidx)      # Equality constraint Jacobians
+    dynamics_jacobian!(∇g, z, cache, params; ϵ=ϵfd)
+    ctrlinput_jacobian!(∇g, cache.pidx)     # Inequality constraint Jacobians
     return nothing
 end
 
@@ -87,18 +118,31 @@ end
     return nothing
 end
 
+@views function ctrlinput_bounds!(
+    gb::Vector{Float64},
+    ub::Vector{Float64},
+    z::Vector{Float64},
+    pidx::IndexingParameters,
+)::Nothing
+    N, zidx, gidx = pidx.dims.N, pidx.z, pidx.g
+    for k in 1:(N - 1)
+        copyto!(gb[gidx.ub[k]], ub)
+        gb[gidx.ub[k]] .-= z[zidx.u[k]]
+    end
+end
+
 @views function trustregion_bounds!(
-    g::Vector{Float64},
+    gb::Vector{Float64},
     Δxb::Vector{Float64},
     Δub::Vector{Float64},
     pidx::IndexingParameters,
 )::Nothing
     N, gidx = pidx.dims.N, pidx.g
     for k in 1:(N - 1)
-        copyto!(g[gidx.xtr[k]], Δxb)
-        copyto!(g[gidx.utr[k]], Δub)
+        copyto!(gb[gidx.xtr[k]], Δxb)
+        copyto!(gb[gidx.utr[k]], Δub)
     end
-    copyto!(g[gidx.xtr[end]], Δxb)
+    copyto!(gb[gidx.xtr[end]], Δxb)
     return nothing
 end
 
@@ -144,12 +188,21 @@ end
     return nothing
 end
 
+@views function ctrlinput_jacobian!(
+    ∇g::SparseMatrixCSC{Float64,Int}, pidx::IndexingParameters
+)::Nothing
+    N, dzidx, gidx = pidx.dims.N, pidx.dz, pidx.g
+    for k in 1:(N - 1)
+        copyto!(∇g[gidx.ub[k], dzidx.u[k]], I)
+    end
+end
+
 @views function trustregion_jacobian!(
     ∇g::SparseMatrixCSC{Float64,Int}, pidx::IndexingParameters
 )::Nothing
     gidx, ndz = pidx.g, pidx.dims.ndz
-    startrow, endrow = gidx.xtr[1][1], gidx.xtr[end][end]
-    copyto!(∇g[startrow:endrow, 1:ndz], I)
+    row_start, row_end = gidx.xtr[1][1], gidx.xtr[end][end]
+    copyto!(∇g[row_start:row_end, 1:ndz], I)
     return nothing
 end
 

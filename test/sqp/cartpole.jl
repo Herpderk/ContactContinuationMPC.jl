@@ -27,7 +27,7 @@ init_visualiser()
 
     # Declare parameters and options
     params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter=100, eps_fd=1e-8, tol_stat=1e-2)
+    opts = SQPOptions(; maxiter_sqp=100, eps_fd=1e-8, tol_stat=1e-2)
     sol = TrajoptSolution(params)
     for k in 1:(N - 1)
         sol.X[k] .= Xref[k]
@@ -35,11 +35,21 @@ init_visualiser()
     end
     sol.X[end] .= Xref[end]
 
-    # Trust region bounds
-    nx = get_nx(m)
-    Δxl = -100.0 * ones(nx)
-    Δul = -100.0 * ones(m.nu)
-    cache = SQPCache(params; Δxl=Δxl, Δxu=(-Δxl), Δul=Δul, Δuu=(-Δul))
+    # Actuator limits
+    ul = zeros(m.nu)
+    uu = zeros(m.nu)
+    for i in 1:m.nu
+        if Bool(m.actuator_ctrllimited[i])
+            ul[i] = m.actuator_ctrlrange[i, 1]
+            uu[i] = m.actuator_ctrlrange[i, 2]
+        else
+            ul[i] = -Inf
+            uu[i] = Inf
+        end
+    end
+
+    # Solve using SQP
+    cache = SQPCache(params; ul=ul, uu=uu)
     run_sqp!(sol, cache, params, opts)
 
     # Test solution

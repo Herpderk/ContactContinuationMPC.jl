@@ -1,30 +1,52 @@
 @views function is_converged(
-    statnorm::Float64, viol::Float64; tol_stat::Float64, tol_eq::Float64
+    snorm::Float64,
+    pnorm::Float64,
+    dnorm::Float64,
+    cnorm::Float64;
+    tol_stat::Float64,
+    tol_primal::Float64,
+    tol_dual::Float64,
+    tol_comp::Float64,
 )::Bool
-    return statnorm < tol_stat && viol < tol_eq
+    return (snorm < tol_stat) &&
+           (pnorm < tol_primal) &&
+           (dnorm < tol_dual) &&
+           (cnorm < tol_comp)
 end
 
-@views function constraint_violation(
-    g::Vector{Float64}, pidx::IndexingParameters
+@views function primal_infeasibility!(
+    p::Vector{Float64},
+    gl::Vector{Float64},
+    gu::Vector{Float64},
+    cache::SQPCache,
 )::Float64
-    start_eq = pidx.g.ic[1][1]
-    end_eq = pidx.g.dyn[end][end]
-    geq = g[start_eq:end_eq]
-    return norm(geq, Inf)
+    N, gidx = cache.pidx.dims.N, cache.pidx.g
+
+    # Get equality constraint violation
+    copyto!(p[gidx.eq], gl[gidx.eq])
+
+    # Get inequality constraint violation
+    utmp = cache.utmp
+    for k in 1:(N - 1)
+        @. utmp = -1.0 * gu[gidx.ub[k]] # Flip the sign of ceiling violation to get a positive value
+        @. p[gidx.ub[k]] = max(0.0, gl[gidx.ub[k]], utmp)
+    end
+    return norm(p, Inf)
 end
 
-@views function predicted_constraint_violation(
-    ∇g::SparseMatrixCSC{Float64,Int},
-    g::Vector{Float64},
-    gtmp::Vector{Float64},
-    z::Vector{Float64},
-    pidx::IndexingParameters,
+@views function dual_infeasibility!(
+    d::Vector{Float64}, λ::Vector{Float64}, pidx::IndexingParameters
 )::Float64
-    mul!(gtmp, ∇g, z)
-    gtmp .-= g
-    start_eq = first(pidx.g.ic)
-    endidx_eq = pidx.g.dyn[end][end]
-    return norm(gtmp[start_eq:endidx_eq], Inf)
+    fill!(d, 0.0)   # Reset dual feasibility violation
+    @. d[pidx.g.ineq] = abs(min(0.0, λ[pidx.g.ineq])) # Only evaluate for inequality constraints
+    return norm(d, Inf)
+end
+
+@views function complementarity_error!(
+    c::Vector{Float64}, p::Vector{Float64}, λ::Vector{Float64}
+)::Float64
+    @. c = p * λ
+    return norm(c, Inf)
 end
 
 @views function stationarity!(
@@ -33,13 +55,8 @@ end
     ∇J::Vector{Float64},
     ∇g::SparseMatrixCSC{Float64,Int},
     λ::Vector{Float64},
-    pidx::IndexingParameters,
 )::Float64
-    start_eq = pidx.g.ic[1][1]
-    endidx_eq = pidx.g.dyn[end][end]
-    ∇geq = ∇g[start_eq:endidx_eq, :]
-    λeq = λ[start_eq:endidx_eq]
-    mul!(ztmp, ∇geq', λeq)
+    mul!(ztmp, ∇g', λ)
     @. ∇ₓL = ztmp + ∇J
     return norm(∇ₓL, Inf)
 end
@@ -66,15 +83,34 @@ function log_interrupted()::Nothing
 end
 
 function log_iter(
-    iter::Int, J::Float64, statnorm::Float64, viol::Float64, α::Float64
+    iter::Int,
+    J::Float64,
+    snorm::Float64,
+    pnorm::Float64,
+    dnorm::Float64,
+    cnorm::Float64,
+    α::Float64,
 )::Nothing
     if rem(iter, 20) == 1
-        println("------------------------------------------------")
-        println("iter       J        ‖∇ₓL‖       ‖g‖         α")
-        println("------------------------------------------------")
+        println(
+            "----------------------------------------------------------------------",
+        )
+        println(
+            "iter       J        ‖∇ₓL‖       ‖p‖        ‖d‖        ‖c‖         α",
+        )
+        println(
+            "----------------------------------------------------------------------",
+        )
     end
     @printf(
-        "%4.04i   %8.2e   %8.2e   %8.2e   %8.2e\n", iter, J, statnorm, viol, α
+        "%4.04i   %8.2e   %8.2e   %8.2e   %8.2e   %8.2e   %8.2e\n",
+        iter,
+        J,
+        snorm,
+        pnorm,
+        dnorm,
+        cnorm,
+        α
     )
     return nothing
 end
@@ -87,7 +123,7 @@ function init_sqp!(
 )::Nothing where {Lk,Lf}
     # Primal warm-start
     copy_solution_to_primals!(cache.z, sol, cache.pidx)
-    update_qparrays!(cache.z, cache, params; ϵfd=opts.eps_fd, ϵreg=opts.eps_reg)
+    update_qparrays!(cache.z, cache, params; ϵfd=opts.eps_fd)
 
     # Initialize cost
     sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
@@ -145,11 +181,8 @@ function run_sqp!(
     params::TrajoptParameters{Float64,Lk,Lf},
     opts::SQPOptions,
 )::Nothing where {Lk,Lf}
-    # References to OSQP structs
-    m, r = cache.m, cache.r
-
     # References to useful objects
-    ∇²ₓₓL, ∇²ₓₓLtriu, ∇ₓL, ∇J, ∇g, gl, gu, z, zcand, dztmp, gtmp, λ, pidx = (
+    ∇²ₓₓL, ∇²ₓₓLtriu, ∇ₓL, ∇J, ∇g, gl, gu, gl_pred, gu_pred, p, d, c, z, zcand, dztmp, λ, pidx = (
         cache.∇²ₓₓL,
         cache.∇²ₓₓLtriu,
         cache.∇ₓL,
@@ -157,30 +190,40 @@ function run_sqp!(
         cache.∇g,
         cache.gl,
         cache.gu,
+        cache.gl_pred,
+        cache.gu_pred,
+        cache.p,
+        cache.d,
+        cache.c,
         cache.z,
         cache.zcand,
         cache.dztmp,
-        cache.gtmp,
         cache.λ,
         cache.pidx,
     )
 
+    # Set OSQP settings
+    m, r = cache.m, cache.r
+    eps_osqp = min(opts.tol_stat, opts.tol_primal)
+    OSQP.update_settings!(
+        m; eps_abs=eps_osqp, max_iter=opts.maxiter_qp, warm_start=true
+    )
+
     # Initialize solver state
     init_sqp!(sol, cache, params, opts)
-    viol = constraint_violation(gl, pidx)
+    pnorm = primal_infeasibility!(p, gl, gu, cache)
     γ = 1.0
 
     # Start SQP loop
     iter = 0
     try
-        while iter < opts.maxiter
+        while iter < opts.maxiter_sqp
             iter += 1
 
             # Solve QP
-            OSQP.update_settings!(m; eps_abs=1e-6, eps_rel=1e-6, max_iter=1000)
             OSQP.update!(m; Px=∇²ₓₓLtriu.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
+            OSQP.warm_start!(m; y=λ)
             OSQP.solve!(m, r)
-
             if r.info.status_val != 1
                 @warn "QP solver did not converge! Status: $(r.info.status)"
             end
@@ -191,64 +234,74 @@ function run_sqp!(
             mul!(dztmp, ∇²ₓₓL, r.x)
             ΔJ2 = dot(r.x, dztmp)
 
-            # The linearized constraint is: ∇g * Δz + g(z)
-            # Since you pass -g(z) to OSQP as `gl`, then g(z) = -gl
-            Δviol =
-                -viol + predicted_constraint_violation(∇g, gl, gtmp, z, pidx)
+            # Predicted (linearized) primal infeasibility
+            mul!(gl_pred, ∇g, z)
+            gl_pred .+= gl
+            copyto!(gu_pred, gl_pred)
+            inequality_constraint_residuals!(gl_pred, gu_pred, z, cache)
+            pnorm_pred = primal_infeasibility!(p, gl_pred, gu_pred, cache)
+            Δpnorm_pred = pnorm_pred - pnorm
 
             # Backtracking line-search
             J_ls = 0.0
-            viol_ls = 0.0
-            maxiter_ls = 20
-            αmul = 0.5
+            pnorm_ls = 0.0
             α = 1.0
-            β = 1e-2
-
-            endidx_eq = pidx.g.dyn[end][end]
-            @views λeq = r.y[1:endidx_eq]
-            γ = max(γ, norm(λeq, Inf) * 1.01)
-
-            for i in 1:maxiter_ls
+            γ = max(γ, norm(λ, Inf) * 1.01)
+            for i in 1:opts.maxiter_ls
                 # Step along new search direction
                 copyto!(zcand, z) # Candidate primal variables for line-search
                 step_primals!(zcand, r.x, cache, params; α=α)
 
-                # Get new constraint residuals
-                initcond_residuals!(gl, zcand, pidx, params)
-                dynamics_residuals!(gl, zcand, cache, params)
+                # Candidate constraint violation
+                constraint_residuals!(gl, gu, zcand, cache, params)
+                pnorm_ls = primal_infeasibility!(p, gl, gu, cache)
 
-                # Evalute merit function ingredients
-                viol_ls = constraint_violation(gl, pidx)
+                # Candidate trajectory cost
                 copy_primals_to_solution!(sol, zcand, pidx)
                 J_ls = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
 
                 # Evaluate merit function
-                merit_pred = α * (ΔJ1 + 0.5*α*ΔJ2 + γ * Δviol)
-                merit_ls = J_ls - sol.J + γ * (viol_ls - viol)
-                merit_ls < β*merit_pred ? break : nothing
+                merit_pred = α * (ΔJ1 + 0.5*α*ΔJ2 + γ * Δpnorm_pred)
+                merit_ls = J_ls - sol.J + γ * (pnorm_ls - pnorm)
+                merit_ls < opts.margin_ls*merit_pred ? break : nothing
 
                 # Update step length
-                α *= αmul
+                α *= opts.alpha_mul
             end
 
             # Update solution
+            @. r.x *= α
             @. λ = (1-α)*λ + α*(r.y-λ) # Candidate duals for line-search
+            @. @views λ[pidx.g.ineq] = max(λ[pidx.g.ineq], 0.0) # Project negative inequality duals to 0
+
             copyto!(z, zcand)
             copy_primals_to_solution!(sol, z, pidx)
             sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
-            viol = viol_ls
-            statnorm = stationarity!(∇ₓL, dztmp, ∇J, ∇g, λ, pidx) # statnorm_ls
-
-            update_qparrays!(
-                z, cache, params; ϵfd=opts.eps_fd, ϵreg=opts.eps_reg
-            )
+            pnorm = pnorm_ls
+            dnorm = dual_infeasibility!(d, λ, pidx)
+            cnorm = complementarity_error!(c, p, λ)
+            snorm = stationarity!(∇ₓL, dztmp, ∇J, ∇g, λ)
 
             # Log and check for convergence
-            opts.is_verbose ? log_iter(iter, sol.J, statnorm, viol, α) : nothing
+            if opts.is_verbose
+                log_iter(iter, sol.J, snorm, pnorm, dnorm, cnorm, α)
+            else
+                nothing
+            end
             sol.is_optimal = is_converged(
-                statnorm, viol; tol_stat=opts.tol_stat, tol_eq=opts.tol_eq
+                snorm,
+                pnorm,
+                dnorm,
+                cnorm;
+                tol_stat=opts.tol_stat,
+                tol_primal=opts.tol_primal,
+                tol_dual=opts.tol_dual,
+                tol_comp=opts.tol_comp,
             )
             sol.is_optimal ? break : nothing
+
+            # Set up for next QP solve
+            update_qparrays!(z, cache, params; ϵfd=opts.eps_fd)
         end
     catch e
         e isa InterruptException ? log_interrupted() : rethrow(e)

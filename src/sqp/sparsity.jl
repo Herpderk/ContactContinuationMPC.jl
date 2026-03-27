@@ -14,6 +14,9 @@
         ∇g[gidx.dyn[k], dzidx.x[k]] .= 1.0          # wrt xk (dynamics Jacobian A)
         ∇g[gidx.dyn[k], dzidx.u[k]] .= 1.0          # wrt uk (dynamics Jacobian B)
         copyto!(∇g[gidx.dyn[k], dzidx.x[k + 1]], I)    # wrt xk+1 (negative identity)
+
+        # Control input bounds Jacobian
+        copyto!(∇g[gidx.ub[k], dzidx.u[k]], I)
     end
 
     # Trust region constraint Jacobian (identity)
