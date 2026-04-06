@@ -1,13 +1,15 @@
 using Pkg;
-Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.activate(joinpath(@__DIR__, "../../.."))
 using LinearAlgebra
 using MuJoCo
 using ContactContinuationMPC
 using JLD2
 
 USE_CC = false
-HALF_CHEETAH = joinpath(@__DIR__, "../assets/half_cheetah.xml")
-HALF_CHEETAH_CC = joinpath(@__DIR__, "../assets/half_cheetah_cc.xml")
+HALF_CHEETAH = joinpath(@__DIR__, "../../assets/half_cheetah/half_cheetah.xml")
+HALF_CHEETAH_CC = joinpath(
+    @__DIR__, "../../assets/half_cheetah/half_cheetah_cc.xml"
+)
 
 init_visualiser()
 

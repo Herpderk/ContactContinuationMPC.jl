@@ -1,12 +1,12 @@
 using Pkg;
-Pkg.activate(joinpath(@__DIR__, "../.."))
+Pkg.activate(joinpath(@__DIR__, "../../.."))
 using LinearAlgebra
 using Plots
 using MuJoCo
 using ContactContinuationMPC
 
-WALKER = joinpath(@__DIR__, "../../assets/walker2d/walker2d.xml")
-WALKER_CC = joinpath(@__DIR__, "../../assets/walker2d/walker2d_cc.xml")
+WALKER = joinpath(@__DIR__, "../../../assets/walker2d/walker2d.xml")
+WALKER_CC = joinpath(@__DIR__, "../../../assets/walker2d/walker2d_cc.xml")
 
 Z_OFFSET = 0.5
 Z_IDX = 2

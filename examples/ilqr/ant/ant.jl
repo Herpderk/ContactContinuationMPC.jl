@@ -1,25 +1,25 @@
 using Pkg;
-Pkg.activate(joinpath(@__DIR__, "../.."))
+Pkg.activate(joinpath(@__DIR__, "../../.."))
 using LinearAlgebra
 using MuJoCo
 using ContactContinuationMPC
 
 USE_CC = true
-WALKER = joinpath(@__DIR__, "../../assets/walker2d/walker2d.xml")
-WALKER_CC = joinpath(@__DIR__, "../../assets/walker2d/walker2d_cc.xml")
+ANT = joinpath(@__DIR__, "../../../assets/ant/ant.xml")
+ANT_CC = joinpath(@__DIR__, "../../../assets/ant/ant_cc.xml")
 
 init_visualiser()
 
 function main(use_cc::Bool)
     # Get smoothed dynamics model
     if use_cc
-        mbwd = load_model(WALKER_CC)
+        mbwd = load_model(ANT_CC)
     else
-        mbwd = load_model(WALKER)
+        mbwd = load_model(ANT)
     end
 
     # Forward model is always stiff
-    mfwd = load_model(WALKER)
+    mfwd = load_model(ANT)
     d = init_data(mfwd)
     nx = get_nx(mfwd)
     ndx = get_ndx(mfwd)
@@ -38,14 +38,13 @@ function main(use_cc::Bool)
 
     # Declare references and initial conditions
     N = 250
-    xidx =
-        1 +
-        MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootx")
+    xidx = 1
+    qidx = 4:7
     Xref = [zeros(nx) for k in 1:N]
     for k in 1:N
         copy_data_to_state!(d, Xref[k])
         qref = get_q(d, Xref[k])
-        qref[xidx] += 5.0    # Set reference position without changing height
+        qref[xidx] += 10.0    # Set reference position without changing height
         vref = get_v(d, Xref[k])
         vref[xidx] = 2.0     # Set reference velocity
     end
@@ -55,24 +54,22 @@ function main(use_cc::Bool)
     copy_data_to_state!(d, xic)
 
     # Declare cost function (Penalize horizontal pos, vertical pos, and pitch)
-    yidx =
-        1 +
-        MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rooty")
-    zidx =
-        1 +
-        MuJoCo.LibMuJoCo.mj_name2id(mfwd, MuJoCo.LibMuJoCo.mjOBJ_JOINT, "rootz")
-    Q = 1e-5 * Matrix(I(ndx))
+    yidx = 2
+    zidx = 3
+    Q = 5e-6 * Matrix(I(ndx))
     Q[xidx, xidx] *= 20.0
-    Q[yidx, yidx] *= 20.0
-    Q[zidx, zidx] *= 1000.0
-    Q[mfwd.nq + xidx, mfwd.nq + xidx] *= 50.0
-    Q[mfwd.nq + yidx, mfwd.nq + yidx] *= 10.0
-    Q[mfwd.nq + zidx, mfwd.nq + zidx] *= 50.0
+    Q[yidx, yidx] *= 10.0
+    #Q[yidx, yidx] *= 20.0
+    Q[zidx, zidx] *= 50.0
+    Q[qidx, qidx] *= 100.0
+    Q[mfwd.nq + xidx, mfwd.nq + xidx] *= 100.0
+    #Q[mfwd.nq + yidx, mfwd.nq + yidx] *= 10.0
+    Q[mfwd.nq + zidx, mfwd.nq + zidx] *= 10.0
 
     # Penalize pitch and vertical position on the terminal state
     Qf = 1e+0 * Q
-    Qf[yidx, yidx] *= 10.0
-    Qf[zidx, zidx] *= 100.0
+    Qf[qidx, qidx] *= 10.0
+    Qf[zidx, zidx] *= 10.0
     Qf[mfwd.nq + xidx, mfwd.nq + xidx] *= 10.0
 
     R = 1e-3 * Matrix(I(mfwd.nu))
@@ -84,7 +81,7 @@ function main(use_cc::Bool)
         maxiter_ilqr=100,
         maxiter_ls=50,
         alpha_mul=0.8,
-        tol_interp=2.0,
+        tol_interp=1.0,
         tol_converge=0.2,
         margin_ls=5e-2,
         eps_fd=1e-12,

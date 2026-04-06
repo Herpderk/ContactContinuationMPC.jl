@@ -1,5 +1,5 @@
 using Pkg;
-Pkg.activate(joinpath(@__DIR__, "../.."))
+Pkg.activate(joinpath(@__DIR__, "../../.."))
 using LinearAlgebra
 using MuJoCo
 using ContactContinuationMPC
@@ -8,8 +8,8 @@ using Plots
 plotlyjs()
 
 USE_CC = false
-WALKER = joinpath(@__DIR__, "../../assets/walker2d/walker2d.xml")
-WALKER_CC = joinpath(@__DIR__, "../../assets/walker2d/walker2d_cc.xml")
+WALKER = joinpath(@__DIR__, "../../../assets/walker2d/walker2d.xml")
+WALKER_CC = joinpath(@__DIR__, "../../../assets/walker2d/walker2d_cc.xml")
 
 init_visualiser()
 

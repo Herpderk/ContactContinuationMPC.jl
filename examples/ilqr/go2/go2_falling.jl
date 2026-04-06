@@ -1,12 +1,12 @@
 using Pkg;
-Pkg.activate(joinpath(@__DIR__, "../.."))
+Pkg.activate(joinpath(@__DIR__, "../../.."))
 using LinearAlgebra
 using Plots
 using MuJoCo
 using ContactContinuationMPC
 
-GO2 = joinpath(@__DIR__, "../../assets/unitree_go2/scene.xml")
-GO2_CC = joinpath(@__DIR__, "../../assets/unitree_go2/scene_cc.xml")
+GO2 = joinpath(@__DIR__, "../../../assets/unitree_go2/scene.xml")
+GO2_CC = joinpath(@__DIR__, "../../../assets/unitree_go2/scene_cc.xml")
 
 Z_OFFSET = 1.0
 Z_IDX = 3

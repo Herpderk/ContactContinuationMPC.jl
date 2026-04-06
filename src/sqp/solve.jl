@@ -216,9 +216,7 @@ function run_sqp!(
             copyto!(gu_pred, gl_pred)
             gl_pred .+= gl
             gu_pred .+= gu
-            #inequality_constraint_residuals!(gl_pred, gu_pred, opts.ul, opts.uu, z, pidx) # Recompute inequality residuals for upper bounds only (since lower bounds are not affected by linearization)
-            # Do NOT recompute control bounds from `z` here (that would overwrite
-            # the linearized prediction). Compute predicted primal-norm directly.
+            #inequality_constraint_residuals!(gl_pred, gu_pred, opts.ul, opts.uu, z, pidx) 
             pnorm_pred = primal_infeasibility!(p, gl_pred, gu_pred, tmp, pidx)
             Δpnorm_pred = pnorm_pred - pnorm
 
