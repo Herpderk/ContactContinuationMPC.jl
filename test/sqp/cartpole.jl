@@ -25,16 +25,6 @@ init_visualiser()
     Qf = 1e+2 * Q
     costfunc = QuadraticCostFunction(Q, R, Qf)
 
-    # Declare parameters and options
-    params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
-    opts = SQPOptions(; maxiter_sqp=100, eps_fd=1e-8, tol_stat=1e-2)
-    sol = TrajoptSolution(params)
-    for k in 1:(N - 1)
-        sol.X[k] .= Xref[k]
-        sol.U[k] .= Uref[k]
-    end
-    sol.X[end] .= Xref[end]
-
     # Actuator limits
     ul = zeros(m.nu)
     uu = zeros(m.nu)
@@ -49,7 +39,15 @@ init_visualiser()
     end
 
     # Solve using SQP
-    cache = SQPCache(params; ul=ul, uu=uu)
+    opts = SQPOptions(; ul=ul, uu=uu, maxiter_sqp=100)
+    params = TrajoptParameters(m, m, costfunc, Xref, Uref, xic)
+    cache = SQPCache(params)
+    sol = TrajoptSolution(params)
+    for k in 1:(N - 1)      # warm-start
+        sol.X[k] .= Xref[k]
+        sol.U[k] .= Uref[k]
+    end
+    sol.X[end] .= Xref[end]
     run_sqp!(sol, cache, params, opts)
 
     # Test solution

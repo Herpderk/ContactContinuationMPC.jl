@@ -18,18 +18,16 @@ end
     p::Vector{Float64},
     gl::Vector{Float64},
     gu::Vector{Float64},
-    cache::SQPCache,
+    tmp::TemporaryCache,
+    pidx::IndexingParameters,
 )::Float64
-    N, gidx = cache.pidx.dims.N, cache.pidx.g
-
     # Get equality constraint violation
-    copyto!(p[gidx.eq], gl[gidx.eq])
+    copyto!(p[pidx.g.eq], gl[pidx.g.eq])
 
     # Get inequality constraint violation
-    utmp = cache.utmp
-    for k in 1:(N - 1)
-        @. utmp = -1.0 * gu[gidx.ub[k]] # Flip the sign of ceiling violation to get a positive value
-        @. p[gidx.ub[k]] = max(0.0, gl[gidx.ub[k]], utmp)
+    for k in 1:(pidx.dims.N - 1)
+        @. tmp.u = -1.0 * gu[pidx.g.ub[k]] # Flip the sign of ceiling violation to get a positive value
+        @. p[pidx.g.ub[k]] = max(0.0, gl[pidx.g.ub[k]], tmp.u)
     end
     return norm(p, Inf)
 end
@@ -51,13 +49,13 @@ end
 
 @views function stationarity!(
     ∇ₓL::Vector{Float64},
-    ztmp::Vector{Float64},
+    dztmp::Vector{Float64},
     ∇J::Vector{Float64},
     ∇g::SparseMatrixCSC{Float64,Int},
     λ::Vector{Float64},
 )::Float64
-    mul!(ztmp, ∇g', λ)
-    @. ∇ₓL = ztmp + ∇J
+    mul!(dztmp, ∇g', λ)
+    @. ∇ₓL = dztmp + ∇J
     return norm(∇ₓL, Inf)
 end
 
@@ -115,22 +113,6 @@ function log_iter(
     return nothing
 end
 
-function init_sqp!(
-    sol::TrajoptSolution{Float64},
-    cache::SQPCache,
-    params::TrajoptParameters{Float64,Lk,Lf},
-    opts::SQPOptions,
-)::Nothing where {Lk,Lf}
-    # Primal warm-start
-    copy_solution_to_primals!(cache.z, sol, cache.pidx)
-    update_qparrays!(cache.z, cache, params; ϵfd=opts.eps_fd)
-
-    # Initialize cost
-    sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
-    sol.is_optimal = false
-    return nothing
-end
-
 @views function copy_solution_to_primals!(
     z::Vector{Float64}, sol::TrajoptSolution{Float64}, pidx::IndexingParameters
 )::Nothing
@@ -157,14 +139,13 @@ end
 
 @views function step_primals!(
     z::Vector{Float64},
+    dztmp::Vector{Float64},
     Δz::Vector{Float64},
-    cache::SQPCache,
+    pidx::IndexingParameters,
     params::TrajoptParameters{Float64,Lk,Lf};
     α::Float64=1.0,
 )::Nothing where {Lk,Lf}
-    N, zidx, dzidx, dztmp = (
-        cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz, cache.dztmp
-    )
+    N, zidx, dzidx = pidx.dims.N, pidx.z, pidx.dz
     @. dztmp = α * Δz
 
     for k in 1:(N - 1)
@@ -182,79 +163,80 @@ function run_sqp!(
     opts::SQPOptions,
 )::Nothing where {Lk,Lf}
     # References to useful objects
-    ∇²ₓₓL, ∇²ₓₓLtriu, ∇ₓL, ∇J, ∇g, gl, gu, gl_pred, gu_pred, p, d, c, z, zcand, dztmp, λ, pidx = (
-        cache.∇²ₓₓL,
-        cache.∇²ₓₓLtriu,
-        cache.∇ₓL,
-        cache.∇J,
-        cache.∇g,
-        cache.gl,
-        cache.gu,
-        cache.gl_pred,
-        cache.gu_pred,
-        cache.p,
-        cache.d,
-        cache.c,
-        cache.z,
-        cache.zcand,
-        cache.dztmp,
-        cache.λ,
+    pidx, qp, ad, ls, kkt, sol_sqp, tmp, FDs = (
         cache.pidx,
+        cache.qp,
+        cache.ad,
+        cache.ls,
+        cache.kkt,
+        cache.sol,
+        cache.tmp,
+        cache.FDs,
     )
+    ∇²ₓₓL, ∇J, ∇g, gl, gu = (qp.∇²ₓₓL, qp.∇J, qp.∇g, qp.gl, qp.gu)
+    zcand, gl_cand, gu_cand, gl_pred, gu_pred = (
+        ls.zcand, ls.gl_cand, ls.gu_cand, ls.gl_pred, ls.gu_pred
+    )
+    z, λ = sol_sqp.z, sol_sqp.λ
+    ∇ₓL, p, d, c = kkt.∇ₓL, kkt.p, kkt.d, kkt.c
 
-    # Set OSQP settings
-    m, r = cache.m, cache.r
+    # Initialize cost
+    sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
+    sol.is_optimal = false
+
+    # Initialize primal infeasibility
+    pnorm = primal_infeasibility!(p, gl, gu, tmp, pidx)
+
+    # Primal warm-start
+    copy_solution_to_primals!(z, sol, pidx)
+    update_qp!(qp, ad, tmp, FDs, sol_sqp, opts, pidx, params)
+
+    # Set up QP solver
     eps_osqp = min(opts.tol_stat, opts.tol_primal)
     OSQP.update_settings!(
-        m; eps_abs=eps_osqp, max_iter=opts.maxiter_qp, warm_start=true
+        qp.m; eps_abs=eps_osqp, max_iter=opts.maxiter_qp, warm_start=true
     )
-
-    # Initialize solver state
-    init_sqp!(sol, cache, params, opts)
-    pnorm = primal_infeasibility!(p, gl, gu, cache)
-    γ = 1.0
 
     # Start SQP loop
     iter = 0
     try
         while iter < opts.maxiter_sqp
             iter += 1
-
-            # Solve QP
-            OSQP.update!(m; Px=∇²ₓₓLtriu.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
-            OSQP.warm_start!(m; y=λ)
-            OSQP.solve!(m, r)
-            if r.info.status_val != 1
-                @warn "QP solver did not converge! Status: $(r.info.status)"
-            end
+            solve_qp!(qp, qp.r.x, λ)
 
             # Precompute QP predicted-decrease terms for Δz = r.x
             # predicted(α) = α * q'Δz + 0.5 * α^2 * Δz' * P * Δz
-            ΔJ1 = dot(∇J, r.x)
-            mul!(dztmp, ∇²ₓₓL, r.x)
-            ΔJ2 = dot(r.x, dztmp)
+            ΔJ1 = dot(∇J, qp.r.x)
+            mul!(tmp.dz, ∇²ₓₓL, qp.r.x)
+            ΔJ2 = dot(qp.r.x, tmp.dz)
 
-            # Predicted (linearized) primal infeasibility
-            mul!(gl_pred, ∇g, z)
-            gl_pred .+= gl
+            # Predicted (linearized) primal infeasibility for Δz = r.x
+            # Use linearization for both lower and upper residuals:
+            mul!(gl_pred, ∇g, qp.r.x)
             copyto!(gu_pred, gl_pred)
-            inequality_constraint_residuals!(gl_pred, gu_pred, z, cache)
-            pnorm_pred = primal_infeasibility!(p, gl_pred, gu_pred, cache)
+            gl_pred .+= gl
+            gu_pred .+= gu
+            #inequality_constraint_residuals!(gl_pred, gu_pred, opts.ul, opts.uu, z, pidx) # Recompute inequality residuals for upper bounds only (since lower bounds are not affected by linearization)
+            # Do NOT recompute control bounds from `z` here (that would overwrite
+            # the linearized prediction). Compute predicted primal-norm directly.
+            pnorm_pred = primal_infeasibility!(p, gl_pred, gu_pred, tmp, pidx)
             Δpnorm_pred = pnorm_pred - pnorm
 
             # Backtracking line-search
             J_ls = 0.0
             pnorm_ls = 0.0
             α = 1.0
-            γ = max(γ, norm(λ, Inf) * 1.01)
+            γ = max(opts.gamma_init, norm(λ, Inf) * 1.01)
             for i in 1:opts.maxiter_ls
                 # Step along new search direction
                 copyto!(zcand, z) # Candidate primal variables for line-search
-                step_primals!(zcand, r.x, cache, params; α=α)
+                step_primals!(zcand, tmp.dz, qp.r.x, pidx, params; α=α)
 
                 # Candidate constraint violation
-                constraint_residuals!(gl, gu, zcand, cache, params)
-                pnorm_ls = primal_infeasibility!(p, gl, gu, cache)
+                constraint_residuals!(
+                    gl_cand, gu_cand, zcand, tmp, opts, pidx, params
+                )
+                pnorm_ls = primal_infeasibility!(p, gl_cand, gu_cand, tmp, pidx)
 
                 # Candidate trajectory cost
                 copy_primals_to_solution!(sol, zcand, pidx)
@@ -270,19 +252,35 @@ function run_sqp!(
             end
 
             # Update solution
-            @. r.x *= α
-            @. λ = (1-α)*λ + α*(r.y-λ) # Candidate duals for line-search
+            @. qp.r.x *= α                  # Primal step from line-search
+            @. λ = (1-α)*λ + α*qp.r.y       # Duals from line-search
             @. @views λ[pidx.g.ineq] = max(λ[pidx.g.ineq], 0.0) # Project negative inequality duals to 0
 
+            # Update solution and QP arrays before checking convergence
             copyto!(z, zcand)
             copy_primals_to_solution!(sol, z, pidx)
             sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
+            update_qp!(qp, ad, tmp, FDs, sol_sqp, opts, pidx, params)
+
+            #= # Adapt merit weight if infeasibility did not decrease
+            if pnorm_ls > pnorm + 1e-12
+                gamma_current *= 2.0
+                if opts.is_verbose
+                    @printf("Increased gamma to %8.2e due to infeasibility stagnation\n", gamma_current)
+                end
+            elseif pnorm_ls < max(1e-12, pnorm*0.1)
+                gamma_current /=2.0
+                if opts.is_verbose
+                    @printf("Reduced gamma to %8.2e after strong infeasibility decrease\n", gamma_current)
+                end
+            end
+            gamma_current = clamp(gamma_current, opts.gamma_init, 1e+6) =#
+
+            # Check KKT conditions for convergence
             pnorm = pnorm_ls
             dnorm = dual_infeasibility!(d, λ, pidx)
             cnorm = complementarity_error!(c, p, λ)
-            snorm = stationarity!(∇ₓL, dztmp, ∇J, ∇g, λ)
-
-            # Log and check for convergence
+            snorm = stationarity!(∇ₓL, tmp.dz, ∇J, ∇g, λ)
             if opts.is_verbose
                 log_iter(iter, sol.J, snorm, pnorm, dnorm, cnorm, α)
             else
@@ -299,9 +297,6 @@ function run_sqp!(
                 tol_comp=opts.tol_comp,
             )
             sol.is_optimal ? break : nothing
-
-            # Set up for next QP solve
-            update_qparrays!(z, cache, params; ϵfd=opts.eps_fd)
         end
     catch e
         e isa InterruptException ? log_interrupted() : rethrow(e)
@@ -309,7 +304,7 @@ function run_sqp!(
 
     if sol.is_optimal && opts.is_verbose
         log_converged()
-    elseif iter == opts.maxiter && opts.is_verbose
+    elseif iter == opts.maxiter_sqp && opts.is_verbose
         log_maxiter()
     end
     return nothing

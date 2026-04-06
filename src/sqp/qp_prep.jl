@@ -1,27 +1,40 @@
-function update_qparrays!(
-    z::Vector{Float64},
-    cache::SQPCache,
-    params::TrajoptParameters{Float64,Lk,Lf};
-    ϵfd::Float64,
-)::Nothing where {Lk,Lf}
-    ∇²ₓₓL, ∇²ₓₓLtriu, ∇²ₓₓLtriu_map, ∇J, ∇g, gl, gu, = (
-        cache.∇²ₓₓL,
-        cache.∇²ₓₓLtriu,
-        cache.∇²ₓₓLtriu_map,
-        cache.∇J,
-        cache.∇g,
-        cache.gl,
-        cache.gu,
+function solve_qp!(
+    qp::QPCache, Δz::Vector{Float64}, λ::Vector{Float64}
+)::Nothing
+    ∇²ₓₓLtriu, ∇J, ∇g, gl, gu, m, r = (
+        qp.∇²ₓₓLtriu, qp.∇J, qp.∇g, qp.gl, qp.gu, qp.m, qp.r
     )
 
-    constraint_residuals!(gl, gu, z, cache, params)
-    constraint_jacobian!(∇g, z, cache, params; ϵfd)
+    # Solve QP
+    OSQP.update!(m; Px=∇²ₓₓLtriu.nzval, q=∇J, Ax=∇g.nzval, l=gl, u=gu)
+    OSQP.warm_start!(m; y=λ)
+    OSQP.solve!(m, r)
+    if r.info.status_val != 1
+        @warn "QP solver did not converge! Status: $(r.info.status)"
+    end
+end
 
-    # Update cost function quadraticization
+function update_qp!(
+    qp::QPCache,
+    ad::AutodiffCache,
+    tmp::TemporaryCache,
+    FDs::Vector{Utils.FDCache{Float64}},
+    sol::SolutionCache,
+    opts::SQPOptions,
+    pidx::IndexingParameters,
+    params::TrajoptParameters{Float64,Lk,Lf},
+)::Nothing where {Lk,Lf}
+    ∇²ₓₓL, ∇²ₓₓLtriu, ∇²ₓₓLtriu_map, ∇J, ∇g, gl, gu = (
+        qp.∇²ₓₓL, qp.∇²ₓₓLtriu, qp.∇²ₓₓLtriu_map, qp.∇J, qp.∇g, qp.gl, qp.gu
+    )
+    constraint_residuals!(gl, gu, sol.z, tmp, opts, pidx, params)
+    constraint_jacobian!(∇g, sol.z, FDs, opts, pidx, params)
+
+    # Cost function quadraticization (Gauss-Newton)
     fill!(∇²ₓₓL.nzval, 0.0)
     fill!(∇²ₓₓLtriu.nzval, 0.0)
     fill!(∇J, 0.0)
-    costfunc_expansion!(∇²ₓₓL, ∇J, z, cache, params)    # Gauss-Newton
+    costfunc_expansion!(∇²ₓₓL, ∇J, sol.z, ad, tmp, pidx, params)
     for (idx_triu, idx) in enumerate(∇²ₓₓLtriu_map)
         ∇²ₓₓLtriu.nzval[idx_triu] = ∇²ₓₓL.nzval[idx]
     end
@@ -32,50 +45,45 @@ function constraint_residuals!(
     gl::Vector{Float64},
     gu::Vector{Float64},
     z::Vector{Float64},
-    cache::SQPCache,
+    tmp::TemporaryCache,
+    opts::SQPOptions,
+    pidx::IndexingParameters,
     params::TrajoptParameters{Float64,Lk,Lf},
 )::Nothing where {Lk,Lf}
     fill!(gl, 0.0)
     fill!(gu, 0.0)
+    equality_constraint_residuals!(gl, gu, z, tmp, pidx, params)
+    inequality_constraint_residuals!(gl, gu, opts.ul, opts.uu, z, pidx)
+    return nothing
+end
 
-    # Update equality constraint residuals
-    initcond_residuals!(gl, z, cache.pidx, params)
-    dynamics_residuals!(gl, z, cache, params)
+function equality_constraint_residuals!(
+    gl::Vector{Float64},
+    gu::Vector{Float64},
+    z::Vector{Float64},
+    tmp::TemporaryCache,
+    pidx::IndexingParameters,
+    params::TrajoptParameters{Float64,Lk,Lf},
+)::Nothing where {Lk,Lf}
+    initcond_residuals!(gl, z, pidx, params)
+    dynamics_residuals!(gl, z, tmp, pidx, params)
     copyto!(gu, gl)
-
-    # Update inequality constraint residuals
-    inequality_constraint_residuals!(gl, gu, z, cache)
-    #trustregion_bounds!(gl, Δxl, Δul, pidx)
-    #trustregion_bounds!(gu, Δxu, Δuu, pidx)
-    #trustregion_jacobian!(∇g, pidx)
     return nothing
 end
 
 function inequality_constraint_residuals!(
     gl::Vector{Float64},
     gu::Vector{Float64},
+    ul::Union{Float64,Vector{Float64}},
+    uu::Union{Float64,Vector{Float64}},
     z::Vector{Float64},
-    cache::SQPCache,
+    pidx::IndexingParameters,
 )::Nothing
-    ctrlinput_bounds!(gl, cache.ul, z, cache.pidx)
-    ctrlinput_bounds!(gu, cache.uu, z, cache.pidx)
+    ctrlinput_bounds!(gl, ul, z, pidx)
+    ctrlinput_bounds!(gu, uu, z, pidx)
     #trustregion_bounds!(gl, Δxl, Δul, pidx)
     #trustregion_bounds!(gu, Δxu, Δuu, pidx)
     #trustregion_jacobian!(∇g, pidx)
-    return nothing
-end
-
-function constraint_jacobian!(
-    ∇g::SparseMatrixCSC{Float64,Int},
-    z::Vector{Float64},
-    cache::SQPCache,
-    params::TrajoptParameters{Float64,Lk,Lf};
-    ϵfd::Float64,
-)::Nothing where {Lk,Lf}
-    fill!(∇g.nzval, 0.0)
-    initcond_jacobian!(∇g, cache.pidx)      # Equality constraint Jacobians
-    dynamics_jacobian!(∇g, z, cache, params; ϵ=ϵfd)
-    ctrlinput_jacobian!(∇g, cache.pidx)     # Inequality constraint Jacobians
     return nothing
 end
 
@@ -95,11 +103,12 @@ end
 @views function dynamics_residuals!(
     g::Vector{Float64},
     z::Vector{Float64},
-    cache::SQPCache,
+    tmp::TemporaryCache,
+    pidx::IndexingParameters,
     params::TrajoptParameters{Float64,Lk,Lf},
 )::Nothing where {Lk,Lf}
     m, d = params.mfwd, params.dfwd
-    N, zidx, gidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.g
+    N, zidx, gidx = pidx.dims.N, pidx.z, pidx.g
 
     # Dynamics residuals
     for k in 1:(N - 1)
@@ -108,11 +117,11 @@ end
         Utils.copy_state_to_data!(d, x0)
         copyto!(d.ctrl, u0)
         step!(m, d)
-        Utils.copy_data_to_state!(d, cache.xtmp)
+        Utils.copy_data_to_state!(d, tmp.x)
 
         # Evaluate constraint
         g0, x1 = g[gidx.dyn[k]], z[zidx.x[k + 1]]
-        Utils.get_state_diff!(m, g0, cache.xtmp, x1)
+        Utils.get_state_diff!(m, g0, tmp.x, x1)
         g0 .*= -1.0     # Flip the sign for OSQP's constraint formulation
     end
     return nothing
@@ -120,15 +129,16 @@ end
 
 @views function ctrlinput_bounds!(
     gb::Vector{Float64},
-    ub::Vector{Float64},
+    ub::Union{Float64,Vector{Float64}},
     z::Vector{Float64},
     pidx::IndexingParameters,
 )::Nothing
     N, zidx, gidx = pidx.dims.N, pidx.z, pidx.g
     for k in 1:(N - 1)
-        copyto!(gb[gidx.ub[k]], ub)
+        gb[gidx.ub[k]] .= ub
         gb[gidx.ub[k]] .-= z[zidx.u[k]]
     end
+    return nothing
 end
 
 @views function trustregion_bounds!(
@@ -146,6 +156,21 @@ end
     return nothing
 end
 
+function constraint_jacobian!(
+    ∇g::SparseMatrixCSC{Float64,Int},
+    z::Vector{Float64},
+    FDs::Vector{Utils.FDCache{Float64}},
+    opts::SQPOptions,
+    pidx::IndexingParameters,
+    params::TrajoptParameters{Float64,Lk,Lf};
+)::Nothing where {Lk,Lf}
+    fill!(∇g.nzval, 0.0)
+    initcond_jacobian!(∇g, pidx)
+    dynamics_jacobian!(∇g, z, FDs, pidx, params; ϵ=opts.eps_fd)
+    ctrlinput_jacobian!(∇g, pidx)
+    return nothing
+end
+
 @views function initcond_jacobian!(
     ∇g::SparseMatrixCSC{Float64,Int}, pidx::IndexingParameters
 )::Nothing
@@ -159,14 +184,13 @@ end
 @views function dynamics_jacobian!(
     ∇g::SparseMatrixCSC{Float64,Int},
     z::Vector{Float64},
-    cache::SQPCache,
+    FDs::Vector{Utils.FDCache{Float64}},
+    pidx::IndexingParameters,
     params::TrajoptParameters{Float64,Lk,Lf};
     ϵ::Float64,
 )::Nothing where {Lk,Lf}
-    m, d, FDs = params.mbwd, params.dbwd, cache.FDs
-    N, zidx, dzidx, gidx = (
-        cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz, cache.pidx.g
-    )
+    m, d = params.mbwd, params.dbwd
+    N, zidx, dzidx, gidx = (pidx.dims.N, pidx.z, pidx.dz, pidx.g)
 
     for k in 1:(N - 1)
         # Pointers to constraint Jacobians wrt xk and uk
@@ -210,19 +234,16 @@ end
     ∇²J::SparseMatrixCSC{Float64,Int},
     ∇J::Vector{Float64},
     z::Vector{Float64},
-    cache::SQPCache,
+    ad::AutodiffCache,
+    tmp::TemporaryCache,
+    pidx::IndexingParameters,
     params::TrajoptParameters{Float64,Lk,Lf},
 )::Nothing where {Lk,Lf}
-    N, zidx, dzidx = cache.pidx.dims.N, cache.pidx.z, cache.pidx.dz
-    dxtmp, utmp = cache.dxtmp, cache.utmp
+    N, zidx, dzidx = pidx.dims.N, pidx.z, pidx.dz
+    dxtmp, utmp = tmp.dx, tmp.u
     Xref, Uref = params.Xref, params.Uref
     ∇ₓJ!, ∇ᵤJ!, ∇ₓJ!_cfg, ∇ᵤJ!_cfg, ∇²ₓᵤJ!_cfg, ∇²ᵤₓJ!_cfg = (
-        cache.∇ₓJ!,
-        cache.∇ᵤJ!,
-        cache.∇ₓJ!_cfg,
-        cache.∇ᵤJ!_cfg,
-        cache.∇²ₓᵤJ!_cfg,
-        cache.∇²ᵤₓJ!_cfg,
+        ad.∇ₓJ!, ad.∇ᵤJ!, ad.∇ₓJ!_cfg, ad.∇ᵤJ!_cfg, ad.∇²ₓᵤJ!_cfg, ad.∇²ᵤₓJ!_cfg
     )
 
     # Stage costfunc gradients and hessians
@@ -253,22 +274,28 @@ end
         else
             # Compute stage costfunc gradient and hessian via autodiff
             ForwardDiff.hessian!(
-                cache.∇²ₓₓJ, δx -> params.costfunc.stage(δx, utmp), dxtmp
+                ad.∇²ₓₓJ, δx -> params.costfunc.stage(δx, utmp), dxtmp
             )
             ForwardDiff.hessian!(
-                cache.∇²ᵤᵤJ, δu -> params.costfunc.stage(dxtmp, δu), utmp
+                ad.∇²ᵤᵤJ, δu -> params.costfunc.stage(dxtmp, δu), utmp
             )
-            copyto!(∇ₓJ, DiffResults.gradient(cache.∇²ₓₓJ))
-            copyto!(∇ᵤJ, DiffResults.gradient(cache.∇²ᵤᵤJ))
-            copyto!(∇²ₓₓJ, DiffResults.hessian(cache.∇²ₓₓJ))
-            copyto!(∇²ᵤᵤJ, DiffResults.hessian(cache.∇²ᵤᵤJ))
+            copyto!(∇ₓJ, DiffResults.gradient(ad.∇²ₓₓJ))
+            copyto!(∇ᵤJ, DiffResults.gradient(ad.∇²ᵤᵤJ))
+            copyto!(∇²ₓₓJ, DiffResults.hessian(ad.∇²ₓₓJ))
+            copyto!(∇²ᵤᵤJ, DiffResults.hessian(ad.∇²ᵤᵤJ))
 
             # Compute mixed costfunc hessians
             ForwardDiff.jacobian!(
-                ∇²ₓᵤJ, (y, δu) -> ∇ₓJ!(y, dxtmp, δu, ∇ₓJ!_cfg), utmp, ∇²ₓᵤJ!_cfg
+                ∇²ₓᵤJ,
+                (y, δu) -> ad.∇ₓJ!(y, dxtmp, δu, ad.∇ₓJ!_cfg),
+                utmp,
+                ad.∇²ₓᵤJ!_cfg,
             )
             ForwardDiff.jacobian!(
-                ∇²ᵤₓJ, (y, δx) -> ∇ᵤJ!(y, δx, utmp, ∇ᵤJ!_cfg), dxtmp, ∇²ᵤₓJ!_cfg
+                ∇²ᵤₓJ,
+                (y, δx) -> ad.∇ᵤJ!(y, δx, utmp, ad.∇ᵤJ!_cfg),
+                dxtmp,
+                ad.∇²ᵤₓJ!_cfg,
             )
         end
     end
@@ -290,9 +317,9 @@ end
         # Compute terminal costfunc gradient and hessian via autodiff.
         # Use the terminal cost function (not the stage version) and the
         # terminal state `dxtmp` as the point of evaluation.
-        ForwardDiff.hessian!(cache.∇²ₓₓJ, δx -> params.costfunc.term(δx), dxtmp)
-        copyto!(∇ₓJ, DiffResults.gradient(cache.∇²ₓₓJ))
-        copyto!(∇²ₓₓJ, DiffResults.hessian(cache.∇²ₓₓJ))
+        ForwardDiff.hessian!(ad.∇²ₓₓJ, δx -> params.costfunc.term(δx), dxtmp)
+        copyto!(∇ₓJ, DiffResults.gradient(ad.∇²ₓₓJ))
+        copyto!(∇²ₓₓJ, DiffResults.hessian(ad.∇²ₓₓJ))
     end
     return nothing
 end

@@ -57,3 +57,22 @@ end
     ∇²ₓₓL .+= costfunc_hessian_pattern(pidx)
     return ∇²ₓₓL
 end
+
+function triu_map(A::SparseMatrixCSC)
+    Atriu = triu(A)
+    mapping = zeros(Int, nnz(Atriu))
+    triu_idx = 1
+    # Loop over columns
+    for j in 1:size(A, 2)
+        # Loop over rows in the current column
+        for k in A.colptr[j]:(A.colptr[j + 1] - 1)
+            i = A.rowval[k]
+            # If we are in the upper triangle (row <= col)
+            if i <= j
+                mapping[triu_idx] = k
+                triu_idx += 1
+            end
+        end
+    end
+    return Atriu, mapping
+end
