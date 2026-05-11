@@ -184,6 +184,8 @@ function run_sqp!(
     sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
     sol.is_optimal = false
 
+    γ0 = opts.gamma_init
+
     # Initialize primal infeasibility
     pnorm = primal_infeasibility!(p, gl, gu, tmp, pidx)
 
@@ -216,7 +218,7 @@ function run_sqp!(
             copyto!(gu_pred, gl_pred)
             gl_pred .+= gl
             gu_pred .+= gu
-            #inequality_constraint_residuals!(gl_pred, gu_pred, opts.ul, opts.uu, z, pidx) 
+            #inequality_constraint_residuals!(gl_pred, gu_pred, opts.ul, opts.uu, z, pidx)
             pnorm_pred = primal_infeasibility!(p, gl_pred, gu_pred, tmp, pidx)
             Δpnorm_pred = pnorm_pred - pnorm
 
@@ -224,7 +226,7 @@ function run_sqp!(
             J_ls = 0.0
             pnorm_ls = 0.0
             α = 1.0
-            γ = max(opts.gamma_init, norm(λ, Inf) * 1.01)
+            γ = max(γ0, norm(λ, Inf) * 1.01)
             for i in 1:opts.maxiter_ls
                 # Step along new search direction
                 copyto!(zcand, z) # Candidate primal variables for line-search
@@ -260,19 +262,19 @@ function run_sqp!(
             sol.J = params.costfunc(sol.X, sol.U, params.Xref, params.Uref)
             update_qp!(qp, ad, tmp, FDs, sol_sqp, opts, pidx, params)
 
-            #= # Adapt merit weight if infeasibility did not decrease
+            #= Adapt merit weight if infeasibility did not decrease
             if pnorm_ls > pnorm + 1e-12
-                gamma_current *= 2.0
+                γ0 *= 2.0
                 if opts.is_verbose
-                    @printf("Increased gamma to %8.2e due to infeasibility stagnation\n", gamma_current)
+                    @printf("Increased gamma to %8.2e due to infeasibility stagnation\n", γ0)
                 end
             elseif pnorm_ls < max(1e-12, pnorm*0.1)
-                gamma_current /=2.0
+                γ0 /=2.0
                 if opts.is_verbose
-                    @printf("Reduced gamma to %8.2e after strong infeasibility decrease\n", gamma_current)
+                    @printf("Reduced gamma to %8.2e after strong infeasibility decrease\n", γ0)
                 end
             end
-            gamma_current = clamp(gamma_current, opts.gamma_init, 1e+6) =#
+            γ0 = clamp(γ0, opts.gamma_init, 1e+6) =#
 
             # Check KKT conditions for convergence
             pnorm = pnorm_ls
