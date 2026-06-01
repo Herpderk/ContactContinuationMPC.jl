@@ -23,9 +23,9 @@ function assert_opts!(opts::iLQROptions)::Nothing
             "The dynamics jacobian interpolation tolerance must be greater than 0",
         )
     end
-    if opts.tol_al < 0.0
+    if opts.tol_constr < 0.0
         Utils.throwdom(
-            opts.tol_al, "The AL convergence tolerance must be greater than 0"
+            opts.tol_constr, "The constraint tolerance must be greater than 0"
         )
     end
     if opts.tol_ilqr < 0.0

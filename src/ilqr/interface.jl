@@ -1,5 +1,5 @@
 struct iLQRCache{T<:AbstractFloat}
-    al::ConstraintCache{T}
+    constr::ConstraintCache{T}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
@@ -12,11 +12,11 @@ struct iLQRCache{T<:AbstractFloat}
         N = length(params.Xref)
 
         # Initialize caches from dims
-        al = ConstraintCache{T}(N, nu)
+        constr = ConstraintCache{T}(N, nu)
         fwd = ForwardCache{T}(nx, nu, N)
         bwd = BackwardCache{T}(params.mbwd, ndx, nu, N)
         tmp = TemporaryCache{T}(nx, ndx, nu)
-        return new{T}(al, fwd, bwd, tmp)
+        return new{T}(constr, fwd, bwd, tmp)
     end
 end
 
@@ -28,7 +28,7 @@ end
     eps_reg::T
     eps_fd::T
     tol_interp::T
-    tol_al::T
+    tol_constr::T
     tol_ilqr::T
     maxiter_al::Int
     maxiter_ilqr::Int
@@ -45,7 +45,7 @@ mutable struct iLQROptions{T<:AbstractFloat}
     eps_reg::T
     eps_fd::T
     tol_interp::T
-    tol_al::T
+    tol_constr::T
     tol_ilqr::T
     maxiter_al::Int
     maxiter_ilqr::Int
@@ -61,7 +61,7 @@ mutable struct iLQROptions{T<:AbstractFloat}
         eps_reg::Union{<:AbstractFloat,Nothing}=nothing,
         eps_fd::Union{<:AbstractFloat,Nothing}=nothing,
         tol_interp::Union{<:AbstractFloat,Nothing}=nothing,
-        tol_al::Union{<:AbstractFloat,Nothing}=nothing,
+        tol_constr::Union{<:AbstractFloat,Nothing}=nothing,
         tol_ilqr::Union{<:AbstractFloat,Nothing}=nothing,
         maxiter_al::Union{Int,Nothing}=nothing,
         maxiter_ilqr::Union{Int,Nothing}=nothing,
@@ -83,7 +83,7 @@ mutable struct iLQROptions{T<:AbstractFloat}
         eps_reg_ = isnothing(eps_reg) ? default.eps_reg : T(eps_reg)
         eps_fd_ = isnothing(eps_fd) ? default.eps_fd : T(eps_fd)
         tol_interp_ = isnothing(tol_interp) ? default.tol_interp : T(tol_interp)
-        tol_al_ = isnothing(tol_al) ? default.tol_al : T(tol_al)
+        tol_constr_ = isnothing(tol_constr) ? default.tol_constr : T(tol_constr)
         tol_ilqr_ = isnothing(tol_ilqr) ? default.tol_ilqr : T(tol_ilqr)
         maxiter_al_ = isnothing(maxiter_al) ? default.maxiter_al : maxiter_al
         maxiter_ilqr_ =
@@ -100,7 +100,7 @@ mutable struct iLQROptions{T<:AbstractFloat}
             eps_reg_,
             eps_fd_,
             tol_interp_,
-            tol_al_,
+            tol_constr_,
             tol_ilqr_,
             maxiter_al_,
             maxiter_ilqr_,

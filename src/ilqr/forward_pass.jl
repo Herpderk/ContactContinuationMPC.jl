@@ -16,13 +16,13 @@ function roll_out!(
     # Forward rollout
     @inbounds for k in 1:length(params.Uref)
         # Update control input
-        mul!(tmp.u, fwd.α, bwd.ds[k])
-        @. fwd.U1[k] -= tmp.u
+        mul!(tmp.u1, fwd.α, bwd.ds[k])
+        fwd.U1[k] .-= tmp.u1
 
         # Compute state difference in tangent space
         Utils.get_state_diff!(m, tmp.dx, fwd.X1[k], fwd.X0[k])
-        mul!(tmp.u, bwd.Ks[k], tmp.dx)
-        @. fwd.U1[k] -= tmp.u
+        mul!(tmp.u1, bwd.Ks[k], tmp.dx)
+        fwd.U1[k] .-= tmp.u1
 
         # Step simulator
         copyto!(d.ctrl, fwd.U1[k])
@@ -40,7 +40,7 @@ function forward_pass!(
     save_bestsol::Bool,
 )::Nothing where {Ts,Tc,Tp,Lk,Lf}
     # Get references to iLQRCache structs
-    al, fwd, bwd, tmp = cache.al, cache.fwd, cache.bwd, cache.tmp
+    al, fwd, bwd, tmp = cache.constr, cache.fwd, cache.bwd, cache.tmp
 
     # Iterate backtracking line search
     fwd.α = 1.0
@@ -80,9 +80,9 @@ function forward_pass!(
 end
 
 function evaluate_constraints!(
-    al::ConstraintCache{T}, fwd::ForwardCache{T}
+    constr::ConstraintCache{T}, fwd::ForwardCache{T}
 )::Nothing where {T}
-    ul, uu = al.ul, al.uu
+    ul, uu = constr.ul, constr.uu
     @inbounds for k in eachindex(ul.F)
         # Lower control bound
         control_bound_violation!(ul.C[k], fwd.U1[k], ul.B[k], :l)
@@ -97,8 +97,8 @@ function evaluate_constraints!(
     return nothing
 end
 
-function trajectory_constraint_cost(al::ConstraintCache{T})::T where {T}
-    ul, uu = al.ul, al.uu
+function trajectory_constraint_cost(constr::ConstraintCache{T})::T where {T}
+    ul, uu = constr.ul, constr.uu
     J_al = T(0)
     @inbounds for k in eachindex(ul.F)
         J_al += inequality_constraint_cost(ul.F[k], ul.Λ[k], ul.Ρ[k])

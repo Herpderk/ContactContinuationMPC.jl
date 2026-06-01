@@ -30,11 +30,11 @@ function init_control_bound!(
 end
 
 function init_al!(
-    al::ConstraintCache{T},
+    constr::ConstraintCache{T},
     params::TrajoptParameters{Tp,Lk,Lf},
     opts::iLQROptions{T},
 )::Nothing where {T}
-    ul, uu = al.ul, al.uu
+    ul, uu = constr.ul, constr.uu
 
     init_penalty_parameters!(ul, opts.rho_init)
     init_penalty_parameters!(uu, opts.rho_init)
@@ -51,7 +51,7 @@ function init_ilqr!(
     opts::iLQROptions{To},
 )::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     # Get references to iLQRCache structs
-    al, fwd, bwd = cache.al, cache.fwd, cache.bwd
+    al, fwd, bwd = cache.constr, cache.fwd, cache.bwd
 
     # Set line-search contraction rate and merit function tolerance
     fwd.α_mul = opts.alpha_mul
@@ -93,24 +93,24 @@ function run_ilqr!(
 end
 
 function iterate_lagrange_multipliers!(
-    al::ConstraintCache{T}
+    constr::ConstraintCache{T}
 )::Nothing where {T}
-    ul, uu = al.ul, al.uu
+    ul, uu = constr.ul, constr.uu
     update_lagrange_multipliers!(ul)
     update_lagrange_multipliers!(uu)
     return nothing
 end
 
 function iterate_penalty_parameters!(
-    al::ConstraintCache{T}, opts::iLQROptions{T}
+    constr::ConstraintCache{T}, opts::iLQROptions{T}
 )::Nothing where {T}
-    ul, uu = al.ul, al.uu
+    ul, uu = constr.ul, constr.uu
     update_penalty_parameters!(ul, opts.rho_mul)
     update_penalty_parameters!(uu, opts.rho_mul)
 end
 
-function constraint_violation(al::ConstraintCache{T})::T where {T}
-    ul, uu = al.ul, al.uu
+function constraint_violation(constr::ConstraintCache{T})::T where {T}
+    ul, uu = constr.ul, constr.uu
     return max(norm(ul.C, Inf), norm(uu.C, Inf))
 end
 
@@ -121,23 +121,20 @@ function run_al_ilqr!(
     opts::iLQROptions{To}=iLQROptions{Tp}(),
 )::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
     assert_opts!(opts)
-    init_al!(cache.al, params, opts)
+    init_al!(cache.constr, params, opts)
     init_ilqr!(sol, cache, params, opts)
 
-    # Main solve loop
     iter_ilqr = 0
     iter_al = 0
-    try
+    try     # Main solve loop
         while iter_al < opts.maxiter_al
             iter_ilqr = run_ilqr!(sol, cache, params, opts, iter_ilqr)
-
-            # Update Lagrange multipliers and penalty parameters
-            iterate_lagrange_multipliers!(cache.al)
-            iterate_penalty_parameters!(cache.al, opts)
+            iterate_lagrange_multipliers!(cache.constr)
+            iterate_penalty_parameters!(cache.constr, opts)
 
             iter_al += 1
             opts.is_verbose ? log_al(iter_al) : nothing
-            if constraint_violation(cache.al) < opts.tol_al
+            if constraint_violation(cache.constr) < opts.tol_constr
                 sol.is_optimal = true
                 break
             end
@@ -149,7 +146,7 @@ function run_al_ilqr!(
     if opts.is_verbose
         if sol.is_optimal
             log_converged()
-        elseif iter == opts.maxiter_ilqr
+        elseif iter == opts.maxiter_al
             log_maxiter()
         end
     end

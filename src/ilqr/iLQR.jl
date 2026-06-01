@@ -11,7 +11,7 @@ using Base.Threads
 using ..Utils
 using ..Interface
 
-export iLQRCache, iLQROptions, run_ilqr!, run_ilqr
+export iLQRCache, iLQROptions, run_al_ilqr!, run_al_ilqr
 
 include("caches/constraint.jl")
 include("caches/backward.jl")
