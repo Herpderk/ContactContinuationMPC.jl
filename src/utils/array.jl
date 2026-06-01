@@ -24,3 +24,7 @@ function null_length(arr::Union{AbstractArray{T},Nothing})::Int where {T}
         return length(arr)
     end
 end
+
+function vector(a::T, N::Integer)::Vector{T}
+    return [a for _ in 1:N]
+end

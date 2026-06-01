@@ -22,9 +22,10 @@ function expand_term_L!(
     return nothing
 end
 
-function expand_stage_L!(
+function expand_stage_L!(   # TODO add "meta" AL struct as argument
     bwd::BackwardCache{Tc},
     tmp::TemporaryCache{Tc},
+    al::ConstraintCache{Tc},
     fwd::ForwardCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     k::Int,
@@ -54,6 +55,28 @@ function expand_stage_L!(
         copyto!(bwd.L.u, DiffResults.gradient(bwd.L.uu_result))
         copyto!(bwd.L.uu, DiffResults.hessian(bwd.L.uu_result))
     end
+
+    # Add AL cost expansion
+    expand_control_bound_cost!(bwd, tmp, al.ul, :l, k)
+    expand_control_bound_cost!(bwd, tmp, al.uu, :u, k)
+    return nothing
+end
+
+function expand_control_bound_cost!(
+    bwd::BackwardCache,
+    tmp::TemporaryCache,
+    al::ControlBoundCache,
+    l_or_u::Symbol,
+    k::Int,
+)::Nothing
+    ∇c = tmp.uu
+    control_bound_jacobian!(∇c, l_or_u)
+
+    inequality_constraint_cost_gradient!(tmp.u, ∇c, al.F[k])
+    bwd.L.u .+= tmp.u
+
+    inequality_constraint_cost_hessian!(tmp.uu2, tmp.dxdx, ∇c, al.I[k], al.Ρ[k])
+    bwd.L.uu .+= tmp.uu2
     return nothing
 end
 
@@ -233,7 +256,7 @@ function backward_pass!(
     cache::iLQRCache{Tc}, params::TrajoptParameters{Tp,Lk,Lf}
 )::Nothing where {Tc,Tp,Lk,Lf}
     # Get references to iLQRCache structs
-    fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
+    al, fwd, bwd, tmp = cache.al, cache.fwd, cache.bwd, cache.tmp
 
     # Reset predicted change in cost
     bwd.ΔJ1 = 0.0
@@ -244,7 +267,7 @@ function backward_pass!(
 
     # Backward Riccati
     @inbounds for k in length(params.Uref):-1:1
-        expand_stage_L!(bwd, tmp, fwd, params, k) # Stage cost expansion
+        expand_stage_L!(bwd, tmp, al, fwd, params, k) # Stage cost expansion
         expand_F!(bwd, fwd, params, k)  # Dynamics expansion
         expand_Q!(bwd, tmp)          # Action-value expansion
         update_gains!(bwd, tmp, k)      # Update feedback and feedforward

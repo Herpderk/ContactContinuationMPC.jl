@@ -1,9 +1,13 @@
+rho_init = 1.0
+rho_mul = 5.0
 alpha_mul = 0.5
 margin_ls = 1e-2
 eps_reg = 1e-6
 eps_fd = 1e-8
 tol_interp = 1.0
-tol_converge = 1e-2
+tol_al = 1e-2
+tol_ilqr = 1e-2
+maxiter_al = 1000
 maxiter_ilqr = 1000
 maxiter_ls = 20
 is_verbose = true

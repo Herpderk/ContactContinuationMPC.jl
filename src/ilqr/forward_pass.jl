@@ -40,9 +40,7 @@ function forward_pass!(
     save_bestsol::Bool,
 )::Nothing where {Ts,Tc,Tp,Lk,Lf}
     # Get references to iLQRCache structs
-    fwd = cache.fwd
-    bwd = cache.bwd
-    tmp = cache.tmp
+    al, fwd, bwd, tmp = cache.al, cache.fwd, cache.bwd, cache.tmp
 
     # Iterate backtracking line search
     fwd.α = 1.0
@@ -52,6 +50,10 @@ function forward_pass!(
         # Roll out new trajectory
         roll_out!(fwd, bwd, tmp, params)
         J_ls = params.costfunc(fwd.X1, fwd.U1, params.Xref, params.Uref)
+
+        # Update constraint forces and costs
+        evaluate_constraints!(al, fwd)
+        J_ls += trajectory_constraint_cost(al)
 
         # Line-search criteria
         # Actual change in cost must be as good as β*predicted change
@@ -75,4 +77,32 @@ function forward_pass!(
         Utils.copy_nested_array!(sol.U, fwd.U0)
     end
     return nothing
+end
+
+function evaluate_constraints!(
+    al::ConstraintCache{T}, fwd::ForwardCache{T}
+)::Nothing where {T}
+    ul, uu = al.ul, al.uu
+    @inbounds for k in eachindex(ul.F)
+        # Lower control bound
+        control_bound_violation!(ul.C[k], fwd.U1[k], ul.B[k], :l)
+        inequality_constraint_forces!(ul.F[k], ul.C[k], ul.Λ[k], ul.Ρ[k])
+        inequality_constraint_indicator!(ul.I[k], ul.F[k])
+
+        # Upper control bound
+        control_bound_violation!(uu.C[k], fwd.U1[k], uu.B[k], :u)
+        inequality_constraint_forces!(uu.F[k], uu.C[k], uu.Λ[k], uu.Ρ[k])
+        inequality_constraint_indicator!(uu.I[k], uu.F[k])
+    end
+    return nothing
+end
+
+function trajectory_constraint_cost(al::ConstraintCache{T})::T where {T}
+    ul, uu = al.ul, al.uu
+    J_al = T(0)
+    @inbounds for k in eachindex(ul.F)
+        J_al += inequality_constraint_cost(ul.F[k], ul.Λ[k], ul.Ρ[k])
+        J_al += inequality_constraint_cost(uu.F[k], uu.Λ[k], uu.Ρ[k])
+    end
+    return J_al
 end
