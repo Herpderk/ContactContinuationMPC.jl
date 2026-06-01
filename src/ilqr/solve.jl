@@ -82,7 +82,7 @@ function run_ilqr!(
     opts::iLQROptions{To}=iLQROptions{Tp}(),
     iter::Int,
 )::Int where {Ts,Tc,To,Tp,Lk,Lf}
-    while iter < opts.maxiter_ilqr
+    while iter < iter + opts.maxiter_ilqr
         backward_pass!(cache, params)
         forward_pass!(sol, cache, params, opts.maxiter_ls, opts.save_bestsol)
         iter += 1
