@@ -22,7 +22,7 @@ function expand_term_L!(
     return nothing
 end
 
-function expand_stage_L!(   # TODO add "meta" AL struct as argument
+function expand_stage_L!(
     bwd::BackwardCache{Tc},
     tmp::TemporaryCache{Tc},
     constr::ConstraintCache{Tc},
@@ -156,14 +156,14 @@ function expand_Q!(
     # Q.dx = L.dx + F.dx'*V.dx
     transpose!(tmp.dxdx1, F.dx)
     mul!(Q.dx, tmp.dxdx1, V.dx)
-    @. Q.dx += L.dx
+    Q.dx .+= L.dx
 
     # Action-value hessians
     # Q.dxdx = L.dxdx + F.dx'*V.dxdx*F.dx
     # `tmp.dxdx1` is storing F.dx'
     mul!(tmp.dxdx2, tmp.dxdx1, V.dxdx)
     mul!(Q.dxdx, tmp.dxdx2, F.dx)
-    @. Q.dxdx += L.dxdx
+    Q.dxdx .+= L.dxdx
 
     # Q.dxu = F.dx'*V.dxdx*F.u
     # `tmp.dxdx2` is storing F.dx'*V.dxdx
@@ -172,7 +172,7 @@ function expand_Q!(
     # Q.u = L.u + F.u'*V.dx
     transpose!(tmp.udx1, F.u)
     mul!(Q.u, tmp.udx1, V.dx)
-    @. Q.u += L.u
+    Q.u .+= L.u
 
     # Q.uu = L.uu + F.u'*V.dxdx*F.u + μI
     # `tmp.udx1` is storing F.u'
@@ -201,7 +201,7 @@ function expand_V!(
     BLAS.gemm!('T', 'N', 1.0, K, tmp.u1, 1.0, V.dx)
 
     mul!(tmp.dx, Q.dxu, d)
-    @. V.dx -= tmp.dx
+    V.dx .-= tmp.dx
 
     # Cost-to-go hessian
     # V.dxdx = Q.dxdx - K'*Q.udx + K'*Q.uu*K - Q.dxu*K
@@ -212,7 +212,7 @@ function expand_V!(
     BLAS.gemm!('T', 'N', 1.0, K, tmp.udx1, 1.0, V.dxdx)
 
     mul!(tmp.dxdx1, Q.dxu, K)
-    @. V.dxdx -= tmp.dxdx1
+    V.dxdx .-= tmp.dxdx1
     return nothing
 end
 

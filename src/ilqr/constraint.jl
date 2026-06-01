@@ -17,8 +17,8 @@ end
 function inequality_constraint_forces!(
     f::Vector{T}, c::Vector{T}, λ::Vector{T}, ρ::Vector{T}
 )::Nothing where {T}
-    @. f = λ + ρ*c# AL force before projection
-    @. f = max(T(0), f)# Projection onto positive orthant
+    @. f = λ + ρ*c
+    @. f = max(T(0), f)
     return nothing
 end
 
@@ -36,7 +36,7 @@ function inequality_constraint_cost(
     @inbounds for i in eachindex(f)
         L += (f[i]^2 - λ[i]^2) / (2 * ρ[i])
     end
-    return L# AL cost contribution from inequality constraints
+    return L
 end
 
 function inequality_constraint_cost_gradient!(
