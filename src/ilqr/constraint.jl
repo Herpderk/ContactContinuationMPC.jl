@@ -14,7 +14,7 @@ function update_penalty_parameters!(
     return nothing
 end
 
-function inequality_constraint_forces!(
+function inequality_constraint_force!(
     f::Vector{T}, c::Vector{T}, λ::Vector{T}, ρ::Vector{T}
 )::Nothing where {T}
     @. f = λ + ρ*c
@@ -56,7 +56,7 @@ function inequality_constraint_cost_hessian!(
     return nothing
 end
 
-function control_bound_residual!(
+function control_bound_violation!(
     c::Vector{Vector{T}}, u::Vector{Vector{T}}, b::Vector{T}, l_or_u::Symbol
 )::Nothing where {T}
     if l_or_u == :u

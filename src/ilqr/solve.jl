@@ -109,7 +109,7 @@ function iterate_penalty_parameters!(
     update_penalty_parameters!(uu, opts.rho_mul)
 end
 
-function constraint_violation(constr::ConstraintCache{T})::T where {T}
+function constraint_violation_norm(constr::ConstraintCache{T})::T where {T}
     ul, uu = constr.ul, constr.uu
     viol_ul = norm(flatten(ul.C), Inf)
     viol_uu = norm(flatten(uu.C), Inf)
@@ -136,7 +136,7 @@ function run_al_ilqr!(
 
             iter_al += 1
             opts.is_verbose ? log_al(iter_al) : nothing
-            if constraint_violation(cache.constr) < opts.tol_constr
+            if constraint_violation_norm(cache.constr) < opts.tol_constr
                 sol.is_optimal = true
                 break
             end
