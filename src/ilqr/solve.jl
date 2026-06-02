@@ -111,7 +111,9 @@ end
 
 function constraint_violation(constr::ConstraintCache{T})::T where {T}
     ul, uu = constr.ul, constr.uu
-    return max(norm(ul.C, Inf), norm(uu.C, Inf))
+    viol_ul = norm(flatten(ul.C), Inf)
+    viol_uu = norm(flatten(uu.C), Inf)
+    return max(viol_ul, viol_uu)
 end
 
 function run_al_ilqr!(

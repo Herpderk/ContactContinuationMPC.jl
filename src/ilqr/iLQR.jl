@@ -8,6 +8,7 @@ using Configurations
 using Printf
 using CompositeStructs
 using Base.Threads
+using Base.Iterators: flatten
 using ..Utils
 using ..Interface
 
