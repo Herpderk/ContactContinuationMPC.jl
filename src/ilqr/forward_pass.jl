@@ -79,21 +79,24 @@ function forward_pass!(
     return nothing
 end
 
+function evaluate_control_bound!(
+    cache::ControlBoundCache{T}, U::Vector{Vector{T}}, l_or_u::Symbol
+)::Nothing where {T}
+    C, F, Λ, Ρ, I, B = cache.C, cache.F, cache.Λ, cache.Ρ, cache.I, cache.B
+    @inbounds @simd for k in eachindex(U)
+        control_bound_residual!(C[k], U[k], B[k], l_or_u)
+        inequality_constraint_forces!(F[k], C[k], Λ[k], Ρ[k])
+        inequality_constraint_indicator!(I[k], F[k])
+    end
+    return nothing
+end
+
 function evaluate_constraints!(
     constr::ConstraintCache{T}, fwd::ForwardCache{T}
 )::Nothing where {T}
     ul, uu = constr.ul, constr.uu
-    @inbounds for k in eachindex(ul.F)
-        # Lower control bound
-        control_bound_violation!(ul.C[k], fwd.U1[k], ul.B[k], :l)
-        inequality_constraint_forces!(ul.F[k], ul.C[k], ul.Λ[k], ul.Ρ[k])
-        inequality_constraint_indicator!(ul.I[k], ul.F[k])
-
-        # Upper control bound
-        control_bound_violation!(uu.C[k], fwd.U1[k], uu.B[k], :u)
-        inequality_constraint_forces!(uu.F[k], uu.C[k], uu.Λ[k], uu.Ρ[k])
-        inequality_constraint_indicator!(uu.I[k], uu.F[k])
-    end
+    evaluate_control_bound!(ul, fwd.U1, :l)
+    evaluate_control_bound!(uu, fwd.U1, :u)
     return nothing
 end
 
