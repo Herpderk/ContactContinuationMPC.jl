@@ -84,7 +84,7 @@ function evaluate_control_bound!(
 )::Nothing where {T}
     C, F, Λ, Ρ, I, B = cache.C, cache.F, cache.Λ, cache.Ρ, cache.I, cache.B
     @inbounds @simd for k in eachindex(U)
-        control_bound_violation!(C[k], U[k], B[k], l_or_u)
+        control_bound_residual!(C[k], U[k], B[k], l_or_u)
         inequality_constraint_force!(F[k], C[k], Λ[k], Ρ[k])
         inequality_constraint_indicator!(I[k], F[k])
     end

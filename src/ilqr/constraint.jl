@@ -56,7 +56,7 @@ function inequality_constraint_cost_hessian!(
     return nothing
 end
 
-function control_bound_violation!(
+function control_bound_residual!(
     c::Vector{Vector{T}}, u::Vector{Vector{T}}, b::Vector{T}, l_or_u::Symbol
 )::Nothing where {T}
     if l_or_u == :u
@@ -68,7 +68,6 @@ function control_bound_violation!(
             "Control bounds can only be evaluated as lower (l) or upper (u)!"
         )
     end
-    @. c = max(T(0), c)
     return nothing
 end
 
