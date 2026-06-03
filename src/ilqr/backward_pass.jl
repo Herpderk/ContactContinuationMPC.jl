@@ -25,11 +25,11 @@ end
 function expand_stage_L!(
     bwd::BackwardCache{Tc},
     tmp::TemporaryCache{Tc},
-    constr::ConstraintCache{Tc},
     fwd::ForwardCache{Tc},
+    constrs::ALConstraints[Ta],
     params::TrajoptParameters{Tp,Lk,Lf},
     k::Int,
-)::Nothing where {Tc,Tp,Lk,Lf}
+)::Nothing where {Tc,Ta,Tp,Lk,Lf}
     # Get k-th x and u errors
     Utils.get_state_diff!(params.mfwd, tmp.dx, fwd.X0[k], params.Xref[k])
     @. tmp.u1 = fwd.U0[k] - params.Uref[k]
@@ -57,28 +57,33 @@ function expand_stage_L!(
     end
 
     # Add AL cost expansion
-    expand_control_bound_cost!(bwd, tmp, constr.ul, :l, k)
-    expand_control_bound_cost!(bwd, tmp, constr.uu, :u, k)
+    expand_stage_constraint_cost!(bwd, tmp, constrs.u, k)
     return nothing
 end
 
-function expand_control_bound_cost!(
-    bwd::BackwardCache,
-    tmp::TemporaryCache,
-    constr::ControlBoundCache,
-    l_or_u::Symbol,
+function expand_stage_constraint_cost!(
+    bwd::BackwardCache{T},
+    tmp::TemporaryCache{T},
+    constrs::ConstraintSet,
     k::Int,
-)::Nothing
-    ∇c = tmp.uu1
-    control_bound_jacobian!(∇c, l_or_u)
+)::Nothing where {T}
+    if constrs.n_input != length(fwd.U1[1])
+        throw(
+            ArgumentError(
+                "Constraint set dimensions must match that of states or controls",
+            ),
+        )
+    end
+    ∇c, Δ∇L, Δ∇²L, tmp_mat = tmp.uu1, tmp.u1, tmp.uu2, tmp.uu3
 
-    inequality_constraint_cost_gradient!(tmp.u1, ∇c, constr.F[k])
-    bwd.L.u .+= tmp.u1
-
-    inequality_constraint_cost_hessian!(
-        tmp.uu2, tmp.dxdx1, ∇c, constr.I[k], constr.Ρ[k]
-    )
-    bwd.L.uu .+= tmp.uu2
+    @inbounds for key in keys(constrs)
+        constr = constrs[key]
+        get_stage_jacobian!(∇c, constr, U, k)
+        get_stage_cost_gradient!(Δ∇L, ∇c, constr, k)
+        bwd.L.u .+= Δ∇L
+        get_stage_cost_hessian!(Δ∇²L, tmp_mat, ∇c, constr, k)
+        bwd.L.uu .+= Δ∇²L
+    end
     return nothing
 end
 
@@ -255,10 +260,11 @@ function update_cost_prediction!(
 end
 
 function backward_pass!(
-    cache::iLQRCache{Tc}, params::TrajoptParameters{Tp,Lk,Lf}
-)::Nothing where {Tc,Tp,Lk,Lf}
-    # Get references to iLQRCache structs
-    al, fwd, bwd, tmp = cache.constr, cache.fwd, cache.bwd, cache.tmp
+    constrs::ALConstraints{Ta},
+    cache::iLQRCache{Tc},
+    params::TrajoptParameters{Tp,Lk,Lf},
+)::Nothing where {Ta,Tc,Tp,Lk,Lf}
+    fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
     # Reset predicted change in cost
     bwd.ΔJ1 = 0.0
@@ -269,13 +275,14 @@ function backward_pass!(
 
     # Backward Riccati
     @inbounds for k in length(params.Uref):-1:1
-        expand_stage_L!(bwd, tmp, al, fwd, params, k) # Stage cost expansion
+        expand_stage_L!(bwd, tmp, fwd, constrs, params, k) # Stage cost expansion
         expand_F!(bwd, fwd, params, k)  # Dynamics expansion
         expand_Q!(bwd, tmp)          # Action-value expansion
         update_gains!(bwd, tmp, k)      # Update feedback and feedforward
         expand_V!(bwd, tmp, k)          # Value expansion
         update_cost_prediction!(bwd, tmp, k)
     end
+
     # Total predicted change in cost
     bwd.ΔJ = bwd.ΔJ1 + 0.5 * bwd.ΔJ2
     return nothing

@@ -34,13 +34,14 @@ end
 
 function forward_pass!(
     sol::TrajoptSolution{Ts},
+    constrs::ALConstraints{Ta},
     cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     maxiter_ls::Int,
     save_bestsol::Bool,
-)::Nothing where {Ts,Tc,Tp,Lk,Lf}
+)::Nothing where {Ts,Ta,Tc,Tp,Lk,Lf}
     # Get references to iLQRCache structs
-    al, fwd, bwd, tmp = cache.constr, cache.fwd, cache.bwd, cache.tmp
+    fwd, bwd, tmp = cache.fwd, cache.bwd, cache.tmp
 
     # Iterate backtracking line search
     fwd.α = 1.0
@@ -50,10 +51,7 @@ function forward_pass!(
         # Roll out new trajectory
         roll_out!(fwd, bwd, tmp, params)
         J_ls = params.costfunc(fwd.X1, fwd.U1, params.Xref, params.Uref)
-
-        # Update constraint forces and costs
-        evaluate_constraints!(al, fwd)
-        J_ls += trajectory_constraint_cost(al)
+        J_ls += evaluate_constraints!(constrs.u, fwd)   # Update constraint evaluations and costs
 
         # Line-search criteria
         # Actual change in cost must be as good as β*predicted change
@@ -79,33 +77,32 @@ function forward_pass!(
     return nothing
 end
 
-function evaluate_control_bound!(
-    cache::ControlBoundCache{T}, U::Vector{Vector{T}}, l_or_u::Symbol
-)::Nothing where {T}
-    C, F, Λ, Ρ, I, B = cache.C, cache.F, cache.Λ, cache.Ρ, cache.I, cache.B
-    @inbounds @simd for k in eachindex(U)
-        control_bound_residual!(C[k], U[k], B[k], l_or_u)
-        inequality_constraint_force!(F[k], C[k], Λ[k], Ρ[k])
-        inequality_constraint_indicator!(I[k], F[k])
-    end
-    return nothing
-end
-
+"""
+Update constraint residuals, forces, and indicators for a given constraint set and return its AL cost.
+"""
 function evaluate_constraints!(
-    constr::ConstraintCache{T}, fwd::ForwardCache{T}
-)::Nothing where {T}
-    ul, uu = constr.ul, constr.uu
-    evaluate_control_bound!(ul, fwd.U1, :l)
-    evaluate_control_bound!(uu, fwd.U1, :u)
-    return nothing
-end
+    constrs::ConstraintSet, fwd::ForwardCache{T}
+)::T where {T}
+    if constrs.n_input != length(fwd.U1[1])
+        throw(
+            ArgumentError(
+                "Constraint set dimensions must match that of states or controls",
+            ),
+        )
+    end
+    inputs = fwd.U1
 
-function trajectory_constraint_cost(constr::ConstraintCache{T})::T where {T}
-    ul, uu = constr.ul, constr.uu
+    @inbounds for key in keys(constrs)
+        constr = constrs[key]
+        update_residuals!(constr, inputs)
+        update_forces!(constr)
+        update_indicators!(constr)
+    end
+
     J_al = T(0)
-    @inbounds for k in eachindex(ul.F)
-        J_al += inequality_constraint_cost(ul.F[k], ul.Λ[k], ul.Ρ[k])
-        J_al += inequality_constraint_cost(uu.F[k], uu.Λ[k], uu.Ρ[k])
+    @inbounds for key in keys(constrs)
+        constr = constrs[key]
+        J_al += get_trajectory_cost(constr)
     end
     return J_al
 end

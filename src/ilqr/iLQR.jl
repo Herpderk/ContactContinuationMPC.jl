@@ -14,13 +14,15 @@ using ..Interface
 
 export iLQRCache, iLQROptions, run_al_ilqr!, run_al_ilqr
 
-include("caches/constraint.jl")
+include("constraints/abstract.jl")
+include("constraints/equality/equality.jl")
+include("constraints/inequality/inequality.jl")
+include("constraints/inequality/control_bound.jl")
 include("caches/backward.jl")
 include("caches/forward.jl")
 include("caches/temporary.jl")
 include("contact_params.jl")
 include("interface.jl")
-include("constraint.jl")
 include("backward_pass.jl")
 include("forward_pass.jl")
 include("assert.jl")

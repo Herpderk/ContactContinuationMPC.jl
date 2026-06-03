@@ -9,6 +9,7 @@ include("interpolate.jl")
 include("mujoco/dims.jl")
 include("mujoco/names.jl")
 include("mujoco/state.jl")
+include("mujoco/ctrl.jl")
 include("mujoco/finitediff.jl")
 
 end # module Utils

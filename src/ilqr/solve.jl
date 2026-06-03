@@ -1,57 +1,22 @@
-function init_penalty_parameters!(
-    cache::InequalityConstraintCache{T}, ρ0::T
-)::Nothing where {T}
-    Utils.fill_nested_array!(cache.Ρ, ρ0)
-    return nothing
-end
-
-function init_control_bound!(
-    cache::ControlBoundCache{T},
-    params::TrajoptParameters{Tp,Lk,Lf},
-    l_or_u::Symbol,
-)::Nothing where {T,Tp,Lk,Lf}
-    for i in 1:params.mbwd.nu
-        if Bool(params.mbwd.actuator_ctrllimited[i])
-            cache.B[1][i] = params.mbwd.actuator_ctrlrange[i, 1]
-        else
-            if l_or_u == :u
-                cache.B[1][i] = Inf
-            elseif l_or_u == :l
-                cache.B[1][i] = -Inf
-            else
-                throwarg(
-                    "Control bounds can only be evaluated as lower (l) or upper (u)!",
-                )
-            end
-        end
-    end
-    cache.B[2:end] .= cache.B[1]    # Copy control bounds for all time steps
-    return nothing
-end
-
 function init_al!(
-    constr::ConstraintCache{T},
-    params::TrajoptParameters{Tp,Lk,Lf},
-    opts::iLQROptions{T},
-)::Nothing where {T}
-    ul, uu = constr.ul, constr.uu
-
-    init_penalty_parameters!(ul, opts.rho_init)
-    init_penalty_parameters!(uu, opts.rho_init)
-
-    init_control_bound!(ul, params, :l)
-    init_control_bound!(uu, params, :u)
+    constrs::ALConstraints{Ta}, opts::iLQROptions{To}
+)::Nothing where {Ta,To}
+    @inbounds @simd for key in keys(constrs)
+        constr = constrs[key]
+        Utils.fill_nested_array!(constr.Ρ, opts.rho_init)   # Init penalty parameters
+    end
     return nothing
 end
 
 function init_ilqr!(
     sol::TrajoptSolution{Ts},
+    constrs::ALConstraints{Ta},
     cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     opts::iLQROptions{To},
-)::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
+)::Nothing where {Ts,Ta,Tc,To,Tp,Lk,Lf}
     # Get references to iLQRCache structs
-    al, fwd, bwd = cache.constr, cache.fwd, cache.bwd
+    fwd, bwd = cache.fwd, cache.bwd
 
     # Set line-search contraction rate and merit function tolerance
     fwd.α_mul = opts.alpha_mul
@@ -71,20 +36,23 @@ function init_ilqr!(
     copyto!(sol.X[1], params.xic)
 
     # Roll out warm-start
-    forward_pass!(sol, cache, params, 1, opts.save_bestsol)
+    forward_pass!(sol, constrs, cache, params, 1, opts.save_bestsol)
     return nothing
 end
 
 function run_ilqr!(
     sol::TrajoptSolution{Ts},
+    constrs::ALConstraints{Ta},
     cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     opts::iLQROptions{To}=iLQROptions{Tp}(),
     iter::Int,
-)::Int where {Ts,Tc,To,Tp,Lk,Lf}
+)::Int where {Ts,Ta,Tc,To,Tp,Lk,Lf}
     while iter < iter + opts.maxiter_ilqr
-        backward_pass!(cache, params)
-        forward_pass!(sol, cache, params, opts.maxiter_ls, opts.save_bestsol)
+        backward_pass!(constrs, cache, params)
+        forward_pass!(
+            sol, constrs, cache, params, opts.maxiter_ls, opts.save_bestsol
+        )
         iter += 1
         opts.is_verbose ? log_iter(cache, iter) : nothing
         cache.bwd.ΔJ < opts.tol_ilqr ? break : nothing
@@ -93,50 +61,63 @@ function run_ilqr!(
 end
 
 function iterate_lagrange_multipliers!(
-    constr::ConstraintCache{T}
+    constrs::ALConstraints{T}
 )::Nothing where {T}
-    ul, uu = constr.ul, constr.uu
-    update_lagrange_multipliers!(ul)
-    update_lagrange_multipliers!(uu)
+    @inbounds @simd for key in keys(constrs.u)
+        constr = constrs.u[key]
+        update_lagrange_multipliers!(constr)
+    end
     return nothing
 end
 
 function iterate_penalty_parameters!(
-    constr::ConstraintCache{T}, opts::iLQROptions{T}
+    constrs::ALConstraints{T}, opts::iLQROptions{T}
 )::Nothing where {T}
-    ul, uu = constr.ul, constr.uu
-    update_penalty_parameters!(ul, opts.rho_mul)
-    update_penalty_parameters!(uu, opts.rho_mul)
+    @inbounds @simd for key in keys(constrs.u)
+        constr = constrs.u[key]
+        update_penalty_parameters!(constr, opts.rho_mul)
+    end
+    return nothing
 end
 
-function constraint_violation_norm(constr::ConstraintCache{T})::T where {T}
-    ul, uu = constr.ul, constr.uu
-    viol_ul = maximum(flatten(ul.C))
-    viol_uu = maximum(flatten(uu.C))
-    return max(viol_ul, viol_uu)
+function constraint_violation_norm(constrs::ALConstraints{T})::T where {T}
+    viol = T(0)
+    @inbounds @simd for key in keys(constrs.u)
+        constr = constr[key]
+        if typeof(constr) <: AbstractEqualityConstraint
+            viol_new = norm(flatten(constr.C), Inf)
+        elseif typeof(constr) <: AbstractInequalityConstraint
+            viol_new = maximum(flatten(constr.C))
+        else
+            Utils.throwarg("Invalid constraint type in constraint set")
+        end
+        viol = max(viol, viol_new)
+    end
+    return viol
 end
 
 function run_al_ilqr!(
     sol::TrajoptSolution{Ts},
+    constrs::ALConstraints{Ta},
     cache::iLQRCache{Tc},
     params::TrajoptParameters{Tp,Lk,Lf},
     opts::iLQROptions{To}=iLQROptions{Tp}(),
-)::Nothing where {Ts,Tc,To,Tp,Lk,Lf}
+)::Nothing where {Ts,Ta,Tc,To,Tp,Lk,Lf}
     assert_opts!(opts)
-    init_al!(cache.constr, params, opts)
-    init_ilqr!(sol, cache, params, opts)
+    init_al!(constrs, opts)
+    init_ilqr!(sol, constrs, cache, params, opts)
 
     iter_ilqr = 0
     iter_al = 0
     try     # Main solve loop
         while iter_al < opts.maxiter_al
-            iter_ilqr = run_ilqr!(sol, cache, params, opts, iter_ilqr)
-            iterate_lagrange_multipliers!(cache.constr)
-            iterate_penalty_parameters!(cache.constr, opts)
+            iter_ilqr = run_ilqr!(sol, constrs, cache, params, opts, iter_ilqr)
+            iterate_lagrange_multipliers!(constrs)
+            iterate_penalty_parameters!(constrs, opts)
 
             iter_al += 1
             opts.is_verbose ? log_al(iter_al) : nothing
-            if constraint_violation_norm(cache.constr) < opts.tol_constr
+            if constraint_violation_norm(constrs) < opts.tol_constr
                 sol.is_optimal = true
                 break
             end
@@ -159,7 +140,8 @@ function run_al_ilqr(
     params::TrajoptParameters{Tp,Lk,Lf}, opts::iLQROptions{To}=iLQROptions{Tp}()
 )::TrajoptSolution where {To,Tp,Lk,Lf}
     sol = TrajoptSolution(params)
+    constrs = ALConstraints(params)
     cache = iLQRCache(params)
-    run_al_ilqr!(sol, cache, params, opts)
+    run_al_ilqr!(sol, constrs, cache, params, opts)
     return sol
 end

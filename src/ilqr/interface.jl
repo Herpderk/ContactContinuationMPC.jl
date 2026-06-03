@@ -1,5 +1,24 @@
+struct ALConstraints{T<:AbstractFloat}
+    u::ConstraintSet{T}
+
+    function ALConstraints{T}(
+        params::TrajoptParameters{T,Lk,Lf}
+    ) where {T,Lk,Lf}
+        N, nu = length(params.Xref), params.mfwd.nu
+        set_u = ConstraintSet(nu)
+
+        # Lower control bound constraint
+        lb = Utils.get_control_bound(params.mfwd, :lower)
+        set_u[:ul] = ControlBoundConstraint{T}(N, nu, lb)
+
+        # Upper control bound constraint
+        ub = Utils.get_control_bound(params.mfwd, :upper)
+        set_u[:uu] = ControlBoundConstraint{T}(N, nu, ub)
+        return new{T}(set_u)
+    end
+end
+
 struct iLQRCache{T<:AbstractFloat}
-    constr::ConstraintCache{T}
     fwd::ForwardCache{T}
     bwd::BackwardCache{T}
     tmp::TemporaryCache{T}
@@ -12,11 +31,10 @@ struct iLQRCache{T<:AbstractFloat}
         N = length(params.Xref)
 
         # Initialize caches from dims
-        constr = ConstraintCache{T}(N, nu)
         fwd = ForwardCache{T}(nx, nu, N)
         bwd = BackwardCache{T}(params.mbwd, ndx, nu, N)
         tmp = TemporaryCache{T}(nx, ndx, nu)
-        return new{T}(constr, fwd, bwd, tmp)
+        return new{T}(fwd, bwd, tmp)
     end
 end
 
